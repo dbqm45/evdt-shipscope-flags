@@ -4,11 +4,14 @@ import { resetDatabase, testPrisma } from "../../test/db.js";
 import { loadState, seedState, type State } from "../db/load-state.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
 import { PrismaModule } from "../prisma/prisma.service.js";
+import { parseAuditQuery } from "./flags.input.js";
 import { FlagsService } from "./flags.service.js";
 import { hashToken } from "./sdk-auth.js";
 import type { Environment, Flag, Service } from "./shared/types.js";
 
 const T0 = "2026-10-01T08:00:00.000Z";
+/** The cursor the API hands out, as the controller parses it back. */
+const decode = (cursor: string) => parseAuditQuery({ before: cursor }).before!;
 const state = (enabled: boolean) => ({ enabled, updatedAt: T0, updatedBy: "seed" });
 
 function flag(key: string, on: Environment[], extra: Partial<Flag> = {}): Flag {
@@ -69,6 +72,7 @@ describe("FlagsService (PostgreSQL)", () => {
   });
 
   const json = (value: unknown) => JSON.parse(JSON.stringify(value));
+  const auditEntries = async () => (await flags.listAuditLog({ limit: 200 })).entries;
 
   it("returns the seed data exactly as it was loaded (same shape, order and values as the old JSON state)", async () => {
     const seed = seedState();
@@ -78,7 +82,7 @@ describe("FlagsService (PostgreSQL)", () => {
     // Credentials are never loaded: every service starts without one.
     const withoutCredentials = seed.services.map((s) => ({ ...s, hasCredential: false, credentialStatus: "active", previousCredentialExpiresAt: undefined }));
     expect(await flags.listServices()).toEqual(json(withoutCredentials));
-    expect(await flags.listAuditLog()).toEqual(json(seed.auditLog));
+    expect(await auditEntries()).toEqual(json(seed.auditLog));
   });
 
   it("does not load data into a database that already holds some", async () => {
@@ -95,7 +99,7 @@ describe("FlagsService (PostgreSQL)", () => {
     expect(updated.environments.qa).toMatchObject({ enabled: true, updatedBy: "m.chen" });
     const stored = (await flags.listFlags()).find((f) => f.key === "backend")!;
     expect(stored.environments.qa).toEqual(updated.environments.qa);
-    const [latest] = await flags.listAuditLog();
+    const [latest] = await auditEntries();
     expect(latest).toMatchObject({ actor: "m.chen", action: "env-enabled", flagKey: "backend", environment: "qa", from: "off", to: "on" });
   });
 
@@ -105,7 +109,7 @@ describe("FlagsService (PostgreSQL)", () => {
     await expect(flags.setEnvironment("backend", "prod", true, "m.chen")).rejects.toBeInstanceOf(ConflictException);
 
     expect((await flags.listFlags()).find((f) => f.key === "backend")!.environments.prod.enabled).toBe(false);
-    expect(await flags.listAuditLog()).toEqual([expect.objectContaining({ action: "promotion-blocked", flagKey: "backend", environment: "prod" })]);
+    expect(await auditEntries()).toEqual([expect.objectContaining({ action: "promotion-blocked", flagKey: "backend", environment: "prod" })]);
   });
 
   it("blocks disabling a flag while a dependent flag is ON", async () => {
@@ -132,7 +136,7 @@ describe("FlagsService (PostgreSQL)", () => {
     await flags.setEnvironment("backend", "test", true, "m.chen");
     await expect(flags.setEnvironment("nope", "test", true, "m.chen")).rejects.toBeInstanceOf(NotFoundException);
 
-    expect(await flags.listAuditLog()).toEqual([]);
+    expect(await auditEntries()).toEqual([]);
   });
 
   it("evaluates one environment, optionally only for the flags bound to a service", async () => {
@@ -213,7 +217,7 @@ describe("FlagsService (PostgreSQL)", () => {
       });
       expect(Object.values(created.environments).map((e) => e.enabled)).toEqual([false, false, false]);
       expect((await flags.listFlags())[0].key).toBe("new-search");
-      expect((await flags.listAuditLog()).map((e) => [e.action, e.serviceKey])).toEqual([
+      expect((await auditEntries()).map((e) => [e.action, e.serviceKey])).toEqual([
         ["service-assigned", "orders-api"],
         ["service-assigned", "shop-web"],
         ["flag-created", undefined],
@@ -229,7 +233,7 @@ describe("FlagsService (PostgreSQL)", () => {
       await expect(flags.createFlag({ ...base, key: "y", dependsOn: "nope" }, "m.chen")).rejects.toThrow(/does not exist: "nope"/);
 
       expect(await flags.listFlags()).toHaveLength(2);
-      expect(await flags.listAuditLog()).toEqual([]);
+      expect(await auditEntries()).toEqual([]);
     });
 
     it("updates the details and clears what is sent empty", async () => {
@@ -241,7 +245,7 @@ describe("FlagsService (PostgreSQL)", () => {
       expect(updated).toMatchObject({ description: "Orders API flag", tags: ["orders"] });
       expect(updated.owner).toBeUndefined();
       expect(updated.reviewBy).toBeUndefined();
-      expect((await flags.listAuditLog())[0]).toMatchObject({ action: "flag-updated", flagKey: "backend", note: "updated owner, reviewBy, description" });
+      expect((await auditEntries())[0]).toMatchObject({ action: "flag-updated", flagKey: "backend", note: "updated owner, reviewBy, description" });
       await expect(flags.updateFlag("nope", { owner: "x" }, "m.chen")).rejects.toBeInstanceOf(NotFoundException);
     });
 
@@ -251,7 +255,7 @@ describe("FlagsService (PostgreSQL)", () => {
       const updated = await flags.updateBinding("backend", "svc-api", { readMode: "both", buildTimeValues: { test: true, qa: false, prod: false } }, "m.chen");
 
       expect(updated.services[0]).toMatchObject({ serviceId: "svc-api", readMode: "both", buildTimeValues: { test: true, qa: false, prod: false } });
-      expect((await flags.listAuditLog())[0]).toMatchObject({ action: "binding-updated", serviceKey: "orders-api", note: "updated readMode, buildTimeValues" });
+      expect((await auditEntries())[0]).toMatchObject({ action: "binding-updated", serviceKey: "orders-api", note: "updated readMode, buildTimeValues" });
       await expect(flags.updateBinding("backend", "svc-web", { removedFromCode: true }, "m.chen")).rejects.toThrow(/not assigned to service "svc-web"/);
     });
 
@@ -272,7 +276,7 @@ describe("FlagsService (PostgreSQL)", () => {
 
       expect((await flags.listFlags()).map((f) => f.key)).toEqual(["backend"]);
       expect(await flags.evaluate("test", "shop-web")).toEqual({});
-      expect((await flags.listAuditLog())[0]).toMatchObject({ action: "flag-retired", flagKey: "frontend" });
+      expect((await auditEntries())[0]).toMatchObject({ action: "flag-retired", flagKey: "frontend" });
       await expect(flags.retireFlag("frontend", "m.chen")).rejects.toBeInstanceOf(NotFoundException);
     });
   });
@@ -296,7 +300,7 @@ describe("FlagsService (PostgreSQL)", () => {
       const row = await prisma.service.findUniqueOrThrow({ where: { id: "svc-billing-api" } });
       expect(JSON.stringify(row)).not.toContain(token);
       expect(JSON.stringify(await flags.listServices())).not.toContain(row.tokenHash!);
-      expect((await flags.listAuditLog())[0]).toMatchObject({ action: "service-registered", serviceKey: "billing-api", actor: "a.kowalska" });
+      expect((await auditEntries())[0]).toMatchObject({ action: "service-registered", serviceKey: "billing-api", actor: "a.kowalska" });
       await expect(flags.registerService({ key: "billing-api", name: "again" }, "a.kowalska")).rejects.toBeInstanceOf(ConflictException);
     });
 
@@ -310,7 +314,7 @@ describe("FlagsService (PostgreSQL)", () => {
       expect(until - Date.now()).toBeGreaterThan(23.9 * 3600_000);
       expect(await serviceByToken(first)).not.toBeNull();
       expect(await serviceByToken(second)).not.toBeNull();
-      expect((await flags.listAuditLog())[0]).toMatchObject({
+      expect((await auditEntries())[0]).toMatchObject({
         action: "credential-rotated",
         serviceKey: "billing-api",
         note: expect.stringMatching(/^previous credential works until/),
@@ -328,13 +332,13 @@ describe("FlagsService (PostgreSQL)", () => {
       expect(service.credentialStatus).toBe("active");
       expect(await serviceByToken(first)).toBeNull();
       expect(await serviceByToken(token)).not.toBeNull();
-      expect((await flags.listAuditLog())[0]).toMatchObject({ note: "previous credential revoked" });
+      expect((await auditEntries())[0]).toMatchObject({ note: "previous credential revoked" });
 
       await prisma.service.create({ data: { id: "svc-old", key: "old", name: "old", registeredAt: T0, registeredBy: "seed", credentialLastRotated: T0 } });
       expect((await flags.listServices()).find((s) => s.key === "old")).toMatchObject({ hasCredential: false });
       const issued = await flags.rotateCredential("svc-old", false, "a.kowalska");
       expect(issued.service).toMatchObject({ hasCredential: true, credentialStatus: "active" });
-      expect((await flags.listAuditLog())[0]).toMatchObject({ serviceKey: "old", note: "first credential issued" });
+      expect((await auditEntries())[0]).toMatchObject({ serviceKey: "old", note: "first credential issued" });
       await expect(flags.rotateCredential("svc-nope", false, "a.kowalska")).rejects.toBeInstanceOf(NotFoundException);
     });
 
@@ -360,6 +364,38 @@ describe("FlagsService (PostgreSQL)", () => {
       });
       await flags.recordCheckIn("svc-api", "prod");
       expect(Date.parse((await flags.listServices())[0].checkIns.prod!)).toBeGreaterThanOrEqual(before);
+    });
+  });
+
+  describe("the audit log", () => {
+    it("pages newest first with a cursor that stays stable while new entries arrive", async () => {
+      await loadState(prisma, seedState());
+      const all = await auditEntries();
+
+      const first = await flags.listAuditLog({ limit: 5 });
+      expect(first.entries).toEqual(all.slice(0, 5));
+      await flags.setEnvironment("b2cCustomersEnabled", "test", false, "m.chen"); // a new entry on top
+      const second = await flags.listAuditLog({ limit: 5, before: decode(first.nextCursor!) });
+      expect(second.entries).toEqual(all.slice(5, 10));
+
+      const rest = await flags.listAuditLog({ limit: 200, before: decode(second.nextCursor!) });
+      expect(rest.entries).toEqual(all.slice(10));
+      expect(rest).not.toHaveProperty("nextCursor");
+    });
+
+    it("filters by flag, service, action, actor and free text", async () => {
+      await loadState(prisma, seedState());
+      const all = await auditEntries();
+      const keys = (page: { entries: { id: string }[] }) => page.entries.map((e) => e.id);
+      const ids = (pick: (e: (typeof all)[number]) => boolean) => all.filter(pick).map((e) => e.id);
+
+      expect(keys(await flags.listAuditLog({ limit: 200, flagKey: "b2cCustomersEnabled" }))).toEqual(ids((e) => e.flagKey === "b2cCustomersEnabled"));
+      expect(keys(await flags.listAuditLog({ limit: 200, serviceKey: "evam-service-host" }))).toEqual(ids((e) => e.serviceKey === "evam-service-host"));
+      expect(keys(await flags.listAuditLog({ limit: 200, action: "promotion-blocked" }))).toEqual(ids((e) => e.action === "promotion-blocked"));
+      expect(keys(await flags.listAuditLog({ limit: 200, actor: "j.novak" }))).toEqual(ids((e) => e.actor === "j.novak"));
+      const text = (e: (typeof all)[number]) => [e.actor, e.flagKey, e.serviceKey, e.note].some((v) => v?.toLowerCase().includes("evse"));
+      expect(keys(await flags.listAuditLog({ limit: 200, q: "EVSE" }))).toEqual(ids(text));
+      expect(ids(text).length).toBeGreaterThan(0);
     });
   });
 });

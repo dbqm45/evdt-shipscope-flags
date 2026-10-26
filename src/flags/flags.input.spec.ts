@@ -1,6 +1,8 @@
 import { BadRequestException } from "@nestjs/common";
 import {
+  encodeAuditCursor,
   parseActor,
+  parseAuditQuery,
   parseBindingPatch,
   parseCreateFlag,
   parseFlagPatch,
@@ -101,5 +103,28 @@ describe("service registration and credential rotation", () => {
     expect(parseRotateCredential(undefined)).toEqual({ revokePrevious: false });
     expect(parseRotateCredential({ revokePrevious: true, actor: "a.kowalska" })).toEqual({ revokePrevious: true });
     expect(reason(() => parseRotateCredential({ revokePrevious: "yes" }))).toMatch(/true or false/);
+  });
+});
+
+describe("parseAuditQuery", () => {
+  it("defaults to 50 entries and checks limit, action and cursor", () => {
+    expect(parseAuditQuery({})).toEqual({ limit: 50 });
+    expect(parseAuditQuery({ limit: "10", action: "env-enabled", flagKey: "a", q: " evse " })).toMatchObject({
+      limit: 10,
+      action: "env-enabled",
+      flagKey: "a",
+      q: "evse",
+    });
+    expect(reason(() => parseAuditQuery({ limit: "0" }))).toMatch(/"limit" must be a whole number from 1 to 200/);
+    expect(reason(() => parseAuditQuery({ limit: "500" }))).toMatch(/"limit"/);
+    expect(reason(() => parseAuditQuery({ action: "deleted" }))).toMatch(/"action" must be one of/);
+    expect(reason(() => parseAuditQuery({ before: "garbage" }))).toMatch(/not a cursor/);
+    expect(reason(() => parseAuditQuery({ flagKey: ["a", "b"] }))).toMatch(/only once/);
+    expect(reason(() => parseAuditQuery({ page: "2" }))).toBe("Unknown field: page.");
+  });
+
+  it("reads back the cursor it hands out", () => {
+    const cursor = { timestamp: new Date("2026-10-26T10:00:00.000Z"), seq: 42 };
+    expect(parseAuditQuery({ before: encodeAuditCursor(cursor) }).before).toEqual(cursor);
   });
 });

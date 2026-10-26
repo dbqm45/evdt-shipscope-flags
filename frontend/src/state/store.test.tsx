@@ -44,7 +44,7 @@ beforeEach(() => {
     makeFlag({ key: "frontend", dependsOn: "backend", services: [makeBinding("svc-web")] }),
   ];
   loadWith(false);
-  vi.mocked(api.listAuditLog).mockResolvedValue(serverAudit);
+  vi.mocked(api.listAuditLog).mockResolvedValue({ entries: serverAudit });
 });
 
 async function renderStore() {

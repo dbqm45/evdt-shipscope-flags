@@ -23,7 +23,7 @@ describe("api.load", () => {
     stubApi({
       "/api/flags": () => jsonResponse([{ key: "from-api" }]),
       "/api/services": () => jsonResponse([]),
-      "/api/audit-log": () => jsonResponse([]),
+      "/api/audit-log?limit=50": () => jsonResponse({ entries: [] }),
     });
     await expect(api.load()).resolves.toEqual({ flags: [{ key: "from-api" }], services: [], auditLog: [], demo: false });
   });
@@ -42,7 +42,7 @@ describe("api.load", () => {
     stubApi({
       "/api/flags": () => jsonResponse({ message: "Internal server error" }, 500),
       "/api/services": () => jsonResponse([]),
-      "/api/audit-log": () => jsonResponse([]),
+      "/api/audit-log?limit=50": () => jsonResponse({ entries: [] }),
     });
     await expect(api.load()).rejects.toEqual(new ApiError("Internal server error", 500));
   });
@@ -85,5 +85,17 @@ describe("service credentials", () => {
   it("registers through POST /services and surfaces a 409 for a taken key", async () => {
     stubApi({ "/api/services": () => jsonResponse({ message: 'A service with the key "x" already exists.' }, 409) });
     await expect(api.registerService("x", "", "a.kowalska")).rejects.toEqual(new ApiError('A service with the key "x" already exists.', 409));
+  });
+});
+
+describe("api.listAuditLog", () => {
+  it("sends only the filters that are set", async () => {
+    const fetch = stubApi({ "/api/audit-log?limit=20&action=env-enabled&before=abc": () => jsonResponse({ entries: [], nextCursor: "def" }) });
+
+    await expect(api.listAuditLog({ limit: 20, action: "env-enabled", before: "abc", q: "", flagKey: undefined })).resolves.toEqual({
+      entries: [],
+      nextCursor: "def",
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });

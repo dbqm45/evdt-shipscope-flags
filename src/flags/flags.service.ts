@@ -2,11 +2,11 @@ import { BadRequestException, ConflictException, Injectable, Logger, NotFoundExc
 import type { Prisma } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { FLAG_INCLUDE, SERVICE_INCLUDE, toAuditEntry, toDbReadMode, toFlag, toService } from "./flag-mapper.js";
-import type { BindingPatch, CreateFlagInput, FlagPatch, RegisterServiceInput } from "./flags.input.js";
+import { encodeAuditCursor, type BindingPatch, type CreateFlagInput, type FlagPatch, type ParsedAuditQuery, type RegisterServiceInput } from "./flags.input.js";
 import { CREDENTIAL_GRACE_MS, hashToken, newServiceToken } from "./sdk-auth.js";
 import { canDisable, canEnable, canRetire } from "./shared/rules.js";
 import { checkWebhookUrl, maskWebhookUrl, type Lookup } from "./webhook.js";
-import { ENVIRONMENTS, type AuditLogEntry, type Environment, type Flag, type Service } from "./shared/types.js";
+import { ENVIRONMENTS, type AuditLogEntry, type AuditLogPage, type Environment, type Flag, type Service } from "./shared/types.js";
 
 export interface NotificationSettings {
   enabled: boolean;
@@ -48,9 +48,29 @@ export class FlagsService {
     return rows.map((row) => toService(row));
   }
 
-  async listAuditLog(): Promise<AuditLogEntry[]> {
-    const rows = await this.prisma.auditLogEntry.findMany({ orderBy: [{ timestamp: "desc" }, { seq: "desc" }] });
-    return rows.map(toAuditEntry);
+  /** One page of the audit log, newest first, filtered; `nextCursor` continues it with older entries. */
+  async listAuditLog(query: ParsedAuditQuery = { limit: 50 }): Promise<AuditLogPage> {
+    const { limit, before, flagKey, serviceKey, action, actor, q } = query;
+    const where: Prisma.AuditLogEntryWhereInput = {
+      flagKey,
+      serviceKey,
+      action,
+      actor,
+      AND: [
+        // Keyset pagination on the sort order, so entries written meanwhile do not shift the pages.
+        before ? { OR: [{ timestamp: { lt: before.timestamp } }, { timestamp: before.timestamp, seq: { lt: before.seq } }] } : {},
+        q
+          ? {
+              OR: (["actor", "flagKey", "serviceKey", "note"] as const).map((field) => ({ [field]: { contains: q, mode: "insensitive" as const } })),
+            }
+          : {},
+      ],
+    };
+    const rows = await this.prisma.auditLogEntry.findMany({ where, orderBy: [{ timestamp: "desc" }, { seq: "desc" }], take: limit + 1 });
+    const page: AuditLogPage = { entries: rows.slice(0, limit).map(toAuditEntry) };
+    const last = rows[limit - 1];
+    if (rows.length > limit && last) page.nextCursor = encodeAuditCursor(last);
+    return page;
   }
 
   /** Consumer view: `{ flagKey: boolean }` for one environment, optionally only flags bound to a service. */

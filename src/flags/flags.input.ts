@@ -1,5 +1,5 @@
 import { BadRequestException } from "@nestjs/common";
-import { ENVIRONMENTS, type Environment, type FlagType, type ReadMode } from "./shared/types.js";
+import { AUDIT_ACTIONS, ENVIRONMENTS, type AuditAction, type AuditLogQuery, type Environment, type FlagType, type ReadMode } from "./shared/types.js";
 
 // Parses and validates request bodies of the management API. Anything unexpected is a 400 with a reason the dashboard
 // can show as is; unknown fields are rejected rather than ignored, so a typo does not silently do nothing.
@@ -162,4 +162,50 @@ export function parseNotificationSettings(input: unknown): { enabled?: boolean; 
   }
   if (body.webhookUrl !== undefined) settings.webhookUrl = text(body.webhookUrl, "webhookUrl", 2000);
   return settings;
+}
+
+const AUDIT_PAGE_DEFAULT = 50;
+const AUDIT_PAGE_MAX = 200;
+
+/** Where a page of the audit log ends: the last entry's timestamp and sequence number, opaque to clients. */
+export interface AuditCursor {
+  timestamp: Date;
+  seq: number;
+}
+
+export const encodeAuditCursor = (cursor: AuditCursor) => Buffer.from(`${cursor.timestamp.toISOString()}~${cursor.seq}`).toString("base64url");
+
+function decodeAuditCursor(value: string): AuditCursor {
+  const [iso, seq] = Buffer.from(value, "base64url").toString().split("~");
+  const timestamp = new Date(iso ?? "");
+  if (Number.isNaN(timestamp.getTime()) || !/^\d+$/.test(seq ?? "")) throw bad('"before" is not a cursor returned by this endpoint.');
+  return { timestamp, seq: Number(seq) };
+}
+
+export type ParsedAuditQuery = Omit<AuditLogQuery, "before" | "limit"> & { limit: number; before?: AuditCursor };
+
+/** Query string of GET /audit-log; unknown parameters are rejected like unknown body fields. */
+export function parseAuditQuery(input: Record<string, unknown>): ParsedAuditQuery {
+  onlyFields(input, ["limit", "before", "flagKey", "serviceKey", "action", "actor", "q"]);
+  const single = (field: string) => {
+    const value = input[field];
+    if (value === undefined || value === "") return undefined;
+    if (typeof value !== "string") throw bad(`"${field}" can be given only once.`);
+    return text(value, field, 200) || undefined;
+  };
+  const limitText = single("limit");
+  const limit = limitText === undefined ? AUDIT_PAGE_DEFAULT : Number(limitText);
+  if (!Number.isInteger(limit) || limit < 1 || limit > AUDIT_PAGE_MAX) throw bad(`"limit" must be a whole number from 1 to ${AUDIT_PAGE_MAX}.`);
+  const action = single("action");
+  if (action !== undefined && !AUDIT_ACTIONS.includes(action as AuditAction)) throw bad(`"action" must be one of: ${AUDIT_ACTIONS.join(", ")}.`);
+  const before = single("before");
+  return {
+    limit,
+    before: before === undefined ? undefined : decodeAuditCursor(before),
+    flagKey: single("flagKey"),
+    serviceKey: single("serviceKey"),
+    action: action as AuditAction | undefined,
+    actor: single("actor"),
+    q: single("q"),
+  };
 }

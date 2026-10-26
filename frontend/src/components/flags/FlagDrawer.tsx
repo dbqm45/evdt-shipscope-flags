@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useStore } from "../../state/store";
 import { attentionItems, canEnable, daysFullyOn, isStaleCandidate, migrationProgress } from "../../lib/businessLogic";
 import { canEditFlags } from "../../lib/permissions";
+import { useAuditLog } from "../../lib/useAuditLog";
 import { ENVIRONMENTS, type Environment, type Flag } from "../../types";
 import { ENV_LABEL } from "../../lib/labels";
 import { StatusDot } from "../common/StatusDot";
@@ -18,7 +19,7 @@ function actionLabel(action: string): string {
 }
 
 export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void }) {
-  const { role, toggleEnvironment, auditLog, flags, services, updateBinding, updateFlagMeta } = useStore();
+  const { role, toggleEnvironment, flags, services, updateBinding, updateFlagMeta } = useStore();
   const [blockedNotice, setBlockedNotice] = useState<{ env: Environment; reason: string } | null>(null);
   const editable = canEditFlags(role);
   const migration = migrationProgress(flag);
@@ -26,7 +27,7 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
   // Stale and review dates have their own notices; this lists what may make services disagree.
   const risks = attentionItems(flag, services).filter((i) => i.weight >= 2);
 
-  const history = auditLog.filter((e) => e.flagKey === flag.key).slice(0, 8);
+  const { entries: history } = useAuditLog({ flagKey: flag.key, limit: 8 });
 
   const [pendingEnv, setPendingEnv] = useState<Environment | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);

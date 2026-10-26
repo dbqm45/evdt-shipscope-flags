@@ -136,4 +136,18 @@ describe("API (e2e)", () => {
     await request(app.getHttpServer()).delete(`/api/flags/${created.body.key}`).send({ actor: "e2e" }).expect(200, { ok: true });
     await sdkGet("/api/sdk/flags?env=test").expect((r) => expect(r.body.flags).not.toHaveProperty("throwaway"));
   });
+
+  it("GET /api/audit-log pages and filters the history, 400 on a bad query", async () => {
+    const server = app.getHttpServer();
+    const first = await request(server).get("/api/audit-log?limit=3").expect(200);
+    expect(first.body.entries).toHaveLength(3);
+    const next = await request(server).get(`/api/audit-log?limit=3&before=${first.body.nextCursor}`).expect(200);
+    expect(next.body.entries[0].id).not.toBe(first.body.entries[2].id);
+    expect(Date.parse(next.body.entries[0].timestamp)).toBeLessThanOrEqual(Date.parse(first.body.entries[2].timestamp));
+
+    const blocked = await request(server).get("/api/audit-log?action=promotion-blocked").expect(200);
+    expect(blocked.body.entries.every((e: { action: string }) => e.action === "promotion-blocked")).toBe(true);
+    await request(server).get("/api/audit-log?limit=1000").expect(400);
+    await request(server).get("/api/audit-log?sort=asc").expect(400);
+  });
 });

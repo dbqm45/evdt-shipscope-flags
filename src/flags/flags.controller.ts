@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Headers, HttpCode, Param, Patch, Post, Put, Query } from "@nestjs/common";
 import {
   parseActor,
+  parseAuditQuery,
   parseBindingPatch,
   parseCreateFlag,
   parseFlagPatch,
@@ -69,9 +70,10 @@ export class FlagsController {
     return this.flags.rotateCredential(id, parseRotateCredential(body).revokePrevious, parseActor(body));
   }
 
+  /** ?limit=50&before=<nextCursor>&flagKey=&serviceKey=&action=&actor=&q= → { entries, nextCursor? }, newest first. */
   @Get("audit-log")
-  auditLog() {
-    return this.flags.listAuditLog();
+  auditLog(@Query() query: Record<string, unknown>) {
+    return this.flags.listAuditLog(parseAuditQuery(query));
   }
 
   @Patch("flags/:key/environments/:env")

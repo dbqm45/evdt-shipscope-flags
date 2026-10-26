@@ -8,7 +8,7 @@
  *   an ApiError with the server's message, so the UI shows it instead of pretending the change was saved.
  */
 import { auditLog as mockAuditLog, flags as mockFlags, services as mockServices } from "../data/mock";
-import type { AuditLogEntry, Environment, Flag, FlagServiceBinding, FlagType, NotificationSettings, Service } from "../types";
+import type { AuditLogEntry, AuditLogPage, AuditLogQuery, Environment, Flag, FlagServiceBinding, FlagType, NotificationSettings, Service } from "../types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 const REQUEST_TIMEOUT_MS = 2000;
@@ -88,6 +88,9 @@ export interface IssuedCredential {
   token: string;
 }
 
+/** How many of the latest audit entries the store keeps (the rest is fetched page by page). */
+export const RECENT_AUDIT = 50;
+
 export interface InitialData {
   flags: Flag[];
   services: Service[];
@@ -100,8 +103,8 @@ export const api = {
   /** Everything the dashboard shows. Falls back to the fixture data (demo mode) only when the API cannot be reached. */
   async load(): Promise<InitialData> {
     try {
-      const [flags, services, auditLog] = await Promise.all([call<Flag[]>("/flags"), call<Service[]>("/services"), call<AuditLogEntry[]>("/audit-log")]);
-      return { flags, services, auditLog, demo: false };
+      const [flags, services, audit] = await Promise.all([call<Flag[]>("/flags"), call<Service[]>("/services"), api.listAuditLog({ limit: RECENT_AUDIT })]);
+      return { flags, services, auditLog: audit.entries, demo: false };
     } catch (err) {
       if (!(err instanceof ApiUnavailableError)) throw err;
       console.info(`[shipscope] The API is not reachable (${err.message}); showing demo data.`);
@@ -109,7 +112,11 @@ export const api = {
     }
   },
 
-  listAuditLog: () => call<AuditLogEntry[]>("/audit-log"),
+  /** One page of the audit log, newest first; pass `nextCursor` as `before` for the next one. */
+  listAuditLog: (query: AuditLogQuery = {}) => {
+    const params = new URLSearchParams(Object.entries(query).flatMap(([k, v]) => (v === undefined || v === "" ? [] : [[k, String(v)]])));
+    return call<AuditLogPage>(`/audit-log${params.size ? `?${params}` : ""}`);
+  },
 
   getNotifications: () => call<NotificationSettings>("/settings/notifications"),
 

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { api, failureReason, type BindingPatch, type FlagDetailsPatch, type IssuedCredential, type NewFlag } from "../api/client";
+import { api, failureReason, RECENT_AUDIT, type BindingPatch, type FlagDetailsPatch, type IssuedCredential, type NewFlag } from "../api/client";
 import { canDisable, canEnable, canRetire } from "../lib/businessLogic";
 import { canEditFlags } from "../lib/permissions";
 import { ENVIRONMENTS, type AuditLogEntry, type Environment, type Flag, type Role, type Service } from "../types";
@@ -22,6 +22,7 @@ interface StoreValue {
   loadError: string | null;
   flags: Flag[];
   services: Service[];
+  /** The latest audit entries (all of them in demo mode); refreshed after every change made through the API. */
   auditLog: AuditLogEntry[];
   role: Role;
   setRole: (role: Role) => void;
@@ -79,8 +80,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     /** The server's audit log is the record once a change went to the API, blocked attempts included. */
     const refreshAuditLog = () =>
       api
-        .listAuditLog()
-        .then(setAuditLog)
+        .listAuditLog({ limit: RECENT_AUDIT })
+        .then((page) => setAuditLog(page.entries))
         .catch(() => {});
 
     /** With the API: run the call, apply what the server returned, and show its audit log; a refusal becomes the reason. */

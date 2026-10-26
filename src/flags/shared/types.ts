@@ -70,17 +70,20 @@ export interface Flag {
 /** Where a flag is in its life: derived from environment state, never stored. */
 export type LifecycleStage = "new" | "testing" | "live" | "cleanup";
 
-export type AuditAction =
-  | "flag-created"
-  | "env-enabled"
-  | "env-disabled"
-  | "promotion-blocked"
-  | "service-assigned"
-  | "service-registered"
-  | "credential-rotated"
-  | "binding-updated"
-  | "flag-retired"
-  | "flag-updated";
+export const AUDIT_ACTIONS = [
+  "flag-created",
+  "env-enabled",
+  "env-disabled",
+  "promotion-blocked",
+  "service-assigned",
+  "service-registered",
+  "credential-rotated",
+  "binding-updated",
+  "flag-retired",
+  "flag-updated",
+] as const;
+
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 export interface AuditLogEntry {
   id: string;
@@ -93,6 +96,24 @@ export interface AuditLogEntry {
   from?: string;
   to?: string;
   note?: string;
+}
+
+/** One page of the audit log, newest first (GET /api/audit-log). */
+export interface AuditLogPage {
+  entries: AuditLogEntry[];
+  /** Pass as `before` to get the next, older page; missing = this is the last page. */
+  nextCursor?: string;
+}
+
+/** Filters of GET /api/audit-log; every one is optional. `q` searches actor, flag, service and note. */
+export interface AuditLogQuery {
+  limit?: number;
+  before?: string;
+  flagKey?: string;
+  serviceKey?: string;
+  action?: AuditAction;
+  actor?: string;
+  q?: string;
 }
 
 export interface NotificationSettings {

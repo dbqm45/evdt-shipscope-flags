@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import clsx from "clsx";
-import { useStore } from "../state/store";
+import { useAuditLog } from "../lib/useAuditLog";
 import { Badge } from "../components/common/Badge";
 import { IconSearch } from "../components/icons";
-import type { AuditAction } from "../types";
+import { AUDIT_ACTIONS, type AuditAction } from "../types";
 
 const ACTION_TONE: Record<AuditAction, "on" | "off" | "warn" | "critical" | "info" | "neutral" | "amber"> = {
   "flag-created": "amber",
@@ -22,21 +22,26 @@ function actionLabel(action: AuditAction): string {
   return action.replace(/-/g, " ");
 }
 
+/** Typing waits this long before the server is asked again. */
+const SEARCH_DELAY_MS = 300;
+
 export function AuditLogPage() {
-  const { auditLog } = useStore();
   const [query, setQuery] = useState("");
+  const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState<AuditAction | "all">("all");
 
-  const actions = useMemo(() => Array.from(new Set(auditLog.map((e) => e.action))), [auditLog]);
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(query.trim()), SEARCH_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [query]);
 
-  const filtered = useMemo(() => {
-    return auditLog.filter((e) => {
-      if (actionFilter !== "all" && e.action !== actionFilter) return false;
-      if (!query) return true;
-      const haystack = `${e.actor} ${e.flagKey ?? ""} ${e.serviceKey ?? ""} ${e.note ?? ""}`.toLowerCase();
-      return haystack.includes(query.toLowerCase());
-    });
-  }, [auditLog, query, actionFilter]);
+  const {
+    entries: filtered,
+    hasMore,
+    loading,
+    error,
+    loadMore,
+  } = useAuditLog({ q: search || undefined, action: actionFilter === "all" ? undefined : actionFilter });
 
   return (
     <div className="space-y-6">
@@ -65,7 +70,7 @@ export function AuditLogPage() {
           >
             All
           </button>
-          {actions.map((a) => (
+          {AUDIT_ACTIONS.map((a) => (
             <button
               key={a}
               onClick={() => setActionFilter(a)}
@@ -121,13 +126,27 @@ export function AuditLogPage() {
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-xs text-mist-700">
-                  No matching entries.
+                  {loading ? "Loading…" : "No matching entries."}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+      {error && (
+        <p role="alert" className="text-xs text-signal-critical">
+          Could not load the audit log: {error}
+        </p>
+      )}
+      {hasMore && (
+        <button
+          onClick={loadMore}
+          disabled={loading}
+          className="text-shell rounded-xl border border-ink-500 px-3.5 py-2 text-xs font-semibold text-mist-300 hover:text-mist-100 disabled:opacity-40"
+        >
+          {loading ? "Loading…" : "Load older entries"}
+        </button>
+      )}
     </div>
   );
 }
