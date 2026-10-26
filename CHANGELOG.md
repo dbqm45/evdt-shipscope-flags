@@ -5,6 +5,18 @@ released automatically from [Conventional Commits](https://www.conventionalcommi
 
 ## [0.2.0] - 2026-10-26
 
+The API now stores its state in PostgreSQL (through Prisma) instead of a JSON file. To upgrade:
+
+1. Set `DATABASE_URL` to a PostgreSQL database (see `.env.example`); `FLAGS_DATA_FILE` is no longer read.
+   With Docker, `docker compose up -d db` starts one.
+2. Create the tables: `npm run db:deploy`.
+3. Move the existing state over, once, into the empty database: `npm run build`, then
+   `npm run db:import -- data/state.json` (or `npm run db:seed` for the demo data instead).
+
+With `docker compose up`, the `migrate` service runs step 2 and loads the demo data into an empty database. To import
+an old state file instead, start only the database (`docker compose up -d db`), run steps 2 and 3 against it, then
+start the rest of the stack; the demo data is skipped because the database is no longer empty.
+
 ### Breaking
 
 - **api:** store state in PostgreSQL through Prisma
