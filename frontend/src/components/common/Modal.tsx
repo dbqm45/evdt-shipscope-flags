@@ -10,7 +10,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
         initial={{ opacity: 0, y: 12, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ type: "spring", stiffness: 360, damping: 30 }}
-        className="relative z-10 w-full max-w-md rounded-2xl border border-ink-600 bg-ink-850 shadow-2xl"
+        className="relative z-10 max-h-full w-full max-w-md overflow-y-auto rounded-2xl border border-ink-600 bg-ink-850 shadow-2xl"
       >
         <div className="flex items-center justify-between border-b border-ink-600 px-5 py-4">
           <h2 className="font-display text-sm font-semibold text-mist-100">{title}</h2>
