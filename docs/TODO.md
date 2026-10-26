@@ -14,7 +14,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 | Testy frontendu | ❌ brak test runnera |
 | Typecheck backendu (`strict: true`) | ✅ |
 | Typecheck frontendu | ✅ `strict: true` (włączone) |
-| Lint (oxlint) | ✅ backend czysto; frontend 2 ostrzeżenia `react(only-export-components)` |
+| Lint (oxlint) | ✅ backend i frontend czysto |
 | Audyt zależności | ⚠️ `npm audit` nie dał wyniku w tym środowisku (brak dostępu do rejestru). Log bootstrapu odnotował 2 HIGH (`tmp`, `undici`) — oba przechodnie, w narzędziach Nest CLI |
 | CI/CD | ✅ GitHub Actions: `.github/workflows/ci.yml` (format, sync, lint, typecheck, testy, build, audyt) |
 | Persystencja | ✅ PostgreSQL + Prisma 7 (migracje w `prisma/migrations/`, testy na prawdziwej bazie) |
@@ -76,7 +76,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 - [x] _(nie dotyczy produkcji: dane demo ładuje się jawnie, raz)_ **Seed zawiera daty względne** (`daysAgo()`), więc każdy start bez pliku stanu daje inne dane. Akceptowalne w demo, ale nie w produkcji.
 - [x] _(zrobione: wszystkie body management API walidowane w `flags.input.ts`, bez nowych zależności)_ **Brak walidacji wejścia.** Body opisano typami inline (`{ enabled?: boolean; actor?: string }`). Dodać DTO z `class-validator` i globalny `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })`.
 - [x] _(zrobione: `GET /api/health` sprawdza też bazę, 503 gdy jest niedostępna; używa go healthcheck Dockera)_ **Brak endpointu health/readiness** (np. `@nestjs/terminus`, `GET /api/health`), potrzebnego do deploymentu w kontenerze.
-- [x] _(zrobione: `helmet`, limity zapytań na adres klienta — `RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_SDK_PER_MINUTE`, `TRUST_PROXY` — i `enableShutdownHooks`. CORS pozostaje wyłączony, bo dashboard jest serwowany z tego samego adresu co API. Limity są liczone w pamięci jednej instancji; przy kilku instancjach potrzebny wspólny magazyn, np. Redis. Nagłówki bezpieczeństwa dla samego dashboardu (CSP w nginx) — do zrobienia)_ **Brak hardeningu HTTP:** `helmet`, polityka CORS, rate limiting (`@nestjs/throttler`), szczególnie dla endpointu SDK; do tego `app.enableShutdownHooks()`.
+- [x] _(zrobione: `helmet`, limity zapytań na adres klienta — `RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_SDK_PER_MINUTE`, `TRUST_PROXY` — i `enableShutdownHooks`. CORS pozostaje wyłączony, bo dashboard jest serwowany z tego samego adresu co API. Limity są liczone w pamięci jednej instancji; przy kilku instancjach potrzebny wspólny magazyn, np. Redis. Nagłówki bezpieczeństwa dashboardu, w tym ścisłe CSP, ustawia nginx — `docker/security-headers.conf`; HSTS tam, gdzie kończy się TLS)_ **Brak hardeningu HTTP:** `helmet`, polityka CORS, rate limiting (`@nestjs/throttler`), szczególnie dla endpointu SDK; do tego `app.enableShutdownHooks()`.
 - [ ] **Powiadomienia:** wysyłane fire-and-forget, bez retry, tylko dla `prod`. FR-016 przewiduje włączanie per flaga lub globalnie; dziś działa tylko przełącznik globalny.
 
 ## P2 — Jakość, testy, utrzymanie
@@ -96,8 +96,8 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 
 - [ ] **Współdzielenie kodu przez kopiowanie plików** (`scripts/sync-shared.mjs`). Wygenerowane pliki w `src/flags/shared/` są commitowane i mogą się rozjechać ze źródłem (dziś są zgodne). Seed demo trafia do kodu produkcyjnego backendu. Lepiej wydzielić pakiet współdzielony (npm workspaces: `packages/shared`) albo przynajmniej sprawdzać w CI, że `sync:shared` nie zmienia plików.
 - [ ] **Monorepo bez workspaces:** dwa niezależne `package.json` i lockfile’y, osobne `npm install`. Rozważyć `workspaces` w głównym `package.json` i wspólne skrypty (`dev`, `build`, `test`, `lint`) dla obu pakietów.
-- [ ] `NotificationSettings` jest zdefiniowany dwa razy (`flags.service.ts` i `shared/types.ts`). Używać typu współdzielonego.
-- [ ] `FlagsController` łączy Management API i Consumer (SDK) API. Rozdzielić na `FlagsController`, `SettingsController` i `SdkController` (różne guardy i różni konsumenci).
+- [x] _(zrobione: jeden typ ze `shared/types.ts`)_ `NotificationSettings` jest zdefiniowany dwa razy (`flags.service.ts` i `shared/types.ts`). Używać typu współdzielonego.
+- [x] _(zrobione: `FlagsController`, `ServicesController`, `AuditLogController`, `SettingsController`, `SdkController`)_ `FlagsController` łączy Management API i Consumer (SDK) API. Rozdzielić na `FlagsController`, `SettingsController` i `SdkController` (różne guardy i różni konsumenci).
 - [ ] `store.tsx`: cała logika w jednym `useMemo` (~200 linii) z mieszaniem stanu i wywołań API. Po przeniesieniu operacji na serwer rozważyć TanStack Query (cache, invalidacja, stany błędów).
 - [x] _(zrobione: baner trybu demo i błędu ładowania)_ Frontend nie pokazuje stanu błędu ani informacji o trybie demo. Po fallbacku do danych mock użytkownik nie wie, że pracuje na danych przykładowych; wystarczy baner „offline / demo data”.
 - [ ] Sesja nie przetrwa odświeżenia strony (`authenticated` w `useState`), a `currentUser` jest mapowany z roli (`CURRENT_USER_BY_ROLE`). Po wdrożeniu SSO pobierać użytkownika z `/api/me`.
@@ -107,10 +107,10 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 - [x] Włączyć `"strict": true` w `frontend/tsconfig.app.json` _(zrobione)_ (sprawdzone: kod przechodzi z `--strict` bez nowych błędów).
 - [x] _(zrobione)_ Usunąć z repozytorium artefakty i pliki IDE: `tsconfig.build.tsbuildinfo` (zmienia się przy każdym `tsc`), `.idea/`. Dodać je do głównego `.gitignore`.
 - [x] _(zrobione)_ Usunąć pozostałości po placeholderze: `index.js` (`console.log('Happy developing ✨')`), szablonowy `frontend/README.md` (Vite).
-- [ ] Sprawdzić skrypt `"deploy": "nest deploy"` w `package.json`: nie wiadomo, czy Nest CLI ma taką komendę. Usunąć go albo zastąpić realnym procesem.
+- [x] _(zrobione: usunięty)_ Sprawdzić skrypt `"deploy": "nest deploy"` w `package.json`: nie wiadomo, czy Nest CLI ma taką komendę. Usunąć go albo zastąpić realnym procesem.
 - [x] _(zrobione: `.env.example` i `frontend/.env.example`)_ Dodać `.env.example` z obsługiwanymi zmiennymi: `PORT`, `SDK_TOKEN`, `FLAGS_DATA_FILE`, `NOTIFY_WEBHOOK_URL`, `VITE_API_BASE_URL`.
 - [x] _(zrobione; `.prettierrc` dopasowany do stylu kodu: double quotes, `printWidth` 160)_ Dodać `.editorconfig`. Dopisać `format:check` (`prettier --check`) i objąć formatowaniem także `frontend/` (dziś `format` dotyczy tylko `src/` i `test/`).
-- [ ] Naprawić ostrzeżenia oxlint `only-export-components`: wydzielić `parseTags` z `CreateFlagModal.tsx` i `useStore` z `store.tsx` do osobnych plików.
+- [x] _(zrobione: `lib/tags.ts`, `state/useStore.ts`)_ Naprawić ostrzeżenia oxlint `only-export-components`: wydzielić `parseTags` z `CreateFlagModal.tsx` i `useStore` z `store.tsx` do osobnych plików.
 - [x] _(zrobione: `lib/labels.ts`; nazwy serwisów ze store)_ Konfiguracja `ENV_LABEL` jest importowana z `data/mock` w kodzie produkcyjnym (`FlagDrawer.tsx`), a `serviceById` z danych mock w `BindingCard.tsx`. Przenieść je do `lib/` i brać serwisy ze store, nie z fixture’ów.
 
 ### CI/CD i deployment

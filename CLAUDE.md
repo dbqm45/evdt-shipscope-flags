@@ -48,7 +48,7 @@ Two packages, one version:
 | `src/main.ts`, `src/app.module.ts`, `src/app.setup.ts` | Nest bootstrap; global prefix `api`, `helmet`, `trust proxy` (`TRUST_PROXY`); `app.setup.ts` is shared with the e2e tests |
 | `src/health/health.controller.ts`                   | `GET /api/health`: 200 when the database answers, else 503 (Docker healthcheck)              |
 | `src/rate-limit.ts`                                 | rate limits per client address and route (`@nestjs/throttler`, `RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_SDK_PER_MINUTE`); `@SdkRoute()` marks the consumer route |
-| `src/flags/flags.controller.ts`                     | management routes (`/flags` incl. create/update/retire, `/flags/:key/environments/:env`, `/flags/:key/services/:id`, `/services` incl. register and `/services/:id/credential`, `/audit-log` (pages with a `before` cursor and filters), `/settings/notifications`) and the consumer route `GET /v1/sdk/flags` (also at `/sdk/flags`) |
+| `src/flags/*.controller.ts`                        | routes: `flags` (create/update/retire, `/:key/environments/:env`, `/:key/services/:id`), `services` (register, `/:id/credential`), `audit-log` (pages with a `before` cursor and filters), `settings` (`/settings/notifications`), `sdk` (the consumer route `GET /v1/sdk/flags`, also at `/sdk/flags`) |
 | `src/flags/flags.input.ts`                          | validation of management request bodies (400 with a readable reason, unknown fields rejected) |
 | `src/flags/webhook.ts`                              | webhook URL checks against SSRF (https, no private/local addresses, `NOTIFY_WEBHOOK_HOSTS`) and masking |
 | `src/flags/sdk-auth.ts`                             | who calls the consumer route: a service by its credential (only a SHA-256 digest is stored), or the deprecated shared `SDK_TOKEN` (constant-time) |
@@ -60,11 +60,11 @@ Two packages, one version:
 | `src/flags/shared/`                                 | **generated** copies of frontend files (see Hard rules)                                      |
 | `frontend/src/types.ts`                             | domain types shared by both packages                                                          |
 | `frontend/src/lib/businessLogic.ts`                 | the business rules (promotion order, dependencies, stale detection, build-time checks, retirement, drift from per-environment check-ins, attention ranking) |
-| `frontend/src/state/store.tsx`                      | client state and actions (React context)                                                     |
+| `frontend/src/state/store.tsx`, `state/useStore.ts` | client state and actions (React context): `StoreProvider`, and `useStore` with the store's shape |
 | `sdk/`                                              | reference client for services (`client.ts`, no dependencies, run by Node as plain TypeScript); `node:test` tests (`npm run test:sdk`), its own `tsconfig.json` |
 | `scripts/`                                          | tooling only: `sync-shared.mjs`, release scripts and their `node:test` tests                 |
 | `.github/workflows/`                                | `ci.yml` (PRs, and verify step of releases), `release.yml` (every push to `main`)            |
-| `Dockerfile`, `docker-compose.yml`, `docker/`       | images `api` (Nest, prod deps only, user `node`), `migrate` and `web` (nginx); compose adds PostgreSQL; CI builds and smoke-tests them |
+| `Dockerfile`, `docker-compose.yml`, `docker/`       | images `api` (Nest, prod deps only, user `node`), `migrate` and `web` (nginx, security headers incl. a strict CSP in `docker/security-headers.conf`); compose adds PostgreSQL; CI builds and smoke-tests them |
 
 ## Hard rules
 
