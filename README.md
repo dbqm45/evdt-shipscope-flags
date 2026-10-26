@@ -179,7 +179,7 @@ docker compose up --build -d   # interfejs pod http://localhost:8080
 docker compose down            # zatrzymanie; z opcją -v usuwa też bazę
 ```
 
-Bez Dockera, po uruchomieniu w terminalu pojawi się adres interfejsu, zwykle `http://localhost:5173`. Po jego otwarciu należy wybrać przycisk „Continue with single sign-on”. W wersji demonstracyjnej logowanie jest symulowane i nie wymaga żadnych danych.
+Bez Dockera, po uruchomieniu w terminalu pojawi się adres interfejsu, zwykle `http://localhost:5173`. Po jego otwarciu należy wybrać przycisk „Open the dashboard”. Logowania jeszcze nie ma, więc ekran niczego nie sprawdza i mówi o tym wprost (punkt 9).
 
 Wersję produkcyjną interfejsu buduje się poleceniem `npm run build` w katalogu `frontend`, a serwer poleceniem `npm run build` w katalogu głównym.
 
@@ -209,7 +209,7 @@ Adres `GET /api/health` pozwala sprawdzić, czy serwer działa i ma połączenie
 - Poświadczeń serwisów nie da się wydać w trybie demonstracyjnym, bo wydaje je serwer.
 - **Usunięcie flagi** („Retire flag”) usuwa ją z ShipScope Flags, także z odpowiedzi `GET /api/v1/sdk/flags`. Usunięcie odwołań w kodzie serwisów pozostaje po stronie zespołu.
 - **Wartości z kodu** (build-time) są wprowadzane ręcznie, ponieważ aplikacja nie ma wglądu w kod serwisów. Wymagają one aktualizacji przy zmianach w kodzie.
-- Logowanie jednokrotne (SSO) jest w tej wersji tylko odwzorowane wizualnie: ekran logowania niczego nie sprawdza.
+- Logowania jednokrotnego (SSO) i dostępu awaryjnego (break-glass) jeszcze nie ma: ekran startowy niczego nie sprawdza i informuje o tym. Każdy, kto otworzy aplikację, może jej używać i wybrać dowolną rolę.
 
 ## 10. Słowniczek
 

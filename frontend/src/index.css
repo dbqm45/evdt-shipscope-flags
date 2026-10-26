@@ -144,7 +144,6 @@ html[data-theme="light"] {
   }
 
   /* legacy decorative helpers, neutralised in the new look */
-  .scan-sweep,
   .grain {
     position: relative;
   }
