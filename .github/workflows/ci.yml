@@ -99,6 +99,8 @@ jobs:
           }
       - name: Release tooling tests
         run: npm run test:scripts
+      - name: Reference SDK client tests
+        run: npm run test:sdk
       - run: npm run build
       # actionlint over .github/workflows: a release binary checked against a pinned SHA-256.
       - name: actionlint

@@ -61,6 +61,7 @@ Two packages, one version:
 | `frontend/src/types.ts`                             | domain types shared by both packages                                                          |
 | `frontend/src/lib/businessLogic.ts`                 | the business rules (promotion order, dependencies, stale detection, build-time checks, retirement, drift from per-environment check-ins, attention ranking) |
 | `frontend/src/state/store.tsx`                      | client state and actions (React context)                                                     |
+| `sdk/`                                              | reference client for services (`client.ts`, no dependencies, run by Node as plain TypeScript); `node:test` tests (`npm run test:sdk`), its own `tsconfig.json` |
 | `scripts/`                                          | tooling only: `sync-shared.mjs`, release scripts and their `node:test` tests                 |
 | `.github/workflows/`                                | `ci.yml` (PRs, and verify step of releases), `release.yml` (every push to `main`)            |
 | `Dockerfile`, `docker-compose.yml`, `docker/`       | images `api` (Nest, prod deps only, user `node`), `migrate` and `web` (nginx); compose adds PostgreSQL; CI builds and smoke-tests them |
@@ -98,11 +99,12 @@ Root, in this order (CI runs the same):
 ```bash
 npm run format:check   # Prettier over the whole repo (both packages, configs, workflows)
 npm run sync:shared && git diff --exit-code -- src/flags/shared
-npm run lint           # oxlint --type-aware on src/ and test/
-npm run typecheck      # tsc --noEmit on src/ and test/
+npm run lint           # oxlint --type-aware on src/, test/ and sdk/client.ts
+npm run typecheck      # tsc --noEmit on src/ and test/, then on sdk/
 npm test               # vitest unit tests (src/**/*.spec.ts), service tests against TEST_DATABASE_URL
 npm run test:e2e       # vitest e2e tests (test/**/*.e2e-spec.ts), against TEST_DATABASE_URL
 npm run test:scripts   # node:test for scripts/
+npm run test:sdk       # node:test for the reference client in sdk/
 npm run build
 ```
 

@@ -33,7 +33,7 @@ scope: `@context/foundation/prd.md`; known gaps: `@docs/TODO.md`. Full depth liv
 - Database: schema in `prisma/schema.prisma`; every change ships with a migration (`npm run db:migrate -- --name …`).
   Backend tests need `TEST_DATABASE_URL` (see `.env.example`) and truncate that database.
 - Before committing: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:e2e`,
-  `npm run test:scripts`, `npm run build`, and in `frontend/`: `npm run lint && npm test && npm run build`.
+  `npm run test:scripts`, `npm run test:sdk`, `npm run build`, and in `frontend/`: `npm run lint && npm test && npm run build`.
 
 ## Coding style & testing
 

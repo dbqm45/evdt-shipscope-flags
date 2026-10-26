@@ -48,6 +48,8 @@ Treść błędu ma postać `{ "statusCode": 401, "message": "…" }`.
 
 ## Zalecane zachowanie klienta
 
+Dla serwisów w Node.js jest gotowy klient, który robi wszystko poniżej: `sdk/client.ts` (opis w `sdk/README.md`).
+
 Serwer flag nie może być pojedynczym punktem awarii (PRD, FR-012). Klient serwisu powinien:
 
 1. Odpytywać endpoint co **najwyżej 60 sekund** (zmiana flagi dociera do serwisu w ciągu jednego odstępu).
