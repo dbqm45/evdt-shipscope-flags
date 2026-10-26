@@ -31,7 +31,7 @@ moves it; `docs/TODO.md` holds the planned work in detail. Status: **done**, **p
 | Rule | Status | Where |
 | --- | --- | --- |
 | 1. Stale detection | done | `isStaleCandidate` with the threshold from Settings. |
-| 2. Promotion order | partial | `canEnable` blocks enabling out of order; disabling a lower environment while higher ones are on is still allowed (decision pending: block or cascade). |
+| 2. Promotion order | done | `canEnable` enables test → qa → prod in order; `canDisable` switches off from the top (prod → qa → test), so a flag is never ON above an environment where it is OFF. |
 | 3. Attention prioritization | done | `driftRisks` and `attentionItems`/`byAttention` from per-environment check-ins; default sort of the flag list. |
 
 ## Non-goals and open questions

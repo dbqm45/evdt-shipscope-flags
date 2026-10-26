@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import { useStore } from "../../state/useStore";
-import { attentionItems, canEnable, daysFullyOn, isStaleCandidate, migrationProgress } from "../../lib/businessLogic";
+import { attentionItems, canDisable, canEnable, daysFullyOn, isStaleCandidate, migrationProgress } from "../../lib/businessLogic";
 import { canEditFlags } from "../../lib/permissions";
 import { useAuditLog } from "../../lib/useAuditLog";
 import { ENVIRONMENTS, type Environment, type Flag } from "../../types";
@@ -177,8 +177,9 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
             <div className="mt-3 space-y-2">
               {ENVIRONMENTS.map((e) => {
                 const state = flag.environments[e];
-                const check = canEnable(flag, e, flags);
-                const locked = editable && !state.enabled && !check.allowed;
+                // The rule for the next toggle: enabling follows test → qa → prod, disabling goes back down.
+                const check = state.enabled ? canDisable(flag, e, flags) : canEnable(flag, e, flags);
+                const locked = editable && !check.allowed;
                 return (
                   <div key={e} className="rounded-xl border border-ink-600 bg-ink-850/60 px-3.5 py-2.5">
                     <div className="flex items-center justify-between">

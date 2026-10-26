@@ -66,6 +66,8 @@ Aplikacja nie ogranicza się do wyświetlania stanu flag. Egzekwuje też kilka r
 
 Flagi nie można włączyć na wyższym środowisku, jeżeli nie jest włączona na niższym. Kolejność jest stała: **Test → QA → Prod**. Próba włączenia flagi na produkcji, gdy na QA jest wyłączona, kończy się komunikatem wyjaśniającym, co należy zrobić najpierw.
 
+Wyłącza się w odwrotnej kolejności, od góry: **Prod → QA → Test**. Flagi nie można wyłączyć na teście, dopóki jest włączona na QA, ani na QA, dopóki jest włączona na produkcji. Dzięki temu flaga nigdy nie jest włączona na wyższym środowisku, a wyłączona na niższym, a nikt nie wyłączy produkcji przypadkiem, klikając niższe środowisko. Zablokowany przełącznik ma kłódkę i podpowiedź, a każda zablokowana próba trafia do dziennika zmian.
+
 ### 5.2. Zależności między flagami
 
 Przy tworzeniu flagi można wskazać inną flagę, którą trzeba włączyć wcześniej (pole „Requires flag”). Typowy przykład: flaga frontendu wymaga flagi backendu. Skutki:

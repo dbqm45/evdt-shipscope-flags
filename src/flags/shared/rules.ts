@@ -12,6 +12,12 @@ const PROMOTION_PREREQUISITE: Partial<Record<Environment, Environment>> = {
   prod: "qa",
 };
 
+/** The environment that must already be disabled before this one, as flags are switched off from the top. */
+const NEXT_ENVIRONMENT: Partial<Record<Environment, Environment>> = {
+  test: "qa",
+  qa: "prod",
+};
+
 function daysSince(iso: string, now = Date.now()): number {
   return (now - new Date(iso).getTime()) / DAY_MS;
 }
@@ -67,11 +73,22 @@ export function canEnable(flag: Flag, target: Environment, allFlags: Flag[] = []
 }
 
 /**
- * Rule 3 — Dependents (workflow).
- * Blocks disabling a flag in an environment while another flag that depends on it
+ * Rule 3 — Disabling order and dependents (workflow).
+ * Keeps test -> qa -> prod true on the way down: a flag is switched off from the top
+ * (prod, then qa, then test), so it is never ON in an environment above one where it is OFF.
+ * Also blocks disabling a flag in an environment while another flag that depends on it
  * is still ON there.
  */
 export function canDisable(flag: Flag, target: Environment, allFlags: Flag[]): PromotionCheck {
+  const above = NEXT_ENVIRONMENT[target];
+  if (above && flag.environments[above].enabled) {
+    return {
+      allowed: false,
+      blockedBy: above,
+      reason: `Disable in ${above} first — flags are switched off from the top: prod → qa → test.`,
+    };
+  }
+
   const activeDependents = allFlags.filter((f) => f.dependsOn === flag.key && f.environments[target].enabled);
   if (activeDependents.length === 0) return { allowed: true };
   return {

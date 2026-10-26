@@ -112,6 +112,18 @@ describe("FlagsService (PostgreSQL)", () => {
     expect(await auditEntries()).toEqual([expect.objectContaining({ action: "promotion-blocked", flagKey: "backend", environment: "prod" })]);
   });
 
+  it("switches a flag off from the top only: disabling test while qa is ON is a 409, logged", async () => {
+    await loadState(prisma, pair());
+    await flags.setEnvironment("backend", "qa", true, "m.chen");
+
+    await expect(flags.setEnvironment("backend", "test", false, "m.chen")).rejects.toThrow("Disable in qa first");
+
+    expect((await flags.listFlags()).find((f) => f.key === "backend")!.environments.test.enabled).toBe(true);
+    expect((await auditEntries())[0]).toMatchObject({ action: "promotion-blocked", flagKey: "backend", environment: "test" });
+    await flags.setEnvironment("backend", "qa", false, "m.chen");
+    await flags.setEnvironment("backend", "test", false, "m.chen");
+  });
+
   it("blocks disabling a flag while a dependent flag is ON", async () => {
     await loadState(prisma, pair());
     await flags.setEnvironment("frontend", "test", true, "m.chen");

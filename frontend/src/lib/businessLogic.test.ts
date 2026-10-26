@@ -91,13 +91,29 @@ describe("canEnable (rule 2: promotion order and dependencies)", () => {
   });
 });
 
-describe("canDisable (rule 3: dependents)", () => {
+describe("canDisable (rule 3: disabling order and dependents)", () => {
+  it("switches a flag off from the top: prod, then qa, then test", () => {
+    const flag = makeFlag({ key: "a", on: [...ALL] });
+    expect(canDisable(flag, "test", [flag])).toEqual({
+      allowed: false,
+      blockedBy: "qa",
+      reason: "Disable in qa first — flags are switched off from the top: prod → qa → test.",
+    });
+    expect(canDisable(flag, "qa", [flag])).toMatchObject({ allowed: false, blockedBy: "prod" });
+    expect(canDisable(flag, "prod", [flag])).toEqual({ allowed: true });
+    const qaOnly = makeFlag({ key: "b", on: ["test", "qa"] });
+    expect(canDisable(qaOnly, "qa", [qaOnly])).toEqual({ allowed: true });
+  });
+
   it("blocks disabling while a dependent flag is ON in that environment", () => {
     const backend = makeFlag({ key: "backend", on: ["test", "qa"] });
-    const frontend = makeFlag({ key: "frontend", dependsOn: "backend", on: ["test"] });
-    const all = [backend, frontend];
-    expect(canDisable(backend, "test", all)).toMatchObject({ allowed: false, blockedByFlag: "frontend" });
-    expect(canDisable(backend, "qa", all)).toEqual({ allowed: true });
+    const frontend = makeFlag({ key: "frontend", dependsOn: "backend", on: ["test", "qa"] });
+    expect(canDisable(backend, "qa", [backend, frontend])).toMatchObject({ allowed: false, blockedByFlag: "frontend" });
+    expect(
+      canDisable(backend, "qa", [backend, { ...frontend, environments: { ...frontend.environments, qa: { ...frontend.environments.qa, enabled: false } } }]),
+    ).toEqual({
+      allowed: true,
+    });
   });
 
   it("names every active dependent in the reason", () => {
