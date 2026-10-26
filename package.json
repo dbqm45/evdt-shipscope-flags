@@ -12,8 +12,8 @@
   "scripts": {
     "build": "nest build",
     "deploy": "nest deploy",
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"frontend/src/**/*.{ts,tsx,css}\"",
-    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"frontend/src/**/*.{ts,tsx,css}\"",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "start": "nest start --exec \"node --env-file-if-exists=.env\"",
     "start:dev": "nest start --watch --exec \"node --env-file-if-exists=.env\"",
     "start:debug": "nest start --debug --watch --exec \"node --env-file-if-exists=.env\"",
