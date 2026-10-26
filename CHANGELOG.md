@@ -3,6 +3,29 @@
 Notable changes to ShipScope Flags, newest first. Versions follow [Semantic Versioning](https://semver.org/) and are
 released automatically from [Conventional Commits](https://www.conventionalcommits.org/) (see `RELEASING.md`).
 
+## [0.4.0] - 2026-10-26
+
+Every service now reads flags with its own credential, and sees only the flags assigned to it. The contract is
+versioned as `GET /api/v1/sdk/flags` and described in `docs/sdk-api.md`. To upgrade:
+
+1. Deploy as usual; `npm run db:deploy` (or the `migrate` service) adds the credential columns. Existing services
+   have no credential yet; services that send the shared `SDK_TOKEN` keep working.
+2. As an Admin, open **Services** in the dashboard and press **Issue credential** for each service. The credential is
+   shown once: store it in that service's secrets.
+3. Make each service send `Authorization: Bearer <its credential>`, preferably to `/api/v1/sdk/flags`
+   (`/api/sdk/flags` still works). Its **Last check-in** in the Services tab shows when it switched.
+4. Once every service uses its own credential, remove `SDK_TOKEN` from the server. It is deprecated and will be
+   removed in a later release.
+
+Rotating a credential keeps the previous one working for 24 hours; **Revoke & reissue** ends it at once. Without
+`SDK_TOKEN` the endpoint now answers 401 instead of 503 to anything but a service credential. `docker compose` no
+longer sets the local shared token `local-sdk-token`: register a service in the dashboard to read flags from the
+local stack.
+
+### Added
+
+- **api:** give each service its own SDK credential with rotation
+
 ## [0.3.0] - 2026-10-26
 
 The consumer endpoint `GET /api/sdk/flags` now always needs a token. To upgrade:
