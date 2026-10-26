@@ -3,6 +3,12 @@
 Notable changes to ShipScope Flags, newest first. Versions follow [Semantic Versioning](https://semver.org/) and are
 released automatically from [Conventional Commits](https://www.conventionalcommits.org/) (see `RELEASING.md`).
 
+## [0.6.5] - 2026-10-26
+
+### Fixed
+
+- **SHPFL:** switch flags off from the top, prod before qa before test
+
 ## [0.6.4] - 2026-10-26
 
 ### Added
