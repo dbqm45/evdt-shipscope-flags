@@ -44,9 +44,19 @@ model Service {
   previousTokenHash      String?              @unique
   previousTokenExpiresAt DateTime?            @db.Timestamptz(3)
   credentialLastRotated  DateTime             @db.Timestamptz(3)
-  /// Last time the service read its flags with its own credential; null = never.
-  lastCheckInAt          DateTime?            @db.Timestamptz(3)
   bindings               FlagServiceBinding[]
+  checkIns               ServiceCheckIn[]
+}
+
+/// When a service last read its flags for an environment with its own credential (the drift rule compares it with
+/// the flag's last change there).
+model ServiceCheckIn {
+  serviceId   String
+  environment Environment
+  at          DateTime    @db.Timestamptz(3)
+  service     Service     @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([serviceId, environment])
 }
 
 model Flag {
@@ -84,8 +94,6 @@ model FlagServiceBinding {
   /// Position of the service in the flag's list, as it was assigned.
   position        Int
   readMode        ReadMode
-  lastCheckInAt   DateTime @db.Timestamptz(3)
-  driftSuspected  Boolean
   /// Value baked into the service's code per environment ({ "test": true, ... }); null = not recorded yet.
   buildTimeValues Json?
   removedFromCode Boolean?

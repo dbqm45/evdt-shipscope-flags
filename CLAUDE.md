@@ -59,7 +59,7 @@ Two packages, one version:
 | `src/db/load-state.ts`                              | loads demo data or an old `data/state.json` into an empty database (`db:seed`, `db:import`)  |
 | `src/flags/shared/`                                 | **generated** copies of frontend files (see Hard rules)                                      |
 | `frontend/src/types.ts`                             | domain types shared by both packages                                                          |
-| `frontend/src/lib/businessLogic.ts`                 | the business rules (promotion order, dependencies, stale detection, build-time checks, retirement) |
+| `frontend/src/lib/businessLogic.ts`                 | the business rules (promotion order, dependencies, stale detection, build-time checks, retirement, drift from per-environment check-ins, attention ranking) |
 | `frontend/src/state/store.tsx`                      | client state and actions (React context)                                                     |
 | `scripts/`                                          | tooling only: `sync-shared.mjs`, release scripts and their `node:test` tests                 |
 | `.github/workflows/`                                | `ci.yml` (PRs, and verify step of releases), `release.yml` (every push to `main`)            |

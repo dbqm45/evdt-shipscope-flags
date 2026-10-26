@@ -230,7 +230,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         environments: Object.fromEntries(
           ENVIRONMENTS.map((e) => [e, { enabled: false, updatedAt: now, updatedBy: CURRENT_USER_BY_ROLE[role] }]),
         ) as Flag["environments"],
-        services: serviceIds.map((serviceId) => ({ serviceId, readMode: "runtime" as const, lastCheckInAt: now, driftSuspected: false })),
+        services: serviceIds.map((serviceId) => ({ serviceId, readMode: "runtime" as const })),
       };
 
       setFlags((prev) => [newFlag, ...prev]);

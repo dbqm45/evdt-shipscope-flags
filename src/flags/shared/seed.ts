@@ -17,14 +17,13 @@ function env(enabled: boolean, updatedAt: string, updatedBy: string): Environmen
   return { enabled, updatedAt, updatedBy };
 }
 
-function binding(
-  serviceId: string,
-  readMode: FlagServiceBinding["readMode"],
-  lastCheckInAt: string,
-  driftSuspected = false,
-  buildTimeValues?: FlagServiceBinding["buildTimeValues"],
-): FlagServiceBinding {
-  return { serviceId, readMode, lastCheckInAt, driftSuspected, buildTimeValues };
+function binding(serviceId: string, readMode: FlagServiceBinding["readMode"], buildTimeValues?: FlagServiceBinding["buildTimeValues"]): FlagServiceBinding {
+  return { serviceId, readMode, buildTimeValues };
+}
+
+/** The same last read in every environment. */
+function everywhere(at: string): Service["checkIns"] {
+  return { test: at, qa: at, prod: at };
 }
 
 export const services: Service[] = [
@@ -38,6 +37,7 @@ export const services: Service[] = [
     credentialStatus: "active",
     credentialLastRotated: daysAgo(58),
     lastCheckInAt: hoursAgo(0.2),
+    checkIns: everywhere(hoursAgo(0.2)),
   },
   {
     id: "svc-evam-service-host",
@@ -49,6 +49,7 @@ export const services: Service[] = [
     credentialStatus: "active",
     credentialLastRotated: daysAgo(58),
     lastCheckInAt: hoursAgo(0.1),
+    checkIns: everywhere(hoursAgo(0.1)),
   },
   {
     id: "svc-evboweb-service-bff",
@@ -60,6 +61,7 @@ export const services: Service[] = [
     credentialStatus: "active",
     credentialLastRotated: daysAgo(12),
     lastCheckInAt: hoursAgo(0.5),
+    checkIns: everywhere(hoursAgo(0.5)),
   },
   {
     id: "svc-evnm-service-charger-infrastructure",
@@ -71,6 +73,8 @@ export const services: Service[] = [
     credentialStatus: "active",
     credentialLastRotated: daysAgo(80),
     lastCheckInAt: hoursAgo(1.8),
+    // Its prod deployment stopped reading flags 11 days ago, before the last prod change of chargerBaseEditEnabled.
+    checkIns: { test: hoursAgo(1.8), qa: hoursAgo(1.8), prod: daysAgo(11) },
   },
   {
     id: "svc-evsim-service-sim-adapter",
@@ -83,6 +87,7 @@ export const services: Service[] = [
     previousCredentialExpiresAt: hoursAgo(-18),
     credentialLastRotated: hoursAgo(6),
     lastCheckInAt: hoursAgo(60),
+    checkIns: everywhere(hoursAgo(60)),
   },
 ];
 
@@ -101,7 +106,7 @@ export const flags: Flag[] = [
       qa: env(true, daysAgo(85), "m.chen"),
       prod: env(true, daysAgo(80), "m.chen"),
     },
-    services: [binding("svc-evapl-service-frontend", "runtime", hoursAgo(0.2)), binding("svc-evam-service-host", "runtime", hoursAgo(0.1))],
+    services: [binding("svc-evapl-service-frontend", "runtime"), binding("svc-evam-service-host", "runtime")],
   },
   {
     id: "flag-assetNuvoloIntegrationEnabled",
@@ -118,7 +123,7 @@ export const flags: Flag[] = [
       qa: env(false, daysAgo(12), "r.singh"),
       prod: env(false, daysAgo(12), "r.singh"),
     },
-    services: [binding("svc-evam-service-host", "runtime", hoursAgo(0.1)), binding("svc-evnm-service-charger-infrastructure", "runtime", hoursAgo(1.8))],
+    services: [binding("svc-evam-service-host", "runtime"), binding("svc-evnm-service-charger-infrastructure", "runtime")],
   },
   {
     id: "flag-availabilityActionsEnabled",
@@ -135,10 +140,7 @@ export const flags: Flag[] = [
       qa: env(true, daysAgo(68), "a.kowalska"),
       prod: env(true, daysAgo(60), "m.chen"),
     },
-    services: [
-      binding("svc-evapl-service-frontend", "both", hoursAgo(0.2), false, { test: true, qa: true, prod: false }),
-      binding("svc-evam-service-host", "runtime", hoursAgo(90), true),
-    ],
+    services: [binding("svc-evapl-service-frontend", "both", { test: true, qa: true, prod: false }), binding("svc-evam-service-host", "runtime")],
   },
   {
     id: "flag-b2cCustomersEnabled",
@@ -156,7 +158,7 @@ export const flags: Flag[] = [
       qa: env(false, daysAgo(20), "j.novak"),
       prod: env(false, daysAgo(20), "j.novak"),
     },
-    services: [binding("svc-evboweb-service-bff", "runtime", hoursAgo(0.5)), binding("svc-evapl-service-frontend", "runtime", hoursAgo(0.2))],
+    services: [binding("svc-evboweb-service-bff", "runtime"), binding("svc-evapl-service-frontend", "runtime")],
   },
   {
     id: "flag-changeCpmsAllowed",
@@ -172,7 +174,7 @@ export const flags: Flag[] = [
       qa: env(true, daysAgo(95), "m.chen"),
       prod: env(true, daysAgo(90), "m.chen"),
     },
-    services: [binding("svc-evam-service-host", "runtime", hoursAgo(0.1)), binding("svc-evnm-service-charger-infrastructure", "runtime", hoursAgo(1.8))],
+    services: [binding("svc-evam-service-host", "runtime"), binding("svc-evnm-service-charger-infrastructure", "runtime")],
   },
   {
     id: "flag-chargerBaseEditEnabled",
@@ -189,7 +191,7 @@ export const flags: Flag[] = [
       qa: env(true, daysAgo(20), "r.singh"),
       prod: env(true, daysAgo(10), "r.singh"),
     },
-    services: [binding("svc-evnm-service-charger-infrastructure", "runtime", hoursAgo(1.8)), binding("svc-evapl-service-frontend", "runtime", hoursAgo(0.2))],
+    services: [binding("svc-evnm-service-charger-infrastructure", "runtime"), binding("svc-evapl-service-frontend", "runtime")],
   },
 ];
 

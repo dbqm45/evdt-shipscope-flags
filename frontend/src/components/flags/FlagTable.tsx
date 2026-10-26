@@ -1,9 +1,10 @@
 import { Fragment, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { ENVIRONMENTS, type Environment, type Flag } from "../../types";
-import { BuildTimeBadge, LifecycleBadge, ReviewBadge, StaleBadge, TypeBadge } from "./FlagBadges";
+import { BuildTimeBadge, DriftBadge, LifecycleBadge, ReviewBadge, StaleBadge, TypeBadge } from "./FlagBadges";
 import { IconChevronRight } from "../icons";
-import { buildTimeIssues, isReviewOverdue, isStaleCandidate } from "../../lib/businessLogic";
+import { buildTimeIssues, driftRisks, isReviewOverdue, isStaleCandidate } from "../../lib/businessLogic";
+import { useStore } from "../../state/store";
 
 function relativeTime(iso: string): string {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24));
@@ -32,6 +33,7 @@ function Meta({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function FlagTable({ flags, onSelect }: { flags: Flag[]; onSelect: (flagKey: string) => void }) {
+  const { services } = useStore();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   function toggle(id: string) {
@@ -68,8 +70,12 @@ export function FlagTable({ flags, onSelect }: { flags: Flag[]; onSelect: (flagK
                 <tr onClick={() => onSelect(flag.key)} className="group cursor-pointer transition-colors hover:bg-ink-800/50">
                   <td className="px-4 py-3.5">
                     <span className="text-shell block font-medium text-mist-100">{flag.key}</span>
-                    {(isStaleCandidate(flag) || buildTimeIssues(flag).some((i) => i.kind === "mismatch") || isReviewOverdue(flag)) && (
+                    {(driftRisks(flag, services).length > 0 ||
+                      isStaleCandidate(flag) ||
+                      buildTimeIssues(flag).some((i) => i.kind === "mismatch") ||
+                      isReviewOverdue(flag)) && (
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <DriftBadge flag={flag} services={services} />
                         <StaleBadge flag={flag} />
                         <BuildTimeBadge flag={flag} />
                         <ReviewBadge flag={flag} />

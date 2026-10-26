@@ -87,6 +87,7 @@ describe("API (e2e)", () => {
     const services = await request(server).get("/api/services").expect(200);
     const billing = services.body.find((s: { key: string }) => s.key === "billing-api");
     expect(Date.now() - Date.parse(billing.lastCheckInAt)).toBeLessThan(60_000);
+    expect(Object.keys(billing.checkIns).sort()).toEqual(["prod", "test"]);
   });
 
   it("POST /api/services/:id/credential rotates: the old credential works for 24 h, or stops at once when revoked", async () => {

@@ -99,6 +99,17 @@ W panelu flagi znajduje się sekcja „Removing this flag”. Przycisk „Retire
 
 Dodatkowo żadna inna flaga nie może od usuwanej zależeć.
 
+### 5.6. Rozjazd między serwisami i flagi wymagające uwagi
+
+Serwis, który pobiera flagi własnym poświadczeniem (punkt 8a), zostawia przy każdym zapytaniu „check-in” dla danego środowiska. Na tej podstawie aplikacja oznacza flagę znaczkiem „drift”, gdy któryś z jej serwisów może używać innej wartości niż ta ustawiona na serwerze:
+
+- serwis czyta flagę z serwera, ale od jej ostatniej zmiany w danym środowisku nie pobrał flag z tego środowiska (zmiana sprzed ponad 5 minut, bo serwisy pobierają flagi co najwyżej co minutę),
+- serwis czyta tylko wartość z kodu, a ta różni się od stanu na serwerze.
+
+Środowisko, z którego serwis nigdy nie pobierał flag, nie jest brane pod uwagę, bo serwis może w nim nie działać.
+
+Lista flag jest domyślnie ułożona według tego, co wymaga uwagi („Needs attention first”): najpierw flagi z rozjazdem, potem flagi z wartością z kodu różną od serwera (u serwisów czytających oba źródła), na końcu flagi po terminie przeglądu i kandydaci do usunięcia. Panel flagi wymienia konkretne powody w ramce „Needs attention”. Kolejność „Newest first” przywraca układ od najnowszych.
+
 ## 6. Co można robić w aplikacji
 
 **Lista flag (zakładka „Flags”).** Tabela wszystkich flag z następującymi informacjami: nazwa, opis i tagi, typ, etap życia, właściciel, stan w każdym środowisku (ON / OFF), kto i kiedy dodał flagę, kto i kiedy ostatnio zmienił jej stan. Listę można przeszukiwać i filtrować według typu, etapu życia oraz tagu.

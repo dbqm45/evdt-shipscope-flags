@@ -9,7 +9,7 @@ import { pathToFileURL } from "node:url";
 import { PrismaClient } from "../generated/prisma/client.js";
 import { toDbReadMode } from "../flags/flag-mapper.js";
 import { auditLog as seedAudit, flags as seedFlags, services as seedServices } from "../flags/shared/seed.js";
-import { ENVIRONMENTS, type AuditLogEntry, type Flag, type NotificationSettings, type Service } from "../flags/shared/types.js";
+import { ENVIRONMENTS, type AuditLogEntry, type Environment, type Flag, type NotificationSettings, type Service } from "../flags/shared/types.js";
 import { prismaOptions } from "../prisma/prisma.service.js";
 
 export interface State {
@@ -37,7 +37,8 @@ export async function loadState(prisma: PrismaClient, state: State): Promise<boo
           registeredAt: s.registeredAt,
           registeredBy: s.registeredBy,
           credentialLastRotated: s.credentialLastRotated,
-          lastCheckInAt: s.lastCheckInAt ?? null,
+          // State files from before 0.5 have no per-environment check-ins.
+          checkIns: { create: Object.entries(s.checkIns ?? {}).map(([environment, at]) => ({ environment: environment as Environment, at })) },
         },
       });
     for (const f of [...state.flags].reverse()) {
@@ -59,8 +60,6 @@ export async function loadState(prisma: PrismaClient, state: State): Promise<boo
               serviceId: b.serviceId,
               position,
               readMode: toDbReadMode(b.readMode),
-              lastCheckInAt: b.lastCheckInAt,
-              driftSuspected: b.driftSuspected,
               buildTimeValues: b.buildTimeValues ?? undefined,
               removedFromCode: b.removedFromCode ?? null,
             })),

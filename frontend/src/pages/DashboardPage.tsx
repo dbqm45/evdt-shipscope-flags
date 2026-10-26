@@ -7,7 +7,7 @@ import { FlagDrawer } from "../components/flags/FlagDrawer";
 import { CreateFlagModal } from "../components/flags/CreateFlagModal";
 import { useSelectedFlag } from "../lib/useSelectedFlag";
 import { IconPlus, IconSearch } from "../components/icons";
-import { lifecycleStage, LIFECYCLE_LABEL } from "../lib/businessLogic";
+import { attentionScore, byAttention, lifecycleStage, LIFECYCLE_LABEL } from "../lib/businessLogic";
 import type { FlagType, LifecycleStage } from "../types";
 
 const TYPE_FILTERS: Array<{ label: string; value: FlagType | "all" }> = [
@@ -17,24 +17,28 @@ const TYPE_FILTERS: Array<{ label: string; value: FlagType | "all" }> = [
 ];
 
 export function DashboardPage() {
-  const { flags, role } = useStore();
+  const { flags, services, role } = useStore();
   const { selectedFlag, select } = useSelectedFlag();
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<FlagType | "all">("all");
   const [creating, setCreating] = useState(false);
   const [stageFilter, setStageFilter] = useState<LifecycleStage | "all">("all");
   const [tagFilter, setTagFilter] = useState("all");
+  const [sort, setSort] = useState<"attention" | "newest">("attention");
   const allTags = useMemo(() => [...new Set(flags.flatMap((f) => f.tags ?? []))].sort(), [flags]);
 
+  const needAttention = useMemo(() => flags.filter((f) => attentionScore(f, services) > 0).length, [flags, services]);
+
   const filtered = useMemo(() => {
-    return flags.filter((f) => {
+    const matching = flags.filter((f) => {
       if (typeFilter !== "all" && f.type !== typeFilter) return false;
       if (stageFilter !== "all" && lifecycleStage(f) !== stageFilter) return false;
       if (tagFilter !== "all" && !(f.tags ?? []).includes(tagFilter)) return false;
       if (query && !f.key.toLowerCase().includes(query.toLowerCase()) && !f.description.toLowerCase().includes(query.toLowerCase())) return false;
       return true;
     });
-  }, [flags, query, typeFilter, stageFilter, tagFilter]);
+    return sort === "attention" ? byAttention(matching, services) : matching;
+  }, [flags, services, query, typeFilter, stageFilter, tagFilter, sort]);
 
   return (
     <div className="space-y-6">
@@ -42,6 +46,11 @@ export function DashboardPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-mist-100">Flags</h1>
           <p className="mt-1 text-sm text-mist-500">Every feature and release flag: status per environment, who added it, and who changed it last.</p>
+          {needAttention > 0 && (
+            <p className="mt-1 text-xs text-signal-warn">
+              {needAttention} {needAttention === 1 ? "flag needs" : "flags need"} attention{sort === "attention" && " — listed first"}.
+            </p>
+          )}
         </div>
         {canEditFlags(role) && (
           <button
@@ -65,6 +74,15 @@ export function DashboardPage() {
           />
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
+          <select
+            aria-label="Sort"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as "attention" | "newest")}
+            className="text-shell rounded-xl border border-ink-600 bg-ink-850 px-2.5 py-1.5 text-[11px] uppercase tracking-wide text-mist-300 outline-none"
+          >
+            <option value="attention">Needs attention first</option>
+            <option value="newest">Newest first</option>
+          </select>
           <select
             value={stageFilter}
             onChange={(e) => setStageFilter(e.target.value as LifecycleStage | "all")}

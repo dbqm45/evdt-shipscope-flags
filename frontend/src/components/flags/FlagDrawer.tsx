@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import { useStore } from "../../state/store";
-import { canEnable, daysFullyOn, isStaleCandidate, migrationProgress } from "../../lib/businessLogic";
+import { attentionItems, canEnable, daysFullyOn, isStaleCandidate, migrationProgress } from "../../lib/businessLogic";
 import { canEditFlags } from "../../lib/permissions";
 import { ENVIRONMENTS, type Environment, type Flag } from "../../types";
 import { ENV_LABEL } from "../../lib/labels";
@@ -18,11 +18,13 @@ function actionLabel(action: string): string {
 }
 
 export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void }) {
-  const { role, toggleEnvironment, auditLog, flags, updateBinding, updateFlagMeta } = useStore();
+  const { role, toggleEnvironment, auditLog, flags, services, updateBinding, updateFlagMeta } = useStore();
   const [blockedNotice, setBlockedNotice] = useState<{ env: Environment; reason: string } | null>(null);
   const editable = canEditFlags(role);
   const migration = migrationProgress(flag);
   const stale = isStaleCandidate(flag);
+  // Stale and review dates have their own notices; this lists what may make services disagree.
+  const risks = attentionItems(flag, services).filter((i) => i.weight >= 2);
 
   const history = auditLog.filter((e) => e.flagKey === flag.key).slice(0, 8);
 
@@ -90,6 +92,23 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
                 up its guard code.
               </span>
             </div>
+          )}
+
+          {risks.length > 0 && (
+            <section
+              aria-label="Needs attention"
+              className="space-y-1.5 rounded-xl border border-signal-warn/40 bg-signal-warn-dim/20 px-3 py-2.5 text-xs text-mist-300"
+            >
+              <p className="flex items-center gap-1.5 font-semibold text-signal-warn">
+                <IconAlertTriangle width={14} height={14} />
+                Needs attention
+              </p>
+              <ul className="list-disc space-y-1 pl-5">
+                {risks.map((r) => (
+                  <li key={r.reason}>{r.reason}</li>
+                ))}
+              </ul>
+            </section>
           )}
 
           {actionError && (

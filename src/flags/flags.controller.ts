@@ -114,7 +114,7 @@ export class FlagsController {
     if (service !== undefined && service !== own.key)
       throw new ForbiddenException(`This credential belongs to "${own.key}"; it cannot read the flags of "${service}".`);
     const flags = await this.flags.evaluate(environment, own.key);
-    await this.flags.recordCheckIn(own.id);
+    await this.flags.recordCheckIn(own.id, environment);
     return { env: environment, flags };
   }
 }

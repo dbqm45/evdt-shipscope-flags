@@ -6,7 +6,8 @@ import type { AuditLogEntry, Environment, EnvironmentState, Flag, FlagServiceBin
 
 export const FLAG_INCLUDE = { environments: true, services: { orderBy: { position: "asc" } } } satisfies Prisma.FlagInclude;
 type FlagRow = Prisma.FlagGetPayload<{ include: typeof FLAG_INCLUDE }>;
-type ServiceRow = Prisma.ServiceGetPayload<object>;
+export const SERVICE_INCLUDE = { checkIns: true } satisfies Prisma.ServiceInclude;
+type ServiceRow = Prisma.ServiceGetPayload<{ include: typeof SERVICE_INCLUDE }>;
 type AuditRow = Prisma.AuditLogEntryGetPayload<object>;
 
 const iso = (d: Date) => d.toISOString();
@@ -23,8 +24,6 @@ export function toFlag(row: FlagRow): Flag {
     const binding: FlagServiceBinding = {
       serviceId: b.serviceId,
       readMode: fromDbReadMode(b.readMode),
-      lastCheckInAt: iso(b.lastCheckInAt),
-      driftSuspected: b.driftSuspected,
     };
     if (b.buildTimeValues !== null) binding.buildTimeValues = b.buildTimeValues as FlagServiceBinding["buildTimeValues"];
     if (b.removedFromCode !== null) binding.removedFromCode = b.removedFromCode;
@@ -60,9 +59,11 @@ export function toService(row: ServiceRow, now = new Date()): Service {
     hasCredential: row.tokenHash !== null,
     credentialStatus: previousUntil ? "rotating" : "active",
     credentialLastRotated: iso(row.credentialLastRotated),
+    checkIns: Object.fromEntries(row.checkIns.map((c) => [c.environment, iso(c.at)])),
   };
   if (previousUntil) service.previousCredentialExpiresAt = iso(previousUntil);
-  if (row.lastCheckInAt !== null) service.lastCheckInAt = iso(row.lastCheckInAt);
+  const latest = row.checkIns.reduce<Date | null>((max, c) => (max && max >= c.at ? max : c.at), null);
+  if (latest) service.lastCheckInAt = iso(latest);
   return service;
 }
 

@@ -29,8 +29,10 @@ integracji, ale nowe powinny używać `/api/v1/sdk/flags`.
 - `flags` zawiera **tylko flagi przypisane do serwisu**, który wysłał zapytanie, z ich stanem w danym środowisku.
 - Brak flagi w odpowiedzi oznacza, że flaga nie jest (już) przypisana do serwisu albo została usunięta. Serwis
   używa wtedy wartości domyślnej ze swojego kodu.
-- Każde udane zapytanie jest zapisywane jako **check-in** serwisu (zakładka „Services”, kolumna „Last check-in”).
-  Serwer zapisuje go najwyżej raz na 30 sekund na serwis.
+- Każde udane zapytanie jest zapisywane jako **check-in** serwisu dla danego środowiska (zakładka „Services”,
+  kolumna „Last check-in”), najwyżej raz na 30 sekund. Dashboard porównuje go z ostatnią zmianą flagi w tym
+  środowisku: serwis, który nie pobrał flag po zmianie, jest oznaczany jako możliwy rozjazd („drift”). Dlatego każde
+  wdrożenie serwisu powinno odpytywać tylko swoje środowisko.
 
 ## Błędy
 

@@ -33,15 +33,15 @@ export interface Service {
   credentialStatus: "active" | "rotating";
   previousCredentialExpiresAt?: string;
   credentialLastRotated: string;
-  /** Last time the service read its flags with its own credential; missing = never. */
+  /** Last time the service read its flags with its own credential, in any environment; missing = never. */
   lastCheckInAt?: string;
+  /** Last read per environment; an environment the service never read from is missing. */
+  checkIns: Partial<Record<Environment, string>>;
 }
 
 export interface FlagServiceBinding {
   serviceId: string;
   readMode: ReadMode;
-  lastCheckInAt: string;
-  driftSuspected: boolean;
   /** Value baked into this service's code per environment. Entered by hand; missing = not recorded yet. */
   buildTimeValues?: Partial<Record<Environment, boolean>>;
   /** The flag reference has been deleted from this service's code. */

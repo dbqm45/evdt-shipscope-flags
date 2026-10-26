@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { makeBinding, makeFlag, NOW } from "../test/factories";
+import { daysBefore, makeBinding, makeFlag, makeService, NOW } from "../test/factories";
+import type { Service } from "../types";
 import {
+  attentionItems,
+  byAttention,
   buildTimeIssues,
   canDisable,
   canEnable,
   canRetire,
   daysFullyOn,
+  driftRisks,
   isReviewOverdue,
   isStaleCandidate,
   lifecycleStage,
@@ -165,5 +169,73 @@ describe("lifecycleStage, isReviewOverdue, migrationProgress", () => {
   it("counts services already on runtime reads", () => {
     const flag = makeFlag({ key: "a", services: [makeBinding("s1"), makeBinding("s2", { readMode: "both" }), makeBinding("s3")] });
     expect(migrationProgress(flag)).toEqual({ runtime: 2, total: 3 });
+  });
+});
+
+describe("driftRisks (rule 6)", () => {
+  const reader = (checkIns: Service["checkIns"]): Service => ({ ...makeService("svc-api", "orders-api"), checkIns });
+
+  it("flags a runtime reader that has not read an environment since the flag changed there", () => {
+    const flag = makeFlag({ key: "f", on: ["test"], changedDaysAgo: 1, services: [makeBinding("svc-api")] });
+
+    expect(driftRisks(flag, [reader({ test: daysBefore(2), prod: daysBefore(0) })])).toEqual([
+      { serviceId: "svc-api", environment: "test", kind: "missed-change" },
+    ]);
+    expect(driftRisks(flag, [reader({ test: daysBefore(0.5), qa: daysBefore(0.5), prod: daysBefore(0.5) })])).toEqual([]);
+  });
+
+  it("ignores environments the service never read, changes still inside the polling grace, and removed references", () => {
+    const changedNow = makeFlag({ key: "f", services: [makeBinding("svc-api")] });
+    changedNow.environments.prod.updatedAt = new Date(NOW.getTime() - 60_000).toISOString();
+    expect(driftRisks(changedNow, [reader({ prod: daysBefore(1) })])).toEqual([]);
+
+    const flag = makeFlag({ key: "f", changedDaysAgo: 1, services: [makeBinding("svc-api")] });
+    expect(driftRisks(flag, [reader({})])).toEqual([]);
+    expect(driftRisks({ ...flag, services: [makeBinding("svc-api", { removedFromCode: true })] }, [reader({ test: daysBefore(2) })])).toEqual([]);
+  });
+
+  it("flags a build-time-only reader whose constant differs from the flag", () => {
+    const flag = makeFlag({
+      key: "f",
+      on: ["test"],
+      services: [makeBinding("svc-api", { readMode: "build-time", buildTimeValues: { test: false, qa: false } })],
+    });
+    expect(driftRisks(flag, [reader({})])).toEqual([{ serviceId: "svc-api", environment: "test", kind: "build-time" }]);
+  });
+});
+
+describe("attentionItems and byAttention (rule 7)", () => {
+  const services = [{ ...makeService("svc-api", "orders-api"), checkIns: { prod: daysBefore(3) } }];
+
+  it("lists drift first, then a hidden build-time value, then housekeeping", () => {
+    const flag = makeFlag({
+      key: "f",
+      changedDaysAgo: 1,
+      reviewBy: daysBefore(1),
+      services: [makeBinding("svc-api", { readMode: "both", buildTimeValues: { test: true, qa: false, prod: false } })],
+    });
+
+    expect(attentionItems(flag, services).map((i) => [i.weight, i.reason])).toEqual([
+      [3, "orders-api has not read prod since the flag changed there, so it may still use the old value."],
+      [2, "orders-api has a build-time value in test (ON) that differs from the flag; it takes over if the flag is unreachable or removed."],
+      [1, "The review date has passed."],
+    ]);
+  });
+
+  it("puts the flags that need attention first and keeps the original order otherwise", () => {
+    const quiet = makeFlag({ key: "quiet", changedDaysAgo: 5, services: [makeBinding("svc-api")] });
+    const overdue = makeFlag({ key: "overdue", changedDaysAgo: 5, reviewBy: daysBefore(1) });
+    const drifting = makeFlag({ key: "drifting", changedDaysAgo: 1, services: [makeBinding("svc-api")] });
+    const another = makeFlag({ key: "another", changedDaysAgo: 5 });
+    // Overdue and a removal candidate: more housekeeping, but no drift.
+    const neglected = makeFlag({ key: "neglected", on: [...ALL], changedDaysAgo: STALE_THRESHOLD_DAYS + 5, reviewBy: daysBefore(1) });
+
+    expect(byAttention([quiet, overdue, another, neglected, drifting], services).map((f) => f.key)).toEqual([
+      "drifting",
+      "neglected",
+      "overdue",
+      "quiet",
+      "another",
+    ]);
   });
 });

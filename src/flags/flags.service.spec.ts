@@ -36,10 +36,11 @@ function service(id: string, key: string): Service {
     credentialStatus: "active",
     credentialLastRotated: T0,
     lastCheckInAt: T0,
+    checkIns: { test: T0 },
   };
 }
 
-const binding = (serviceId: string) => ({ serviceId, readMode: "runtime" as const, lastCheckInAt: T0, driftSuspected: false });
+const binding = (serviceId: string) => ({ serviceId, readMode: "runtime" as const });
 
 /** backend ON in test, frontend (depends on backend) OFF everywhere; frontend is read by the web service only. */
 const pair = (): State => ({
@@ -337,20 +338,28 @@ describe("FlagsService (PostgreSQL)", () => {
       await expect(flags.rotateCredential("svc-nope", false, "a.kowalska")).rejects.toBeInstanceOf(NotFoundException);
     });
 
-    it("records a check-in on the service and its flag bindings, at most every 30 seconds", async () => {
+    it("records a check-in per environment, at most every 30 seconds", async () => {
       await loadState(prisma, pair());
       const before = Date.now();
 
-      await flags.recordCheckIn("svc-api");
+      await flags.recordCheckIn("svc-api", "prod");
 
       const [api, web] = await flags.listServices();
-      expect(Date.parse(api.lastCheckInAt!)).toBeGreaterThanOrEqual(before);
-      expect(web.lastCheckInAt).toBe(T0);
-      const backend = (await flags.listFlags()).find((f) => f.key === "backend")!;
-      expect(Date.parse(backend.services[0].lastCheckInAt)).toBeGreaterThanOrEqual(before);
+      expect(api.checkIns.test).toBe(T0);
+      expect(Date.parse(api.checkIns.prod!)).toBeGreaterThanOrEqual(before);
+      expect(api.lastCheckInAt).toBe(api.checkIns.prod);
+      expect(web.checkIns).toEqual({ test: T0 });
 
-      await flags.recordCheckIn("svc-api");
-      expect((await flags.listServices())[0].lastCheckInAt).toBe(api.lastCheckInAt);
+      await flags.recordCheckIn("svc-api", "prod");
+      expect((await flags.listServices())[0].checkIns.prod).toBe(api.checkIns.prod);
+
+      // Older than the interval: moved forward.
+      await prisma.serviceCheckIn.update({
+        where: { serviceId_environment: { serviceId: "svc-api", environment: "prod" } },
+        data: { at: new Date(before - 60_000) },
+      });
+      await flags.recordCheckIn("svc-api", "prod");
+      expect(Date.parse((await flags.listServices())[0].checkIns.prod!)).toBeGreaterThanOrEqual(before);
     });
   });
 });

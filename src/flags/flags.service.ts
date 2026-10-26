@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma/prisma.service.js";
-import { FLAG_INCLUDE, toAuditEntry, toDbReadMode, toFlag, toService } from "./flag-mapper.js";
+import { FLAG_INCLUDE, SERVICE_INCLUDE, toAuditEntry, toDbReadMode, toFlag, toService } from "./flag-mapper.js";
 import type { BindingPatch, CreateFlagInput, FlagPatch, RegisterServiceInput } from "./flags.input.js";
 import { CREDENTIAL_GRACE_MS, hashToken, newServiceToken } from "./sdk-auth.js";
 import { canDisable, canEnable, canRetire } from "./shared/rules.js";
@@ -44,7 +44,7 @@ export class FlagsService {
   }
 
   async listServices(): Promise<Service[]> {
-    const rows = await this.prisma.service.findMany({ orderBy: { seq: "asc" } });
+    const rows = await this.prisma.service.findMany({ include: SERVICE_INCLUDE, orderBy: { seq: "asc" } });
     return rows.map((row) => toService(row));
   }
 
@@ -73,18 +73,15 @@ export class FlagsService {
     });
   }
 
-  /** Records that a service read its flags. Never fails the read: a lost check-in only makes the service look quieter. */
-  async recordCheckIn(serviceId: string): Promise<void> {
+  /** Records that a service read its flags for `env`. Never fails the read: a lost check-in only makes the service look quieter. */
+  async recordCheckIn(serviceId: string, env: Environment): Promise<void> {
     const now = new Date();
     const due = new Date(now.getTime() - CHECK_IN_INTERVAL_MS);
     try {
-      await this.prisma.$transaction(async (tx) => {
-        const { count } = await tx.service.updateMany({
-          where: { id: serviceId, OR: [{ lastCheckInAt: null }, { lastCheckInAt: { lt: due } }] },
-          data: { lastCheckInAt: now },
-        });
-        if (count) await tx.flagServiceBinding.updateMany({ where: { serviceId }, data: { lastCheckInAt: now } });
-      });
+      // One statement: insert, or move the time forward only when the stored one is older than the interval.
+      await this.prisma.$executeRaw`
+        INSERT INTO "ServiceCheckIn" ("serviceId", "environment", "at") VALUES (${serviceId}, ${env}::"Environment", ${now})
+        ON CONFLICT ("serviceId", "environment") DO UPDATE SET "at" = EXCLUDED."at" WHERE "ServiceCheckIn"."at" < ${due}`;
     } catch (err) {
       this.logger.warn(`Could not record the check-in of service ${serviceId}: ${(err as Error).message}`);
     }
@@ -98,6 +95,7 @@ export class FlagsService {
         throw new ConflictException(`A service with the key "${input.key}" already exists.`);
       const now = new Date();
       const created = await tx.service.create({
+        include: SERVICE_INCLUDE,
         data: { id, key: input.key, name: input.name, registeredAt: now, registeredBy: actor, tokenHash: hashToken(token), credentialLastRotated: now },
       });
       await this.audit(tx, { actor, action: "service-registered", serviceKey: input.key });
@@ -119,6 +117,7 @@ export class FlagsService {
       const keepPrevious = current.tokenHash !== null && !revokePrevious;
       const until = new Date(now.getTime() + CREDENTIAL_GRACE_MS);
       const updated = await tx.service.update({
+        include: SERVICE_INCLUDE,
         where: { id: serviceId },
         data: {
           tokenHash: hashToken(token),
@@ -177,7 +176,7 @@ export class FlagsService {
           tags: input.tags,
           environments: { create: ENVIRONMENTS.map((environment) => ({ environment, enabled: false, updatedAt: now, updatedBy: actor })) },
           services: {
-            create: input.serviceIds.map((serviceId, position) => ({ serviceId, position, readMode: "runtime", lastCheckInAt: now, driftSuspected: false })),
+            create: input.serviceIds.map((serviceId, position) => ({ serviceId, position, readMode: "runtime" })),
           },
         },
       });

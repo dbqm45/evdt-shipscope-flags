@@ -1,5 +1,6 @@
 import clsx from "clsx";
 import { ENVIRONMENTS, type Environment, type Flag, type FlagServiceBinding, type ReadMode } from "../../types";
+import { driftRisks } from "../../lib/businessLogic";
 import { serviceLabel } from "../../lib/labels";
 import { useStore } from "../../state/store";
 import { Badge } from "../common/Badge";
@@ -30,6 +31,7 @@ export function BindingCard({
 }) {
   const { services } = useStore();
   const svc = serviceLabel(services, binding.serviceId);
+  const drift = driftRisks(flag, services).filter((r) => r.serviceId === binding.serviceId);
   const carriesConstant = binding.readMode !== "runtime" && !binding.removedFromCode;
 
   function setEnv(env: Environment) {
@@ -48,8 +50,8 @@ export function BindingCard({
           <p className="text-shell text-[11px] text-mist-700">{svc.key}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {binding.driftSuspected && (
-            <Badge tone="critical">
+          {drift.length > 0 && (
+            <Badge tone="critical" title={`May disagree with the flag in ${drift.map((r) => r.environment).join(", ")}`}>
               <IconAlertTriangle width={10} height={10} />
               drift
             </Badge>

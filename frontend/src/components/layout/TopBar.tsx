@@ -7,7 +7,7 @@ import { NavTabs } from "./NavTabs";
 
 export function TopBar({ onLogout }: { onLogout: () => void }) {
   const { flags, currentUser } = useStore();
-  const staleCount = flags.filter(isStaleCandidate).length;
+  const staleCount = flags.filter((f) => isStaleCandidate(f)).length;
   const prodOn = flags.filter((f) => f.environments.prod.enabled).length;
   const initials = currentUser
     .split(".")

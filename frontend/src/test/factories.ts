@@ -25,7 +25,7 @@ export function makeFlag(overrides: Partial<Flag> & { key: string; on?: Environm
 }
 
 export function makeBinding(serviceId: string, overrides: Partial<FlagServiceBinding> = {}): FlagServiceBinding {
-  return { serviceId, readMode: "runtime", lastCheckInAt: daysBefore(0), driftSuspected: false, ...overrides };
+  return { serviceId, readMode: "runtime", ...overrides };
 }
 
 export function makeService(id: string, key = id): Service {
@@ -39,5 +39,6 @@ export function makeService(id: string, key = id): Service {
     credentialStatus: "active",
     credentialLastRotated: daysBefore(30),
     lastCheckInAt: daysBefore(0),
+    checkIns: { test: daysBefore(0), qa: daysBefore(0), prod: daysBefore(0) },
   };
 }
