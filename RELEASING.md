@@ -55,7 +55,7 @@ Decyduje **najpoważniejsza** zmiana od ostatniego tagu.
 podejmuje.
 
 Publiczne API to to, na czym polegają użytkownicy i integracje: trasy HTTP pod `/api` (ścieżki, metody, pola żądań
-i odpowiedzi, kody statusu), zwłaszcza endpoint dla serwisów `GET /api/sdk/flags`, oraz zmienne środowiskowe
+i odpowiedzi, kody statusu), zwłaszcza endpoint dla serwisów `GET /api/v1/sdk/flags` (kontrakt w `docs/sdk-api.md`), oraz zmienne środowiskowe
 (`.env.example`). Szczegóły wewnętrzne (układ kodu, treść logów, wygląd UI) się nie liczą.
 
 ## Jak wersja jest podbijana (automatycznie)
