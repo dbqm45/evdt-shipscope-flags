@@ -16,6 +16,10 @@ target_scale:
 updated: 2026-09-18
 ---
 
+> **Superseded by `prd.md`.** These are the notes from shaping the product; names and details here (Okta, Slack,
+> "poll") may differ from the PRD, which is the current source. Implementation status: `implementation-status.md`.
+
+
 ## Vision & Problem Statement
 
 Engineering teams maintaining paired/grouped production services (e.g. a frontend and a backend consuming the same conceptual flag) currently manage feature and release flags with no single source of truth. Flags live scattered across: build-time constants baked into application code, YAML files mixed in with unrelated configuration, values deliberately hidden deeper for security reasons, and values fetched from a runtime endpoint. This fragmentation causes state drift between services — a flag flipped or removed in one service's source can leave a paired service holding a stale, contradictory state, silently making the feature unavailable to end users even though "the flag is on" from one service's point of view.

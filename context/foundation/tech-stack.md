@@ -29,3 +29,14 @@ TypeScript + NestJS + PostgreSQL (via Prisma) + Passport.js with an OIDC strateg
 `ci_default_flow: manual-promotion` (rather than auto-deploy-on-merge) was chosen deliberately: this system becomes a dependency for 5 production services' flag state, so promoting to the production environment on a human decision, not automatically on merge, was judged the safer default given the guardrail that this service must never become an unreliable single point of failure.
 
 `bootstrapper_confidence: best-effort` — this recommendation was reasoned directly rather than looked up in a bundled starter registry (the registry file was not available in this environment), so it has not been verified end-to-end the way a registry-backed pick normally would be. Treat the first setup steps with a bit more scrutiny than a `verified` pick would need.
+
+## Status (version 0.6)
+
+- **In place:** TypeScript, NestJS, PostgreSQL through Prisma (with migrations checked in CI), Docker images and
+  compose, GitHub Actions with automatic releases.
+- **Not yet:** Passport.js with OIDC (FR-001/002); the management API has no authentication. Services already
+  authenticate with their own credentials (FR-003/005/011).
+- **Differs from the plan:** the stale and attention rules run when the dashboard renders (shared code in
+  `frontend/src/lib/businessLogic.ts`), not as background jobs; nothing needs scheduling so far. Deployment is still
+  manual: every push to `main` releases a version, but no environment deploys it automatically.
+

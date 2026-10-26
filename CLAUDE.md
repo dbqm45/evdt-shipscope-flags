@@ -4,8 +4,9 @@ Guidance for Claude Code and other coding agents working in this repository. It 
 the history is in git and `CHANGELOG.md`. Related documents:
 
 - `README.md` (Polish) — what the app does for users: flags, environments, rules, roles.
-- `context/foundation/prd.md` — product requirements (FR-001…FR-017); `context/foundation/tech-stack.md` — the
-  intended stack (NestJS + PostgreSQL/Prisma + OIDC; OIDC is not built yet).
+- `context/foundation/prd.md` — product requirements (FR-001…FR-017), and `implementation-status.md` — where each
+  stands (keep it in step when a change moves one); `context/foundation/tech-stack.md` — the intended stack
+  (NestJS + PostgreSQL/Prisma + OIDC; OIDC is not built yet).
 - `docs/TODO.md` (Polish) — known gaps and planned fixes, by priority. Check it before "fixing" something that looks
   wrong: it may be a known, deliberately deferred gap.
 - `RELEASING.md` (Polish) — versions, Conventional Commits, the release workflow.

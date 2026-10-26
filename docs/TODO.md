@@ -122,9 +122,9 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 
 ### Dokumentacja
 
-- [ ] `README.md` i `README.pl.md` są oba po polsku i już się różnią (inne przykłady, sekcja o owner/tags/review tylko w `.pl.md`). Zostawić jedno źródło prawdy albo zrobić z `README.md` wersję angielską.
-- [ ] README (§8–9) opisuje uruchomienie tylko frontendu i twierdzi, że zmiany „nie są zapisywane trwale”. Nie wspomina backendu (`npm run start:dev` w katalogu głównym, proxy `/api` w Vite), pliku `data/state.json`, endpointu SDK ani zmiennych środowiskowych. Do zaktualizowania.
+- [x] _(zrobione: jedno `README.md` po polsku, z treścią z `README.pl.md`; wersja angielska — do decyzji)_ `README.md` i `README.pl.md` są oba po polsku i już się różnią (inne przykłady, sekcja o owner/tags/review tylko w `.pl.md`). Zostawić jedno źródło prawdy albo zrobić z `README.md` wersję angielską.
+- [x] _(zrobione: §8 opisuje sam interfejs, interfejs z serwerem i całość w Dockerze; §9 aktualne ograniczenia)_ README (§8–9) opisuje uruchomienie tylko frontendu i twierdzi, że zmiany „nie są zapisywane trwale”. Nie wspomina backendu (`npm run start:dev` w katalogu głównym, proxy `/api` w Vite), pliku `data/state.json`, endpointu SDK ani zmiennych środowiskowych. Do zaktualizowania.
 - [x] _(zrobione: `docs/sdk-api.md`)_ Opisać kontrakt Consumer API dla zespołów serwisów: format odpowiedzi, uwierzytelnianie, zalecany interwał odpytywania ≤ 60 s (FR-013), zachowanie przy błędzie (cache).
 - [x] _(zrobione: `CLAUDE.md`)_ Brak `CLAUDE.md` / `AGENTS.md` z instrukcjami dla agentów: komendy build/test/lint, zasada „nie edytuj `src/flags/shared/*` ręcznie, uruchom `npm run sync:shared`”, struktura monorepo.
-- [ ] `context/foundation/` zawiera dwa warianty PRD (`prd.md` i `shape-notes.md` z innym nazewnictwem: Okta, Slack, „poll”). Oznaczyć, który jest aktualny, i wpisać stan implementacji względem FR (np. tabela FR → status).
-- [ ] `tech-stack.md` deklaruje PostgreSQL + Prisma + Passport/OIDC; PostgreSQL i Prisma już są, OIDC nadal brak. Zaktualizować dokument albo dodać ADR opisujący, że plik JSON to rozwiązanie tymczasowe.
+- [x] _(zrobione: `shape-notes.md` oznaczone jako zastąpione przez `prd.md`; stan FR w `implementation-status.md`)_ `context/foundation/` zawiera dwa warianty PRD (`prd.md` i `shape-notes.md` z innym nazewnictwem: Okta, Slack, „poll”). Oznaczyć, który jest aktualny, i wpisać stan implementacji względem FR (np. tabela FR → status).
+- [x] _(zrobione: sekcja „Status (version 0.6)” w `tech-stack.md`)_ `tech-stack.md` deklaruje PostgreSQL + Prisma + Passport/OIDC; PostgreSQL i Prisma już są, OIDC nadal brak. Zaktualizować dokument albo dodać ADR opisujący, że plik JSON to rozwiązanie tymczasowe.

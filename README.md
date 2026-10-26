@@ -18,7 +18,7 @@ ShipScope Flags ogranicza to ryzyko na trzy sposoby:
 
 ## 3. Podstawowe pojęcia
 
-**Flaga.** Nazwany przełącznik, np. `new-checkout-flow`. Każda flaga ma opis, twórcę oraz stan w każdym ze środowisk.
+**Flaga.** Nazwany przełącznik, np. `b2cCustomersEnabled`. Każda flaga ma opis, twórcę oraz stan w każdym ze środowisk.
 
 **Środowisko.** Osobna kopia systemu, w której funkcja jest sprawdzana na kolejnych etapach. W aplikacji występują trzy środowiska, ułożone od najmniej do najbardziej krytycznego:
 
@@ -37,9 +37,18 @@ Ta sama flaga może być włączona na teście, a jednocześnie wyłączona na p
 
 Różnica ma znaczenie praktyczne: aplikacja wskazuje jako „kandydata do usunięcia” wyłącznie flagi wydaniowe (patrz punkt 5).
 
+**Właściciel, tagi i termin przeglądu.** Każda flaga ma osobę odpowiedzialną („Owner”), dowolne etykiety („Tags”, np. nazwę obszaru: `charger`, `b2c`) oraz opcjonalną datę przeglądu („Review by”). Po przekroczeniu tej daty flaga otrzymuje ostrzeżenie „review overdue”. Dzięki temu każda flaga ma opiekuna i nie zostaje zapomniana.
+
+**Etap życia flagi (Stage).** Aplikacja sama określa, na jakim etapie jest flaga, na podstawie jej stanu w środowiskach:
+
+- **new** – wyłączona wszędzie,
+- **in testing** – włączona na teście lub QA, ale wyłączona na produkcji,
+- **live** – włączona na produkcji,
+- **to clean up** – flaga wydaniowa włączona wszędzie dłużej niż 30 dni; należy ją usunąć.
+
 ## 4. Jak działa flaga – przykład
 
-Załóżmy, że zespół wdraża nowy proces zakupowy o nazwie `new-checkout-flow`.
+Załóżmy, że zespół wdraża obsługę klientów prywatnych, którą steruje flaga `b2cCustomersEnabled`.
 
 1. Programista tworzy flagę w aplikacji. Na początku jest wyłączona we wszystkich środowiskach.
 2. Po wdrożeniu nowego kodu na środowisko testowe flaga zostaje włączona na **Test**. Zespół sprawdza działanie.
@@ -85,17 +94,29 @@ Aby temu zapobiec, dla każdego serwisu w panelu flagi można wskazać sposób o
 
 W panelu flagi znajduje się sekcja „Removing this flag”. Przycisk „Retire flag” jest nieaktywny, dopóki usunięcie flagi mogłoby zmienić zachowanie którejkolwiek aplikacji. Aplikacja wyświetla konkretne powody, np. „w środowisku prod funkcja przełączyłaby się z włączonej na wyłączoną” albo „serwis nadal odczytuje tę flagę z serwera”. Usunięcie jest dozwolone, gdy każdy serwis spełnia jeden z warunków:
 
-- flaga została usunięta z jego kodu (zaznacza się to w polu „Flag has been removed from this service's code”),
+- flaga została usunięta z jego kodu (zaznacza się to pola „Flag has been removed from this service's code”),
 - po usunięciu flagi serwis wróci do wartości z kodu, która jest taka sama jak obecnie.
 
 Dodatkowo żadna inna flaga nie może od usuwanej zależeć.
 
+### 5.6. Rozjazd między serwisami i flagi wymagające uwagi
+
+Serwis, który pobiera flagi własnym poświadczeniem (punkt 8a), zostawia przy każdym zapytaniu „check-in” dla danego środowiska. Na tej podstawie aplikacja oznacza flagę znaczkiem „drift”, gdy któryś z jej serwisów może używać innej wartości niż ta ustawiona na serwerze:
+
+- serwis czyta flagę z serwera, ale od jej ostatniej zmiany w danym środowisku nie pobrał flag z tego środowiska (zmiana sprzed ponad 5 minut, bo serwisy pobierają flagi co najwyżej co minutę),
+- serwis czyta tylko wartość z kodu, a ta różni się od stanu na serwerze.
+
+Środowisko, z którego serwis nigdy nie pobierał flag, nie jest brane pod uwagę, bo serwis może w nim nie działać.
+
+Lista flag jest domyślnie ułożona według tego, co wymaga uwagi („Needs attention first”): najpierw flagi z rozjazdem, potem flagi z wartością z kodu różną od serwera (u serwisów czytających oba źródła), na końcu flagi po terminie przeglądu i kandydaci do usunięcia. Panel flagi wymienia konkretne powody w ramce „Needs attention”. Kolejność „Newest first” przywraca układ od najnowszych.
+
 ## 6. Co można robić w aplikacji
 
-**Lista flag (zakładka „Flags”).** Tabela wszystkich flag z następującymi informacjami: nazwa i opis, typ, stan w każdym środowisku (ON / OFF), kto i kiedy dodał flagę, kto i kiedy ostatnio zmienił jej stan. Listę można przeszukiwać i filtrować według typu.
+**Lista flag (zakładka „Flags”).** Tabela wszystkich flag z następującymi informacjami: nazwa, opis i tagi, typ, etap życia, właściciel, stan w każdym środowisku (ON / OFF), kto i kiedy dodał flagę, kto i kiedy ostatnio zmienił jej stan. Listę można przeszukiwać i filtrować według typu, etapu życia oraz tagu.
 
 **Panel szczegółów flagi.** Po kliknięciu wiersza otwiera się panel boczny, w którym można:
 
+- zmienić właściciela, termin przeglądu i tagi (sekcja „Details”),
 - włączać i wyłączać flagę w poszczególnych środowiskach (o ile pozwalają na to reguły z punktu 5),
 - zobaczyć przypisane serwisy, sposób odczytu flagi i ewentualne rozbieżności wartości,
 - sprawdzić, czy flagę można bezpiecznie usunąć,
@@ -103,23 +124,29 @@ Dodatkowo żadna inna flaga nie może od usuwanej zależeć.
 
 **Tworzenie flag.** Przycisk „Create flag” otwiera formularz z polami: nazwa (klucz), opis, typ, ewentualna flaga wymagana oraz przypisane serwisy.
 
-**Dziennik zmian (zakładka „Audit log”).** Pełna historia zmian: kto, kiedy, jaką flagę i w jakim środowisku zmienił. Dziennik można przeszukiwać i filtrować według rodzaju działania. Wpisuje się do niego także zablokowane próby, np. próbę włączenia flagi na produkcji z pominięciem QA.
+**Serwisy (zakładka „Services”).** Lista serwisów, które odczytują flagi: liczba przypisanych flag, stan poświadczenia (aktywne, w trakcie wymiany, brak), data ostatniej wymiany i ostatni check-in, czyli kiedy serwis ostatnio pobrał swoje flagi. Admin rejestruje tu nowe serwisy oraz wydaje i wymienia poświadczenia (punkt 8a). Nowe poświadczenie jest pokazywane tylko raz, bo serwer przechowuje wyłącznie jego skrót.
+
+**Dziennik zmian (zakładka „Audit log”).** Pełna historia zmian: kto, kiedy, jaką flagę i w jakim środowisku zmienił. Dziennik można przeszukiwać i filtrować według rodzaju działania; z serwerem wyszukiwanie obejmuje całą historię, a starsze wpisy doczytuje przycisk „Load older entries” (po 50). Wpisuje się do niego także zablokowane próby, np. próbę włączenia flagi na produkcji z pominięciem QA.
+
+**Powiadomienia (zakładka „Settings”).** Można podać adres webhooka (zgodny ze Slackiem). Gdy powiadomienia są włączone, każda zmiana flagi na produkcji powoduje wysłanie wiadomości, np. „b2cCustomersEnabled was turned ON in PROD by m.chen”. Wiadomość wysyła serwer, więc dotyczy także zmian wykonanych poza ekranem aplikacji. Przycisk „Send test message” pozwala sprawdzić połączenie. Adres musi zaczynać się od `https://` i nie może wskazywać na adres w sieci wewnętrznej (serwer to sprawdza przy zapisie i przed każdą wysyłką; zmienna `NOTIFY_WEBHOOK_HOSTS` pozwala zawęzić listę dozwolonych hostów lub dopuścić wewnętrzny serwer czatu). Zapisany adres jest poufny, więc aplikacja pokazuje tylko jego początek i koniec.
 
 **Motyw jasny i ciemny.** Przycisk z ikoną księżyca lub słońca w nagłówku przełącza wygląd aplikacji. Wybór jest zapamiętywany w przeglądarce.
 
 ## 7. Role użytkowników
 
-W prawym górnym rogu widoczny jest przełącznik roli. W wersji demonstracyjnej służy on do pokazania, jak aplikacja wygląda dla poszczególnych osób.
+W prawym górnym rogu widoczny jest przełącznik roli. Do czasu wdrożenia logowania (punkt 9) służy on do pokazania, jak aplikacja wygląda dla poszczególnych osób; uprawnienia ról sprawdza na razie tylko interfejs.
 
 | Rola | Uprawnienia |
 | --- | --- |
 | Viewer | Wyłącznie podgląd flag i ich stanu. Nie może niczego zmieniać. |
 | Editor | Może tworzyć flagi, zmieniać ich stan, zmieniać sposób odczytu przez serwisy i usuwać flagi. |
-| Admin | W obecnej wersji uprawnienia takie same jak Editor. |
+| Admin | Uprawnienia jak Editor. Dodatkowo rejestruje serwisy i wydaje lub wymienia ich poświadczenia (zakładka „Services”). |
 
 ## 8. Uruchomienie aplikacji
 
-Wymagane jest zainstalowane środowisko Node.js. Aplikacja znajduje się w katalogu `frontend`.
+Wymagane jest zainstalowane środowisko Node.js. Aplikacja składa się z dwóch części: interfejsu (katalog `frontend`) oraz serwera (katalog główny projektu, NestJS).
+
+**Sam interfejs (tryb demonstracyjny, dane przykładowe):**
 
 ```bash
 cd frontend
@@ -127,16 +154,60 @@ npm install        # tylko przy pierwszym uruchomieniu
 npm run dev        # uruchomienie w trybie deweloperskim
 ```
 
-Po uruchomieniu w terminalu pojawi się adres, zwykle `http://localhost:5173`. Po jego otwarciu należy wybrać przycisk „Continue with single sign-on”. W wersji demonstracyjnej logowanie jest symulowane i nie wymaga żadnych danych.
+**Interfejs wraz z serwerem (dane zapisywane trwale w PostgreSQL):**
 
-Wersję produkcyjną buduje się poleceniem `npm run build`, a jej podgląd uruchamia `npm run preview`.
+```bash
+# terminal 1 – baza danych i serwer, w katalogu głównym projektu (wymaga Dockera)
+cp .env.example .env      # tylko przy pierwszym uruchomieniu
+docker compose up -d db   # PostgreSQL
+npm install               # tylko przy pierwszym uruchomieniu
+npm run db:deploy         # tworzy tabele (migracje)
+npm run build && npm run db:seed   # opcjonalnie: dane przykładowe, tylko do pustej bazy
+npm run start:dev         # nasłuchuje na porcie 3000
+
+# terminal 2 – interfejs
+cd frontend
+npm run dev        # zapytania /api są automatycznie kierowane do serwera
+```
+
+**Całość w Dockerze (baza, migracje z danymi przykładowymi, serwer i interfejs):**
+
+```bash
+docker compose up --build -d   # interfejs pod http://localhost:8080
+docker compose down            # zatrzymanie; z opcją -v usuwa też bazę
+```
+
+Bez Dockera, po uruchomieniu w terminalu pojawi się adres interfejsu, zwykle `http://localhost:5173`. Po jego otwarciu należy wybrać przycisk „Continue with single sign-on”. W wersji demonstracyjnej logowanie jest symulowane i nie wymaga żadnych danych.
+
+Wersję produkcyjną interfejsu buduje się poleceniem `npm run build` w katalogu `frontend`, a serwer poleceniem `npm run build` w katalogu głównym.
+
+## 8a. Odczyt flag przez inne aplikacje (API)
+
+Serwer udostępnia adres, z którego aplikacje (serwisy) mogą pobierać aktualny stan flag:
+
+```
+GET /api/v1/sdk/flags?env=prod
+Authorization: Bearer <poświadczenie serwisu>
+```
+
+Odpowiedź ma postać: `{ "env": "prod", "flags": { "allowEvseNameEdit": true, "b2cCustomersEnabled": false } }` i zawiera tylko flagi przypisane do serwisu, który wysłał zapytanie. Każdy serwis ma własne poświadczenie. Admin rejestruje serwis i wydaje lub wymienia jego poświadczenie w zakładce „Services”; poświadczenie jest pokazywane tylko raz. Po wymianie stare poświadczenie działa jeszcze przez 24 godziny, a „Revoke & reissue” unieważnia je od razu (np. po wycieku). Każde zapytanie serwisu jest zapisywane jako jego „check-in”, widoczny w tej samej zakładce.
+
+Pełny opis kontraktu, kodów błędów i zalecanego zachowania klienta (pamięć podręczna, praca przy niedostępnym serwerze) jest w pliku `docs/sdk-api.md`. Serwisy w Node.js mogą użyć gotowego klienta z katalogu `sdk/` (opis w `sdk/README.md`). Wspólny token `SDK_TOKEN` z wersji 0.3 nadal działa, ale jest przestarzały.
+
+Serwer przechowuje dane w bazie PostgreSQL wskazanej zmienną `DATABASE_URL`. Dane z pliku `data/state.json` używanego przez wersje przed 0.2.0 można przenieść do pustej bazy poleceniem `npm run db:import -- data/state.json`. Zasady opisane w punkcie 5 są egzekwowane także po stronie serwera, więc nie da się ich ominąć wywołaniem API. Domyślny adres webhooka powiadomień można podać zmienną `NOTIFY_WEBHOOK_URL`.
+
+Adres `GET /api/health` pozwala sprawdzić, czy serwer działa i ma połączenie z bazą (odpowiedź 200, a przy niedostępnej bazie 503). Serwer ogranicza liczbę zapytań z jednego adresu: domyślnie 300 na minutę do API zarządzania i 600 na minutę do odczytu flag przez serwisy (zmienne `RATE_LIMIT_PER_MINUTE` i `RATE_LIMIT_SDK_PER_MINUTE`). Po przekroczeniu limitu odpowiada kodem 429 z nagłówkiem `Retry-After`. Gdy serwer stoi za serwerem pośredniczącym (np. nginx), zmienna `TRUST_PROXY` wskazuje, któremu ufać przy ustalaniu adresu klienta.
 
 ## 9. Ograniczenia obecnej wersji
 
-- Aplikacja korzysta z **danych przykładowych** (plik `frontend/src/data/mock.ts`). Próbuje połączyć się z serwerem pod adresem `/api`, a gdy ten nie odpowiada, używa danych przykładowych. Zmiany wykonywane w interfejsie nie są zapisywane trwale i znikają po odświeżeniu strony.
-- **Usunięcie flagi** („Retire flag”) usuwa ją z ShipScope Flags, także z odpowiedzi `GET /api/sdk/flags`. Usunięcie odwołań w kodzie serwisów pozostaje po stronie zespołu.
+- Bez uruchomionego serwera aplikacja korzysta z **danych przykładowych** (plik `frontend/src/data/mock.ts`), a zmiany znikają po odświeżeniu strony. Z serwerem zapisywane są wszystkie zmiany: stan flag na środowiskach, tworzenie, edycja szczegółów i sposobu odczytu, usuwanie flag, ustawienia powiadomień i dziennik zmian. Gdy serwer odrzuci zmianę (np. z powodu zasad z punktu 5), aplikacja pokazuje powód i nie zmienia stanu.
+- Serwer nie ma jeszcze uwierzytelniania użytkowników (uwierzytelniane są tylko serwisy odczytujące flagi); nie należy wystawiać go poza zaufaną sieć.
+- Pliki `src/flags/shared/*` są kopiami reguł i danych z interfejsu. Powstają poleceniem `npm run sync:shared` (uruchamianym automatycznie przed `npm run build`).
+- Role (Viewer, Editor, Admin) wybiera się przełącznikiem w interfejsie, a autora zmiany w dzienniku podaje interfejs. Serwer nie sprawdza jeszcze, kto wywołuje API zarządzania.
+- Poświadczeń serwisów nie da się wydać w trybie demonstracyjnym, bo wydaje je serwer.
+- **Usunięcie flagi** („Retire flag”) usuwa ją z ShipScope Flags, także z odpowiedzi `GET /api/v1/sdk/flags`. Usunięcie odwołań w kodzie serwisów pozostaje po stronie zespołu.
 - **Wartości z kodu** (build-time) są wprowadzane ręcznie, ponieważ aplikacja nie ma wglądu w kod serwisów. Wymagają one aktualizacji przy zmianach w kodzie.
-- Logowanie jednokrotne (SSO) jest w tej wersji tylko odwzorowane wizualnie.
+- Logowanie jednokrotne (SSO) jest w tej wersji tylko odwzorowane wizualnie: ekran logowania niczego nie sprawdza.
 
 ## 10. Słowniczek
 
@@ -151,3 +222,5 @@ Wersję produkcyjną buduje się poleceniem `npm run build`, a jej podgląd uruc
 | Runtime | Odczyt wartości flagi z serwera w trakcie działania aplikacji. |
 | Build-time | Wartość flagi zapisana w kodzie w chwili budowania aplikacji. |
 | Dziennik zmian (audit log) | Rejestr wszystkich zmian wraz z autorem i datą. |
+| Webhook | Adres, pod który aplikacja wysyła wiadomość, np. do Slacka, gdy zdarzy się zmiana. |
+| API | Sposób, w jaki jedna aplikacja komputerowo pobiera dane z innej. |
