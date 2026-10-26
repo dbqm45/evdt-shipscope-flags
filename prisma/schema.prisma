@@ -1,0 +1,121 @@
+// Database schema of the API. The shapes the API returns (frontend/src/types.ts) are built from these tables in
+// src/flags/flag-mapper.ts; change both together. Migrations: npm run db:migrate (dev) / npm run db:deploy.
+
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  moduleFormat           = "esm"
+  importFileExtension    = "js"
+  runtime                = "nodejs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum FlagType {
+  release
+  feature
+}
+
+enum Environment {
+  test
+  qa
+  prod
+}
+
+enum ReadMode {
+  build_time @map("build-time")
+  runtime
+  both
+}
+
+enum CredentialStatus {
+  active
+  rotating
+}
+
+model Service {
+  id                    String           @id
+  /// Registration order: the API lists services as they were registered.
+  seq                   Int              @unique @default(autoincrement())
+  key                   String           @unique
+  name                  String
+  registeredAt          DateTime         @db.Timestamptz(3)
+  registeredBy          String
+  credentialStatus      CredentialStatus
+  credentialLastRotated DateTime         @db.Timestamptz(3)
+  lastCheckInAt         DateTime         @db.Timestamptz(3)
+  bindings              FlagServiceBinding[]
+}
+
+model Flag {
+  id           String               @id
+  /// Insertion order: the API lists flags newest first, as the dashboard shows them.
+  seq          Int                  @unique @default(autoincrement())
+  key          String               @unique
+  description  String
+  type         FlagType
+  createdAt    DateTime             @db.Timestamptz(3)
+  createdBy    String
+  /// Key of the flag that must already be ON in an environment before this one can be enabled there.
+  dependsOn    String?
+  owner        String?
+  reviewBy     DateTime?            @db.Timestamptz(3)
+  tags         String[]
+  environments FlagEnvironment[]
+  services     FlagServiceBinding[]
+}
+
+model FlagEnvironment {
+  flagId      String
+  environment Environment
+  enabled     Boolean
+  updatedAt   DateTime    @db.Timestamptz(3)
+  updatedBy   String
+  flag        Flag        @relation(fields: [flagId], references: [id], onDelete: Cascade)
+
+  @@id([flagId, environment])
+}
+
+model FlagServiceBinding {
+  flagId          String
+  serviceId       String
+  /// Position of the service in the flag's list, as it was assigned.
+  position        Int
+  readMode        ReadMode
+  lastCheckInAt   DateTime @db.Timestamptz(3)
+  driftSuspected  Boolean
+  /// Value baked into the service's code per environment ({ "test": true, ... }); null = not recorded yet.
+  buildTimeValues Json?
+  removedFromCode Boolean?
+  flag            Flag     @relation(fields: [flagId], references: [id], onDelete: Cascade)
+  service         Service  @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@id([flagId, serviceId])
+}
+
+/// Append-only history. Keys are copied, not referenced, so entries outlive retired flags and services.
+model AuditLogEntry {
+  id          String       @id
+  seq         Int          @unique @default(autoincrement())
+  timestamp   DateTime     @db.Timestamptz(3)
+  actor       String
+  action      String
+  flagKey     String?
+  serviceKey  String?
+  environment Environment?
+  from        String?
+  to          String?
+  note        String?
+
+  @@index([timestamp])
+  @@index([flagKey])
+}
+
+/// One row (id = 1): prod change notifications.
+model NotificationSettings {
+  id         Int     @id @default(1)
+  enabled    Boolean
+  webhookUrl String
+}

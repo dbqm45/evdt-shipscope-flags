@@ -1,13 +1,12 @@
-# Local stack: PostgreSQL, the API and the dashboard.
+# Local stack: PostgreSQL, the migrations, the API and the dashboard.
 #   docker compose up --build -d     → dashboard on http://localhost:8080 (the API is behind it under /api)
-#   docker compose down              # keeps the data volumes; add -v to delete them
+#   docker compose up -d db          # only the database, for `npm run start:dev` and the backend tests
+#   docker compose down              # keeps the data volume; add -v to delete it
 # Values come from ./.env when it exists (see .env.example); the defaults below are for local use only.
-#
-# The API does not use PostgreSQL yet: it keeps its state in a JSON file in the flags-data volume. The database is
-# here for the planned move to PostgreSQL + Prisma (context/foundation/tech-stack.md, docs/TODO.md); the API already
-# receives DATABASE_URL for it.
 
 name: shipscope-flags
+
+x-database-url: &database-url postgres://${POSTGRES_USER:-shipscope}:${POSTGRES_PASSWORD:-shipscope}@db:5432/${POSTGRES_DB:-shipscope_flags}
 
 services:
   db:
@@ -18,7 +17,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-shipscope_flags}
     volumes:
       - pg-data:/var/lib/postgresql/data
-    # Published on localhost only, for local tools (psql, Prisma migrations run from the host).
+      # Creates the test database (TEST_DATABASE_URL) next to the main one when the volume is first initialised.
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    # Published on localhost only, for local tools (psql, the API and tests run from the host).
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     healthcheck:
@@ -28,19 +29,30 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # One-shot: applies the Prisma migrations, then loads the demo data into an empty database (SEED_DEMO_DATA).
+  migrate:
+    build:
+      context: .
+      target: migrate
+    environment:
+      DATABASE_URL: *database-url
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
   api:
     build:
       context: .
       target: api
     environment:
+      DATABASE_URL: *database-url
       SDK_TOKEN: ${SDK_TOKEN:-}
       NOTIFY_WEBHOOK_URL: ${NOTIFY_WEBHOOK_URL:-}
-      DATABASE_URL: postgres://${POSTGRES_USER:-shipscope}:${POSTGRES_PASSWORD:-shipscope}@db:5432/${POSTGRES_DB:-shipscope_flags}
-    volumes:
-      - flags-data:/app/data
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   web:
@@ -56,4 +68,3 @@ services:
 
 volumes:
   pg-data:
-  flags-data:

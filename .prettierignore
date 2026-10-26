@@ -1,3 +1,5 @@
 # Generated or not covered by the formatter
 package-lock.json
 *.md
+src/generated/
+prisma/migrations/

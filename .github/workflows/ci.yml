@@ -47,6 +47,23 @@ jobs:
     if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # The service and e2e tests run against a real PostgreSQL; the test setup applies the migrations to it.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: shipscope
+          POSTGRES_PASSWORD: shipscope
+          POSTGRES_DB: shipscope_flags_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://shipscope:shipscope@localhost:5432/shipscope_flags_test
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -56,6 +73,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: package-lock.json
+      # Also generates the Prisma Client (postinstall).
       - run: npm ci
       - name: Check formatting (whole repo)
         run: npm run format:check
@@ -70,6 +88,15 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run test:e2e
+      # The tests migrated the database above; a schema change without its migration shows up as a difference.
+      - name: Check prisma/migrations matches prisma/schema.prisma
+        env:
+          DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+        run: |
+          npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code || {
+            echo "::error::prisma/schema.prisma has changes without a migration. Run 'npm run db:migrate -- --name <change>' and commit it."
+            exit 1
+          }
       - name: Release tooling tests
         run: npm run test:scripts
       - run: npm run build

@@ -5,7 +5,7 @@ the history is in git and `CHANGELOG.md`. Related documents:
 
 - `README.md` (Polish) — what the app does for users: flags, environments, rules, roles.
 - `context/foundation/prd.md` — product requirements (FR-001…FR-017); `context/foundation/tech-stack.md` — the
-  intended stack (NestJS + PostgreSQL/Prisma + OIDC; only NestJS exists so far).
+  intended stack (NestJS + PostgreSQL/Prisma + OIDC; OIDC is not built yet).
 - `docs/TODO.md` (Polish) — known gaps and planned fixes, by priority. Check it before "fixing" something that looks
   wrong: it may be a known, deliberately deferred gap.
 - `RELEASING.md` (Polish) — versions, Conventional Commits, the release workflow.
@@ -18,9 +18,9 @@ flag is removed in a way that would silently change a service's behaviour.
 
 Two packages, one version:
 
-- **API** — NestJS 12 in `src/` (root `package.json`), served under `/api`. State lives in a JSON file
-  (`FLAGS_DATA_FILE`, default `data/state.json`, gitignored), created from seed data on first start. There is no
-  database and **no authentication** on the management API yet (see `docs/TODO.md`, P0).
+- **API** — NestJS 12 in `src/` (root `package.json`), served under `/api`. State lives in PostgreSQL
+  through Prisma 7 (`prisma/schema.prisma`, `DATABASE_URL`); demo data is loaded only on request (`npm run db:seed`).
+  There is **no authentication** on the management API yet (see `docs/TODO.md`, P0).
 - **Dashboard** — React 19 + Vite 8 + Tailwind 4 in `frontend/` (own `package.json`). `frontend/src/api/client.ts`
   calls the API and falls back to the fixture data in `frontend/src/data/mock.ts` whenever a request fails, so the UI
   also runs without the API. Many UI actions (create flag, edit bindings or metadata, retire) only change browser
@@ -28,14 +28,16 @@ Two packages, one version:
 
 ## Run it locally
 
+- Database: `docker compose up -d db` (PostgreSQL on `127.0.0.1:5432`, plus the test database), then
+  `npm run db:deploy` (migrations) and, after `npm run build`, `npm run db:seed` (demo data into an empty database).
 - API: `npm ci && npm run start:dev` in the repository root → `http://localhost:3000/api`.
 - Dashboard: `cd frontend && npm ci && npm run dev` → `http://localhost:5173`; Vite proxies `/api` to port 3000.
 - Environment: copy `.env.example` to `.env` (the start scripts load it with `node --env-file-if-exists`) and
   `frontend/.env.example` to `frontend/.env`. Never commit a real `.env`.
 - Whole stack in Docker: `docker compose up --build -d` → dashboard on `http://localhost:8080` (nginx serves the
-  build and proxies `/api` to the API container), PostgreSQL on `127.0.0.1:5432`. `docker compose down -v` also
-  deletes the data volumes. The API gets `DATABASE_URL` but does not use PostgreSQL yet (still the JSON file, in the
-  `flags-data` volume).
+  build and proxies `/api` to the API container), PostgreSQL on `127.0.0.1:5432`. A one-shot `migrate` service applies the
+  migrations and loads the demo data into an empty database (`SEED_DEMO_DATA`). `docker compose down -v` also deletes
+  the database volume.
 - Node: see `engines` in both `package.json` files (backend `^22.22.3 || ^24.15.0 || >=26.0.0`).
 
 ## Layout
@@ -44,14 +46,18 @@ Two packages, one version:
 | --------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `src/main.ts`, `src/app.module.ts`                  | Nest bootstrap; global prefix `api`                                                          |
 | `src/flags/flags.controller.ts`                     | management routes (`/flags`, `/services`, `/audit-log`, `/settings/notifications`) and the consumer route `GET /sdk/flags` |
-| `src/flags/flags.service.ts`                        | state, persistence to the JSON file, rule checks, audit entries, webhook notifications       |
+| `src/flags/flags.service.ts`                        | reads and changes state in PostgreSQL, rule checks, audit entries, webhook notifications     |
+| `src/flags/flag-mapper.ts`                          | database rows ↔ the API shapes from `shared/types.ts`                                        |
+| `prisma/schema.prisma`, `prisma/migrations/`        | database schema and its migrations; `prisma.config.ts` configures the CLI                    |
+| `src/prisma/prisma.service.ts`                      | `PrismaService` (global Nest module); the client is generated into `src/generated/` (gitignored) |
+| `src/db/load-state.ts`                              | loads demo data or an old `data/state.json` into an empty database (`db:seed`, `db:import`)  |
 | `src/flags/shared/`                                 | **generated** copies of frontend files (see Hard rules)                                      |
 | `frontend/src/types.ts`                             | domain types shared by both packages                                                          |
 | `frontend/src/lib/businessLogic.ts`                 | the business rules (promotion order, dependencies, stale detection, build-time checks, retirement) |
 | `frontend/src/state/store.tsx`                      | client state and actions (React context)                                                     |
 | `scripts/`                                          | tooling only: `sync-shared.mjs`, release scripts and their `node:test` tests                 |
 | `.github/workflows/`                                | `ci.yml` (PRs, and verify step of releases), `release.yml` (every push to `main`)            |
-| `Dockerfile`, `docker-compose.yml`, `docker/`       | images `api` (Nest, prod deps only, user `node`) and `web` (nginx); compose adds PostgreSQL; CI builds and smoke-tests them |
+| `Dockerfile`, `docker-compose.yml`, `docker/`       | images `api` (Nest, prod deps only, user `node`), `migrate` and `web` (nginx); compose adds PostgreSQL; CI builds and smoke-tests them |
 
 ## Hard rules
 
@@ -65,6 +71,12 @@ Two packages, one version:
   and imports without extensions.
 - **Do not change the consumer contract casually.** `GET /api/sdk/flags?env=…&service=…` → `{ env, flags: { key: bool } }`
   is what services integrate against (PRD FR-011). A breaking change needs a `!` commit (see Commits).
+- **Every schema change ships with its migration**: edit `prisma/schema.prisma`, run
+  `npm run db:migrate -- --name <change>`, commit both; CI fails on a schema without its migration. Keep
+  `flag-mapper.ts` in step, so the API keeps returning the shapes in `shared/types.ts`. Never edit an applied
+  migration.
+- **Flag state changes go through `FlagsService.setEnvironment`**: it takes a transaction-scoped advisory lock, so
+  the rules (which read all flags) never see a half-applied concurrent change.
 - No new npm dependency without a reason stated in the commit body; runtime dependencies are audited in CI.
 
 ## Checks (run before committing)
@@ -76,8 +88,8 @@ npm run format:check   # Prettier over the whole repo (both packages, configs, w
 npm run sync:shared && git diff --exit-code -- src/flags/shared
 npm run lint           # oxlint --type-aware on src/ and test/
 npm run typecheck      # tsc --noEmit on src/ and test/
-npm test               # vitest unit tests (src/**/*.spec.ts)
-npm run test:e2e       # vitest e2e tests (test/**/*.e2e-spec.ts)
+npm test               # vitest unit tests (src/**/*.spec.ts), service tests against TEST_DATABASE_URL
+npm run test:e2e       # vitest e2e tests (test/**/*.e2e-spec.ts), against TEST_DATABASE_URL
 npm run test:scripts   # node:test for scripts/
 npm run build
 ```
@@ -93,6 +105,8 @@ type-checks the tests). `npm run format` fixes formatting; `.editorconfig` cover
   cannot say why.
 - Backend tests use Vitest with globals (`describe`, `it`, `expect`) and `@nestjs/testing`; script tests use
   `node:test` + `node:assert/strict`.
+- Database tests use only `TEST_DATABASE_URL` (never `DATABASE_URL`: they truncate every table). `test/global-setup.ts`
+  applies the migrations to it; `test/db.ts` gives `testPrisma()` and `resetDatabase()`. Test files run one at a time.
 - Frontend tests use Vitest (jsdom, React Testing Library) with explicit imports from `vitest`, next to the code as
   `*.test.ts(x)` — never `*.spec.ts`, which the backend's Vitest collects across the whole repo. Build data with
   `frontend/src/test/factories.ts` and pin the clock (`vi.setSystemTime`) for date rules; mock `../api/client` in

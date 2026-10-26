@@ -1,6 +1,6 @@
 # Repository Guidelines
 
-ShipScope Flags is a feature-flag management pilot: a NestJS API in `src/` (state in a JSON file, served under `/api`)
+ShipScope Flags is a feature-flag management pilot: a NestJS API in `src/` (state in PostgreSQL through Prisma, served under `/api`)
 and a React + Vite dashboard in `frontend/` (its own `package.json`), released together under one version. Product
 scope: `@context/foundation/prd.md`; known gaps: `@docs/TODO.md`. Full depth lives in `@CLAUDE.md`.
 
@@ -23,8 +23,10 @@ scope: `@context/foundation/prd.md`; known gaps: `@docs/TODO.md`. Full depth liv
 ## Build, test, and development
 
 - API: `npm ci && npm run start:dev` (port 3000). Dashboard: `cd frontend && npm ci && npm run dev` (proxies `/api`).
-- Docker: `docker compose up --build -d` runs PostgreSQL, the API and the dashboard (`http://localhost:8080`). The API
-  does not use PostgreSQL yet.
+- Docker: `docker compose up --build -d` runs PostgreSQL, the migrations (with demo data), the API and the dashboard
+  (`http://localhost:8080`); `docker compose up -d db` starts only the database.
+- Database: schema in `prisma/schema.prisma`; every change ships with a migration (`npm run db:migrate -- --name …`).
+  Backend tests need `TEST_DATABASE_URL` (see `.env.example`) and truncate that database.
 - Before committing: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:e2e`,
   `npm run test:scripts`, `npm run build`, and in `frontend/`: `npm run lint && npm test && npm run build`.
 

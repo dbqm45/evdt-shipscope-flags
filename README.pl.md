@@ -141,12 +141,16 @@ npm install        # tylko przy pierwszym uruchomieniu
 npm run dev        # uruchomienie w trybie deweloperskim
 ```
 
-**Interfejs wraz z serwerem (dane zapisywane trwale):**
+**Interfejs wraz z serwerem (dane zapisywane trwale w PostgreSQL):**
 
 ```bash
-# terminal 1 – serwer, w katalogu głównym projektu
-npm install        # tylko przy pierwszym uruchomieniu
-npm run start:dev  # nasłuchuje na porcie 3000
+# terminal 1 – baza danych i serwer, w katalogu głównym projektu (wymaga Dockera)
+cp .env.example .env      # tylko przy pierwszym uruchomieniu
+docker compose up -d db   # PostgreSQL
+npm install               # tylko przy pierwszym uruchomieniu
+npm run db:deploy         # tworzy tabele (migracje)
+npm run build && npm run db:seed   # opcjonalnie: dane przykładowe, tylko do pustej bazy
+npm run start:dev         # nasłuchuje na porcie 3000
 
 # terminal 2 – interfejs
 cd frontend
@@ -167,7 +171,7 @@ GET /api/sdk/flags?env=prod&service=evam-service-host
 
 Odpowiedź ma postać: `{ "env": "prod", "flags": { "allowEvseNameEdit": true, "b2cCustomersEnabled": false } }`. Parametr `service` jest opcjonalny i ogranicza wynik do flag przypisanych do danego serwisu. Jeżeli w środowisku serwera ustawiona jest zmienna `SDK_TOKEN`, każde zapytanie musi zawierać nagłówek `Authorization: Bearer <wartość>`.
 
-Serwer przechowuje dane w pliku `data/state.json` (lokalizację można zmienić zmienną `FLAGS_DATA_FILE`). Zasady opisane w punkcie 5 są egzekwowane także po stronie serwera, więc nie da się ich ominąć wywołaniem API. Domyślny adres webhooka powiadomień można podać zmienną `NOTIFY_WEBHOOK_URL`.
+Serwer przechowuje dane w bazie PostgreSQL wskazanej zmienną `DATABASE_URL`. Dane z pliku `data/state.json` używanego przez wersje przed 0.2.0 można przenieść do pustej bazy poleceniem `npm run db:import -- data/state.json`. Zasady opisane w punkcie 5 są egzekwowane także po stronie serwera, więc nie da się ich ominąć wywołaniem API. Domyślny adres webhooka powiadomień można podać zmienną `NOTIFY_WEBHOOK_URL`.
 
 ## 9. Ograniczenia obecnej wersji
 

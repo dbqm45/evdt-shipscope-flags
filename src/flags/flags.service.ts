@@ -1,8 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import type { Prisma } from "../generated/prisma/client.js";
+import { PrismaService } from "../prisma/prisma.service.js";
+import { FLAG_INCLUDE, toAuditEntry, toFlag, toService } from "./flag-mapper.js";
 import { canDisable, canEnable } from "./shared/rules.js";
-import { auditLog as seedAudit, flags as seedFlags, services as seedServices } from "./shared/seed.js";
 import { ENVIRONMENTS, type AuditLogEntry, type Environment, type Flag, type Service } from "./shared/types.js";
 
 export interface NotificationSettings {
@@ -11,106 +11,93 @@ export interface NotificationSettings {
   webhookUrl: string;
 }
 
-interface State {
-  flags: Flag[];
-  services: Service[];
-  auditLog: AuditLogEntry[];
-  notifications: NotificationSettings;
+type Db = PrismaService | Prisma.TransactionClient;
+
+/** Serializes every flag state change: the rules read all flags, so two concurrent toggles must not interleave. */
+const STATE_LOCK = 4_242_001;
+
+export function newAuditId(): string {
+  return `srv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
 @Injectable()
 export class FlagsService {
   private readonly logger = new Logger(FlagsService.name);
-  private readonly file = process.env.FLAGS_DATA_FILE ?? "data/state.json";
-  private state: State = this.load();
 
-  private load(): State {
-    if (existsSync(this.file)) {
-      try {
-        return JSON.parse(readFileSync(this.file, "utf8")) as State;
-      } catch (err) {
-        this.logger.warn(`Could not read ${this.file} (${(err as Error).message}); starting from seed data.`);
-      }
-    }
-    return {
-      flags: structuredClone(seedFlags),
-      services: structuredClone(seedServices),
-      auditLog: structuredClone(seedAudit),
-      notifications: { enabled: false, webhookUrl: process.env.NOTIFY_WEBHOOK_URL ?? "" },
-    };
+  constructor(private readonly prisma: PrismaService) {}
+
+  async listFlags(db: Db = this.prisma): Promise<Flag[]> {
+    const rows = await db.flag.findMany({ include: FLAG_INCLUDE, orderBy: { seq: "desc" } });
+    return rows.map(toFlag);
   }
 
-  private save(): void {
-    try {
-      mkdirSync(dirname(this.file), { recursive: true });
-      writeFileSync(this.file, JSON.stringify(this.state, null, 2));
-    } catch (err) {
-      this.logger.warn(`Could not persist state to ${this.file}: ${(err as Error).message}`);
-    }
+  async listServices(): Promise<Service[]> {
+    const rows = await this.prisma.service.findMany({ orderBy: { seq: "asc" } });
+    return rows.map(toService);
   }
 
-  listFlags(): Flag[] {
-    return this.state.flags;
-  }
-
-  listServices(): Service[] {
-    return this.state.services;
-  }
-
-  listAuditLog(): AuditLogEntry[] {
-    return this.state.auditLog;
+  async listAuditLog(): Promise<AuditLogEntry[]> {
+    const rows = await this.prisma.auditLogEntry.findMany({ orderBy: [{ timestamp: "desc" }, { seq: "desc" }] });
+    return rows.map(toAuditEntry);
   }
 
   /** Consumer view: `{ flagKey: boolean }` for one environment, optionally only flags bound to a service. */
-  evaluate(env: Environment, serviceKey?: string): Record<string, boolean> {
-    const service = serviceKey ? this.state.services.find((s) => s.key === serviceKey) : undefined;
+  async evaluate(env: Environment, serviceKey?: string): Promise<Record<string, boolean>> {
+    const service = serviceKey ? await this.prisma.service.findUnique({ where: { key: serviceKey } }) : null;
     if (serviceKey && !service) throw new NotFoundException(`Unknown service "${serviceKey}".`);
-    const result: Record<string, boolean> = {};
-    for (const flag of this.state.flags) {
-      if (service && !flag.services.some((b) => b.serviceId === service.id)) continue;
-      result[flag.key] = flag.environments[env].enabled;
-    }
-    return result;
+    const rows = await this.prisma.flag.findMany({
+      where: service ? { services: { some: { serviceId: service.id } } } : undefined,
+      select: { key: true, environments: { where: { environment: env }, select: { enabled: true } } },
+      orderBy: { seq: "desc" },
+    });
+    return Object.fromEntries(rows.map((f) => [f.key, f.environments[0]?.enabled ?? false]));
   }
 
   async setEnvironment(flagKey: string, env: Environment, enabled: boolean, actor: string): Promise<Flag> {
-    const flag = this.state.flags.find((f) => f.key === flagKey);
-    if (!flag) throw new NotFoundException(`Flag "${flagKey}" not found.`);
-    const current = flag.environments[env].enabled;
-    if (current === enabled) return flag;
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(${STATE_LOCK})::text`;
+      const flags = await this.listFlags(tx);
+      const flag = flags.find((f) => f.key === flagKey);
+      if (!flag) throw new NotFoundException(`Flag "${flagKey}" not found.`);
+      const current = flag.environments[env].enabled;
+      if (current === enabled) return { flag };
 
-    const check = enabled ? canEnable(flag, env, this.state.flags) : canDisable(flag, env, this.state.flags);
-    if (!check.allowed) {
-      this.audit({ actor, action: "promotion-blocked", flagKey, environment: env, note: check.reason });
-      this.save();
-      throw new ConflictException(check.reason);
-    }
+      const check = enabled ? canEnable(flag, env, flags) : canDisable(flag, env, flags);
+      if (!check.allowed) {
+        // Committed although the request fails: blocked attempts belong in the audit log too.
+        await this.audit(tx, { actor, action: "promotion-blocked", flagKey, environment: env, note: check.reason });
+        return { flag, blocked: check.reason };
+      }
 
-    flag.environments[env] = { enabled, updatedAt: new Date().toISOString(), updatedBy: actor };
-    this.audit({
-      actor,
-      action: enabled ? "env-enabled" : "env-disabled",
-      flagKey,
-      environment: env,
-      from: current ? "on" : "off",
-      to: enabled ? "on" : "off",
+      const state = { enabled, updatedAt: new Date().toISOString(), updatedBy: actor };
+      await tx.flagEnvironment.update({ where: { flagId_environment: { flagId: flag.id, environment: env } }, data: state });
+      await this.audit(tx, {
+        actor,
+        action: enabled ? "env-enabled" : "env-disabled",
+        flagKey,
+        environment: env,
+        from: current ? "on" : "off",
+        to: enabled ? "on" : "off",
+      });
+      return { flag: { ...flag, environments: { ...flag.environments, [env]: state } }, changed: true };
     });
-    this.save();
-    if (env === "prod") void this.notify(`:rotating_light: *${flagKey}* was turned *${enabled ? "ON" : "OFF"}* in *PROD* by ${actor}`);
-    return flag;
+
+    if (result.blocked) throw new ConflictException(result.blocked);
+    if (result.changed && env === "prod") void this.notify(`:rotating_light: *${flagKey}* was turned *${enabled ? "ON" : "OFF"}* in *PROD* by ${actor}`);
+    return result.flag;
   }
 
-  getNotifications(): NotificationSettings {
-    return this.state.notifications;
+  async getNotifications(): Promise<NotificationSettings> {
+    const row = await this.prisma.notificationSettings.findUnique({ where: { id: 1 } });
+    return row ? { enabled: row.enabled, webhookUrl: row.webhookUrl } : { enabled: false, webhookUrl: process.env.NOTIFY_WEBHOOK_URL ?? "" };
   }
 
-  setNotifications(input: Partial<NotificationSettings>): NotificationSettings {
-    const next = { ...this.state.notifications, ...input };
+  async setNotifications(input: Partial<NotificationSettings>): Promise<NotificationSettings> {
+    const next = { ...(await this.getNotifications()), ...input };
     if (next.enabled && !/^https?:\/\//.test(next.webhookUrl)) {
       throw new BadRequestException("A valid http(s) webhook URL is required to enable notifications.");
     }
-    this.state.notifications = next;
-    this.save();
+    await this.prisma.notificationSettings.upsert({ where: { id: 1 }, create: { id: 1, ...next }, update: next });
     return next;
   }
 
@@ -119,7 +106,7 @@ export class FlagsService {
   }
 
   private async notify(text: string, force = false): Promise<{ ok: boolean; error?: string }> {
-    const { enabled, webhookUrl } = this.state.notifications;
+    const { enabled, webhookUrl } = await this.getNotifications();
     if (!force && !enabled) return { ok: false, error: "disabled" };
     if (!webhookUrl) return { ok: false, error: "no webhook URL" };
     try {
@@ -137,8 +124,8 @@ export class FlagsService {
     }
   }
 
-  private audit(entry: Omit<AuditLogEntry, "id" | "timestamp">): void {
-    this.state.auditLog.unshift({ ...entry, id: `srv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, timestamp: new Date().toISOString() });
+  private async audit(db: Db, entry: Omit<AuditLogEntry, "id" | "timestamp">): Promise<void> {
+    await db.auditLogEntry.create({ data: { ...entry, id: newAuditId(), timestamp: new Date().toISOString() } });
   }
 }
 

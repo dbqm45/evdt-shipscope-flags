@@ -17,7 +17,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 | Lint (oxlint) | ✅ backend czysto; frontend 2 ostrzeżenia `react(only-export-components)` |
 | Audyt zależności | ⚠️ `npm audit` nie dał wyniku w tym środowisku (brak dostępu do rejestru). Log bootstrapu odnotował 2 HIGH (`tmp`, `undici`) — oba przechodnie, w narzędziach Nest CLI |
 | CI/CD | ✅ GitHub Actions: `.github/workflows/ci.yml` (format, sync, lint, typecheck, testy, build, audyt) |
-| Persystencja | ⚠️ plik JSON (`data/state.json`), a nie PostgreSQL + Prisma z `tech-stack.md` |
+| Persystencja | ✅ PostgreSQL + Prisma 7 (migracje w `prisma/migrations/`, testy na prawdziwej bazie) |
 | Uwierzytelnianie i autoryzacja | ❌ tylko symulacja w UI; API nie ma żadnej kontroli dostępu |
 
 ---
@@ -69,11 +69,11 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 
 ### Backend — persystencja i odporność
 
-- [ ] **Stan w pliku JSON zamiast bazy danych.** `FlagsService` czyta `data/state.json` raz przy starcie i nadpisuje cały plik synchronicznie przy każdej zmianie. Brakuje transakcji, zapisu atomowego (write-to-temp + rename) i obsługi wielu instancji, a zapis pliku nie jest możliwy przy NFR 99,9% / skalowaniu poziomym. `tech-stack.md` zakłada PostgreSQL + Prisma.
+- [x] _(zrobione: PostgreSQL + Prisma, zmiany stanu w transakcji z blokadą doradczą; import starego pliku: `npm run db:import`)_ **Stan w pliku JSON zamiast bazy danych.** `FlagsService` czyta `data/state.json` raz przy starcie i nadpisuje cały plik synchronicznie przy każdej zmianie. Brakuje transakcji, zapisu atomowego (write-to-temp + rename) i obsługi wielu instancji, a zapis pliku nie jest możliwy przy NFR 99,9% / skalowaniu poziomym. `tech-stack.md` zakłada PostgreSQL + Prisma.
   - Fix: wprowadzić Prisma i modele `Flag`, `FlagEnvironmentState`, `Service`, `FlagServiceBinding`, `AuditLogEntry`, `ServiceCredential`.
-- [ ] **Błąd zapisu jest tylko logowany** (`save()` → `logger.warn`). API zwraca `{ ok: true }`, choć zmiana nie została utrwalona. Błąd persystencji powinien kończyć żądanie kodem 5xx.
-- [ ] **Uszkodzony plik stanu po cichu wraca do danych seedowych.** Ryzyko utraty produkcyjnego stanu flag. Seed powinien ładować się tylko w trybie dev/demo albo jawnym poleceniem.
-- [ ] **Seed zawiera daty względne** (`daysAgo()`), więc każdy start bez pliku stanu daje inne dane. Akceptowalne w demo, ale nie w produkcji.
+- [x] _(zrobione: błąd bazy kończy żądanie kodem 5xx)_ **Błąd zapisu jest tylko logowany** (`save()` → `logger.warn`). API zwraca `{ ok: true }`, choć zmiana nie została utrwalona. Błąd persystencji powinien kończyć żądanie kodem 5xx.
+- [x] _(zrobione: dane demo tylko na żądanie, `npm run db:seed` / `SEED_DEMO_DATA`, i tylko do pustej bazy)_ **Uszkodzony plik stanu po cichu wraca do danych seedowych.** Ryzyko utraty produkcyjnego stanu flag. Seed powinien ładować się tylko w trybie dev/demo albo jawnym poleceniem.
+- [x] _(nie dotyczy produkcji: dane demo ładuje się jawnie, raz)_ **Seed zawiera daty względne** (`daysAgo()`), więc każdy start bez pliku stanu daje inne dane. Akceptowalne w demo, ale nie w produkcji.
 - [ ] **Brak walidacji wejścia.** Body opisano typami inline (`{ enabled?: boolean; actor?: string }`). Dodać DTO z `class-validator` i globalny `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })`.
 - [ ] **Brak endpointu health/readiness** (np. `@nestjs/terminus`, `GET /api/health`), potrzebnego do deploymentu w kontenerze.
 - [ ] **Brak hardeningu HTTP:** `helmet`, polityka CORS, rate limiting (`@nestjs/throttler`), szczególnie dla endpointu SDK; do tego `app.enableShutdownHooks()`.
@@ -83,12 +83,12 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 
 ### Testy
 
-- [ ] **Testy nie pokrywają logiki biznesowej.** Istnieją tylko szablonowe `app.controller.spec.ts` i `test/app.e2e-spec.ts` (`GET /` → „Hello World!”). Do dodania:
+- [x] _(zrobione: reguły w testach frontendu, `FlagsService` i e2e na PostgreSQL; brak jeszcze e2e z ustawionym `SDK_TOKEN`)_ **Testy nie pokrywają logiki biznesowej.** Istnieją tylko szablonowe `app.controller.spec.ts` i `test/app.e2e-spec.ts` (`GET /` → „Hello World!”). Do dodania:
   - unit testy `rules.ts` / `businessLogic.ts`: `canEnable`, `canDisable`, `canRetire`, `buildTimeIssues`, `isStaleCandidate`, `lifecycleStage` (z `vi.useFakeTimers()` dla dat);
   - unit testy `FlagsService` (blokada promocji zapisuje `promotion-blocked` w audycie, idempotentny toggle, `evaluate` z nieznanym serwisem → 404);
   - e2e dla `/api/flags`, `/api/sdk/flags` (z tokenem i bez), `PATCH` (409 przy naruszeniu kolejności);
   - test SDK z `FLAGS_DATA_FILE` wskazującym na katalog tymczasowy (dziś testy mogłyby nadpisać `data/state.json`).
-- [ ] **E2E nie odwzorowuje produkcyjnej konfiguracji.** `setGlobalPrefix('api')` jest tylko w `main.ts`, więc w testach routy działają bez `/api`. Wydzielić `configureApp(app)` i wywoływać go w `main.ts` i w e2e.
+- [x] _(zrobione: `configureApp` w `src/app.setup.ts`)_ **E2E nie odwzorowuje produkcyjnej konfiguracji.** `setGlobalPrefix('api')` jest tylko w `main.ts`, więc w testach routy działają bez `/api`. Wydzielić `configureApp(app)` i wywoływać go w `main.ts` i w e2e.
 - [x] _(zrobione: Vitest + RTL, testy `businessLogic.ts`, `client.ts`, `store.tsx`; brak testów rollbacku, bo store go jeszcze nie ma)_ **Frontend nie ma testów.** Dodać Vitest + React Testing Library (`npm i -D vitest @testing-library/react jsdom`) i skrypt `test`. Zacząć od `store.tsx` (toggle, rollback, uprawnienia) i `client.ts` (fallback tylko przy błędzie sieci).
 - [ ] Usunąć szablonowe `AppController` i `AppService` („Hello World!”) albo zastąpić je endpointem health.
 
@@ -127,4 +127,4 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 - [ ] Opisać kontrakt Consumer API dla zespołów serwisów: format odpowiedzi, uwierzytelnianie, zalecany interwał odpytywania ≤ 60 s (FR-013), zachowanie przy błędzie (cache).
 - [x] _(zrobione: `CLAUDE.md`)_ Brak `CLAUDE.md` / `AGENTS.md` z instrukcjami dla agentów: komendy build/test/lint, zasada „nie edytuj `src/flags/shared/*` ręcznie, uruchom `npm run sync:shared`”, struktura monorepo.
 - [ ] `context/foundation/` zawiera dwa warianty PRD (`prd.md` i `shape-notes.md` z innym nazewnictwem: Okta, Slack, „poll”). Oznaczyć, który jest aktualny, i wpisać stan implementacji względem FR (np. tabela FR → status).
-- [ ] `tech-stack.md` deklaruje PostgreSQL + Prisma + Passport/OIDC, a kod tego nie używa. Zaktualizować dokument albo dodać ADR opisujący, że plik JSON to rozwiązanie tymczasowe.
+- [ ] `tech-stack.md` deklaruje PostgreSQL + Prisma + Passport/OIDC; PostgreSQL i Prisma już są, OIDC nadal brak. Zaktualizować dokument albo dodać ADR opisujący, że plik JSON to rozwiązanie tymczasowe.

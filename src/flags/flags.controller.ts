@@ -56,10 +56,10 @@ export class FlagsController {
    * If SDK_TOKEN is set, callers must send "Authorization: Bearer <SDK_TOKEN>".
    */
   @Get("sdk/flags")
-  sdkFlags(@Query("env") env: string | undefined, @Query("service") service: string | undefined, @Headers("authorization") auth: string | undefined) {
+  async sdkFlags(@Query("env") env: string | undefined, @Query("service") service: string | undefined, @Headers("authorization") auth: string | undefined) {
     const token = process.env.SDK_TOKEN;
     if (token && auth !== `Bearer ${token}`) throw new UnauthorizedException("Missing or invalid SDK token.");
     const environment = parseEnv(env);
-    return { env: environment, flags: this.flags.evaluate(environment, service) };
+    return { env: environment, flags: await this.flags.evaluate(environment, service) };
   }
 }
