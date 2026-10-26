@@ -9,6 +9,10 @@ released automatically from [Conventional Commits](https://www.conventionalcommi
 
 - **api:** store state in PostgreSQL through Prisma
 
+### Fixed
+
+- **deps:** update dev tooling with security fixes (source-map-js, fast-uri, Vite)
+
 ## [0.1.0] - 2026-10-26
 
 First versioned release: the state of the pilot as it is today.
