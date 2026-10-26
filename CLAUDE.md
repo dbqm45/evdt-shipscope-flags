@@ -24,8 +24,8 @@ Two packages, one version:
 - **Dashboard** — React 19 + Vite 8 + Tailwind 4 in `frontend/` (own `package.json`). `frontend/src/api/client.ts`
   calls the API; only when the API cannot be reached (network error, timeout, 502/503/504) does the dashboard switch to
   the fixture data in `frontend/src/data/mock.ts` (demo mode, with a banner). An error answer (409 from the rules, 400,
-  500) is shown to the user, never treated as success. Many UI actions (create flag, edit bindings or metadata, retire) only change browser
-  state; only environment toggles and notification settings reach the API.
+  500) is shown to the user, never treated as success. With the API every change (toggles, create, details, service
+  bindings, retire, settings) waits for the server and shows what it stored; in demo mode changes stay in the browser.
 
 ## Run it locally
 
@@ -46,7 +46,8 @@ Two packages, one version:
 | Path                                                | What                                                                                         |
 | --------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `src/main.ts`, `src/app.module.ts`                  | Nest bootstrap; global prefix `api`                                                          |
-| `src/flags/flags.controller.ts`                     | management routes (`/flags`, `/services`, `/audit-log`, `/settings/notifications`) and the consumer route `GET /sdk/flags` |
+| `src/flags/flags.controller.ts`                     | management routes (`/flags` incl. create/update/retire, `/flags/:key/environments/:env`, `/flags/:key/services/:id`, `/services`, `/audit-log`, `/settings/notifications`) and the consumer route `GET /sdk/flags` |
+| `src/flags/flags.input.ts`                          | validation of management request bodies (400 with a readable reason, unknown fields rejected) |
 | `src/flags/flags.service.ts`                        | reads and changes state in PostgreSQL, rule checks, audit entries, webhook notifications     |
 | `src/flags/flag-mapper.ts`                          | database rows ↔ the API shapes from `shared/types.ts`                                        |
 | `prisma/schema.prisma`, `prisma/migrations/`        | database schema and its migrations; `prisma.config.ts` configures the CLI                    |

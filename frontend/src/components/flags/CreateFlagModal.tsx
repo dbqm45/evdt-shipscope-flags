@@ -35,8 +35,11 @@ export function CreateFlagModal({ onClose, onCreated }: { onClose: () => void; o
     setServiceIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
   }
 
-  function submit() {
-    const result = createFlag({
+  const [busy, setBusy] = useState(false);
+
+  async function submit() {
+    setBusy(true);
+    const result = await createFlag({
       key: key.trim(),
       description: description.trim(),
       type,
@@ -46,6 +49,7 @@ export function CreateFlagModal({ onClose, onCreated }: { onClose: () => void; o
       reviewBy: reviewBy || undefined,
       tags: parseTags(tagsText),
     });
+    setBusy(false);
     if (!result.ok) {
       setError(result.reason ?? "Could not create flag.");
       return;
@@ -151,8 +155,8 @@ export function CreateFlagModal({ onClose, onCreated }: { onClose: () => void; o
             Cancel
           </button>
           <button
-            onClick={submit}
-            disabled={!key.trim()}
+            onClick={() => void submit()}
+            disabled={!key.trim() || busy}
             className="text-shell rounded-xl bg-accent px-3.5 py-2 text-xs font-semibold text-ink-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Create flag

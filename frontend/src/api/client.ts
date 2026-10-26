@@ -8,7 +8,7 @@
  *   an ApiError with the server's message, so the UI shows it instead of pretending the change was saved.
  */
 import { auditLog as mockAuditLog, flags as mockFlags, services as mockServices } from "../data/mock";
-import type { AuditLogEntry, Environment, Flag, NotificationSettings, Service } from "../types";
+import type { AuditLogEntry, Environment, Flag, FlagServiceBinding, FlagType, NotificationSettings, Service } from "../types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 const REQUEST_TIMEOUT_MS = 2000;
@@ -64,6 +64,24 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 const withBody = (method: string, body: unknown): RequestInit => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
+export interface NewFlag {
+  key: string;
+  description: string;
+  type: FlagType;
+  serviceIds: string[];
+  dependsOn?: string;
+  owner?: string;
+  reviewBy?: string;
+  tags?: string[];
+}
+
+export type FlagDetailsPatch = Pick<Partial<Flag>, "owner" | "reviewBy" | "tags" | "description">;
+export type BindingPatch = Pick<Partial<FlagServiceBinding>, "readMode" | "buildTimeValues" | "removedFromCode">;
+
+/** A field set to undefined means "clear it"; JSON would drop it, so send null. */
+const clearing = <T extends object>(patch: T) => Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v === undefined ? null : v]));
+const flagPath = (flagKey: string) => `/flags/${encodeURIComponent(flagKey)}`;
+
 export interface InitialData {
   flags: Flag[];
   services: Service[];
@@ -94,5 +112,14 @@ export const api = {
   testNotification: () => call<{ ok: boolean; error?: string }>("/settings/notifications/test", { method: "POST" }),
 
   setEnvironmentState: (flagKey: string, environment: Environment, enabled: boolean, actor: string) =>
-    call<{ ok: true; flag: Flag }>(`/flags/${encodeURIComponent(flagKey)}/environments/${environment}`, withBody("PATCH", { enabled, actor })),
+    call<{ ok: true; flag: Flag }>(`${flagPath(flagKey)}/environments/${environment}`, withBody("PATCH", { enabled, actor })),
+
+  createFlag: (flag: NewFlag, actor: string) => call<Flag>("/flags", withBody("POST", { ...flag, actor })),
+
+  updateFlag: (flagKey: string, patch: FlagDetailsPatch, actor: string) => call<Flag>(flagPath(flagKey), withBody("PATCH", { ...clearing(patch), actor })),
+
+  updateBinding: (flagKey: string, serviceId: string, patch: BindingPatch, actor: string) =>
+    call<Flag>(`${flagPath(flagKey)}/services/${encodeURIComponent(serviceId)}`, withBody("PATCH", { ...patch, actor })),
+
+  retireFlag: (flagKey: string, actor: string) => call<{ ok: true }>(flagPath(flagKey), withBody("DELETE", { actor })),
 };

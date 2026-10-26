@@ -151,4 +151,89 @@ describe("FlagsService (PostgreSQL)", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  describe("managing flags", () => {
+    it("creates a flag OFF everywhere, bound to its services, and records it", async () => {
+      await loadState(prisma, pair());
+
+      const created = await flags.createFlag(
+        { key: "new-search", description: "Search v2", type: "release", serviceIds: ["svc-web", "svc-api"], dependsOn: "backend", tags: ["search"] },
+        "m.chen",
+      );
+
+      expect(created).toMatchObject({
+        key: "new-search",
+        description: "Search v2",
+        type: "release",
+        dependsOn: "backend",
+        owner: "m.chen",
+        createdBy: "m.chen",
+        tags: ["search"],
+        services: [expect.objectContaining({ serviceId: "svc-web", readMode: "runtime" }), expect.objectContaining({ serviceId: "svc-api" })],
+      });
+      expect(Object.values(created.environments).map((e) => e.enabled)).toEqual([false, false, false]);
+      expect((await flags.listFlags())[0].key).toBe("new-search");
+      expect((await flags.listAuditLog()).map((e) => [e.action, e.serviceKey])).toEqual([
+        ["service-assigned", "orders-api"],
+        ["service-assigned", "shop-web"],
+        ["flag-created", undefined],
+      ]);
+    });
+
+    it("refuses a duplicate key (409), an unknown service or dependency (400), and writes nothing", async () => {
+      await loadState(prisma, pair());
+      const base = { description: "", type: "feature" as const, serviceIds: [], tags: [] };
+
+      await expect(flags.createFlag({ ...base, key: "backend" }, "m.chen")).rejects.toBeInstanceOf(ConflictException);
+      await expect(flags.createFlag({ ...base, key: "x", serviceIds: ["svc-nope"] }, "m.chen")).rejects.toThrow(/Unknown service id: svc-nope/);
+      await expect(flags.createFlag({ ...base, key: "y", dependsOn: "nope" }, "m.chen")).rejects.toThrow(/does not exist: "nope"/);
+
+      expect(await flags.listFlags()).toHaveLength(2);
+      expect(await flags.listAuditLog()).toEqual([]);
+    });
+
+    it("updates the details and clears what is sent empty", async () => {
+      await loadState(prisma, pair());
+      await flags.updateFlag("backend", { owner: "a.kowalska", reviewBy: "2026-12-01", tags: ["orders"] }, "m.chen");
+
+      const updated = await flags.updateFlag("backend", { owner: null, reviewBy: null, description: "Orders API flag" }, "m.chen");
+
+      expect(updated).toMatchObject({ description: "Orders API flag", tags: ["orders"] });
+      expect(updated.owner).toBeUndefined();
+      expect(updated.reviewBy).toBeUndefined();
+      expect((await flags.listAuditLog())[0]).toMatchObject({ action: "flag-updated", flagKey: "backend", note: "updated owner, reviewBy, description" });
+      await expect(flags.updateFlag("nope", { owner: "x" }, "m.chen")).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it("changes how a service reads the flag", async () => {
+      await loadState(prisma, pair());
+
+      const updated = await flags.updateBinding("backend", "svc-api", { readMode: "both", buildTimeValues: { test: true, qa: false, prod: false } }, "m.chen");
+
+      expect(updated.services[0]).toMatchObject({ serviceId: "svc-api", readMode: "both", buildTimeValues: { test: true, qa: false, prod: false } });
+      expect((await flags.listAuditLog())[0]).toMatchObject({ action: "binding-updated", serviceKey: "orders-api", note: "updated readMode, buildTimeValues" });
+      await expect(flags.updateBinding("backend", "svc-web", { removedFromCode: true }, "m.chen")).rejects.toThrow(/not assigned to service "svc-web"/);
+    });
+
+    it("refuses to retire a flag while removing it could change a service, with every reason", async () => {
+      await loadState(prisma, pair());
+
+      await expect(flags.retireFlag("backend", "m.chen")).rejects.toThrow(
+        '"frontend" depends on this flag. orders-api still reads this flag at runtime — remove it from the code first, otherwise it loses the value.',
+      );
+      expect(await flags.listFlags()).toHaveLength(2);
+    });
+
+    it("retires a flag once it is safe, and services no longer see it", async () => {
+      await loadState(prisma, pair());
+      await flags.updateBinding("frontend", "svc-web", { removedFromCode: true }, "m.chen");
+
+      await flags.retireFlag("frontend", "m.chen");
+
+      expect((await flags.listFlags()).map((f) => f.key)).toEqual(["backend"]);
+      expect(await flags.evaluate("test", "shop-web")).toEqual({});
+      expect((await flags.listAuditLog())[0]).toMatchObject({ action: "flag-retired", flagKey: "frontend" });
+      await expect(flags.retireFlag("frontend", "m.chen")).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
 });

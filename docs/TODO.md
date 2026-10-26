@@ -44,9 +44,9 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 
 - [x] _(zrobione: tryb demo tylko przy braku połączenia, błędy API pokazywane w UI, stan z odpowiedzi serwera)_ **Odrzucenia z API są połykane.** `request()` w `frontend/src/api/client.ts` przy *każdym* błędzie (także `409 Conflict` z reguł promocji i `400`) zwraca fallback. `setEnvironmentState` zwraca wtedy `{ ok: true }`, a store aktualizuje stan optymistycznie i nie robi rollbacku, więc UI pokazuje stan, którego serwer nie zapisał.
   - Fix: fallback do danych demo tylko przy braku połączenia (błąd sieci lub timeout). Odpowiedzi 4xx/5xx propagować do UI, a przy błędzie wycofać zmianę optymistyczną albo czekać na odpowiedź serwera.
-- [ ] **Większość operacji działa tylko lokalnie w przeglądarce.** Tworzenie flagi, przypisanie serwisów, edycja bindingu (read mode, build-time values, `removedFromCode`), edycja metadanych (owner, tags, reviewBy) i „Retire flag” nie mają endpointów w API i znikają po odświeżeniu. Wpisy audit logu z tych akcji też istnieją tylko lokalnie.
+- [x] _(zrobione: `POST /flags`, `PATCH /flags/:key`, `PATCH /flags/:key/services/:serviceId`, `DELETE /flags/:key` z `canRetire` na serwerze)_ **Większość operacji działa tylko lokalnie w przeglądarce.** Tworzenie flagi, przypisanie serwisów, edycja bindingu (read mode, build-time values, `removedFromCode`), edycja metadanych (owner, tags, reviewBy) i „Retire flag” nie mają endpointów w API i znikają po odświeżeniu. Wpisy audit logu z tych akcji też istnieją tylko lokalnie.
   - Fix: dodać `POST /flags`, `PATCH /flags/:key`, `PATCH /flags/:key/services/:serviceId`, `DELETE /flags/:key` (z walidacją `canRetire` po stronie serwera) i audytować je na serwerze.
-- [ ] **Audit log z UI i z serwera się rozjeżdża.** Store dopisuje lokalne wpisy (`local-…`), a serwer swoje (`srv-…`), bez ponownego pobrania. Po wdrożeniu powyższego punktu dane audytu powinny pochodzić wyłącznie z serwera.
+- [x] _(zrobione: z API store pokazuje dziennik z serwera; lokalne wpisy tylko w trybie demo)_ **Audit log z UI i z serwera się rozjeżdża.** Store dopisuje lokalne wpisy (`local-…`), a serwer swoje (`srv-…`), bez ponownego pobrania. Po wdrożeniu powyższego punktu dane audytu powinny pochodzić wyłącznie z serwera.
 - [x] _(zrobione)_ **`flagKey` nie jest kodowany w URL** (`client.ts`: `` `/flags/${flagKey}/...` ``). Użyć `encodeURIComponent`.
 
 ### Reguły biznesowe
@@ -56,7 +56,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 - [ ] **„Attention prioritization” (PRD → Business Logic, pkt 3) nie jest zaimplementowane.** `driftSuspected` i `lastCheckInAt` to statyczne dane z seeda. Endpoint SDK nie zapisuje check-inów serwisów, więc nie ma z czego wyliczyć ryzyka dryfu ani posortować listy według „needs attention”.
   - Fix: rejestrować check-in serwisu (serwis, środowisko, czas, ewentualnie hash otrzymanego stanu) przy każdym `GET /sdk/flags` i na tej podstawie wyliczać `driftSuspected` oraz domyślne sortowanie.
 - [ ] **Próg „stale” jest zahardkodowany** (`STALE_THRESHOLD_DAYS = 30`). PRD (FR-006) wymaga wartości konfigurowalnej.
-- [ ] **Walidacja klucza flagi istnieje tylko w UI** (`CreateFlagModal` filtruje znaki). Po dodaniu `POST /flags` walidować po stronie serwera (DTO + `ValidationPipe`).
+- [x] _(zrobione: `src/flags/flags.input.ts`)_ **Walidacja klucza flagi istnieje tylko w UI** (`CreateFlagModal` filtruje znaki). Po dodaniu `POST /flags` walidować po stronie serwera (DTO + `ValidationPipe`).
 
 ### Brakujące funkcje MVP z PRD
 
@@ -74,7 +74,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 - [x] _(zrobione: błąd bazy kończy żądanie kodem 5xx)_ **Błąd zapisu jest tylko logowany** (`save()` → `logger.warn`). API zwraca `{ ok: true }`, choć zmiana nie została utrwalona. Błąd persystencji powinien kończyć żądanie kodem 5xx.
 - [x] _(zrobione: dane demo tylko na żądanie, `npm run db:seed` / `SEED_DEMO_DATA`, i tylko do pustej bazy)_ **Uszkodzony plik stanu po cichu wraca do danych seedowych.** Ryzyko utraty produkcyjnego stanu flag. Seed powinien ładować się tylko w trybie dev/demo albo jawnym poleceniem.
 - [x] _(nie dotyczy produkcji: dane demo ładuje się jawnie, raz)_ **Seed zawiera daty względne** (`daysAgo()`), więc każdy start bez pliku stanu daje inne dane. Akceptowalne w demo, ale nie w produkcji.
-- [ ] **Brak walidacji wejścia.** Body opisano typami inline (`{ enabled?: boolean; actor?: string }`). Dodać DTO z `class-validator` i globalny `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })`.
+- [ ] _(częściowo: nowe endpointy walidują wejście w `flags.input.ts`, bez nowych zależności; `PUT /settings/notifications` nadal ma typ inline)_ **Brak walidacji wejścia.** Body opisano typami inline (`{ enabled?: boolean; actor?: string }`). Dodać DTO z `class-validator` i globalny `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })`.
 - [ ] **Brak endpointu health/readiness** (np. `@nestjs/terminus`, `GET /api/health`), potrzebnego do deploymentu w kontenerze.
 - [ ] **Brak hardeningu HTTP:** `helmet`, polityka CORS, rate limiting (`@nestjs/throttler`), szczególnie dla endpointu SDK; do tego `app.enableShutdownHooks()`.
 - [ ] **Powiadomienia:** wysyłane fire-and-forget, bez retry, tylko dla `prod`. FR-016 przewiduje włączanie per flaga lub globalnie; dziś działa tylko przełącznik globalny.

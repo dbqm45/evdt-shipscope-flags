@@ -1,8 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma/prisma.service.js";
-import { FLAG_INCLUDE, toAuditEntry, toFlag, toService } from "./flag-mapper.js";
-import { canDisable, canEnable } from "./shared/rules.js";
+import { FLAG_INCLUDE, toAuditEntry, toDbReadMode, toFlag, toService } from "./flag-mapper.js";
+import type { BindingPatch, CreateFlagInput, FlagPatch } from "./flags.input.js";
+import { canDisable, canEnable, canRetire } from "./shared/rules.js";
 import { ENVIRONMENTS, type AuditLogEntry, type Environment, type Flag, type Service } from "./shared/types.js";
 
 export interface NotificationSettings {
@@ -53,9 +54,108 @@ export class FlagsService {
     return Object.fromEntries(rows.map((f) => [f.key, f.environments[0]?.enabled ?? false]));
   }
 
-  async setEnvironment(flagKey: string, env: Environment, enabled: boolean, actor: string): Promise<Flag> {
-    const result = await this.prisma.$transaction(async (tx) => {
+  /** Runs `fn` in a transaction holding STATE_LOCK: every write that a rule (which reads all flags) depends on goes here. */
+  private locked<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    return this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(${STATE_LOCK})::text`;
+      return fn(tx);
+    });
+  }
+
+  private async flagByKey(db: Db, key: string): Promise<Flag> {
+    const row = await db.flag.findUnique({ where: { key }, include: FLAG_INCLUDE });
+    if (!row) throw new NotFoundException(`Flag "${key}" not found.`);
+    return toFlag(row);
+  }
+
+  async createFlag(input: CreateFlagInput, actor: string): Promise<Flag> {
+    return this.locked(async (tx) => {
+      if (await tx.flag.findUnique({ where: { key: input.key } })) throw new ConflictException(`A flag with the key "${input.key}" already exists.`);
+      if (input.dependsOn && !(await tx.flag.findUnique({ where: { key: input.dependsOn } }))) {
+        throw new BadRequestException(`"dependsOn" names a flag that does not exist: "${input.dependsOn}".`);
+      }
+      const services = await tx.service.findMany({ where: { id: { in: input.serviceIds } } });
+      const missing = input.serviceIds.filter((id) => !services.some((s) => s.id === id));
+      if (missing.length) throw new BadRequestException(`Unknown service id${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}.`);
+
+      const now = new Date();
+      await tx.flag.create({
+        data: {
+          id: `flag-${input.key}`,
+          key: input.key,
+          description: input.description,
+          type: input.type,
+          createdAt: now,
+          createdBy: actor,
+          dependsOn: input.dependsOn ?? null,
+          owner: input.owner ?? actor,
+          reviewBy: input.reviewBy ? new Date(input.reviewBy) : null,
+          tags: input.tags,
+          environments: { create: ENVIRONMENTS.map((environment) => ({ environment, enabled: false, updatedAt: now, updatedBy: actor })) },
+          services: {
+            create: input.serviceIds.map((serviceId, position) => ({ serviceId, position, readMode: "runtime", lastCheckInAt: now, driftSuspected: false })),
+          },
+        },
+      });
+      await this.audit(tx, { actor, action: "flag-created", flagKey: input.key });
+      for (const id of input.serviceIds) {
+        await this.audit(tx, { actor, action: "service-assigned", flagKey: input.key, serviceKey: services.find((s) => s.id === id)!.key });
+      }
+      return this.flagByKey(tx, input.key);
+    });
+  }
+
+  async updateFlag(flagKey: string, patch: FlagPatch, actor: string): Promise<Flag> {
+    return this.locked(async (tx) => {
+      await this.flagByKey(tx, flagKey);
+      await tx.flag.update({
+        where: { key: flagKey },
+        data: {
+          description: patch.description,
+          owner: patch.owner,
+          reviewBy: patch.reviewBy === undefined ? undefined : patch.reviewBy && new Date(patch.reviewBy),
+          tags: patch.tags,
+        },
+      });
+      await this.audit(tx, { actor, action: "flag-updated", flagKey, note: `updated ${Object.keys(patch).join(", ")}` });
+      return this.flagByKey(tx, flagKey);
+    });
+  }
+
+  async updateBinding(flagKey: string, serviceId: string, patch: BindingPatch, actor: string): Promise<Flag> {
+    return this.locked(async (tx) => {
+      const flag = await this.flagByKey(tx, flagKey);
+      const binding = await tx.flagServiceBinding.findUnique({ where: { flagId_serviceId: { flagId: flag.id, serviceId } }, include: { service: true } });
+      if (!binding) throw new NotFoundException(`Flag "${flagKey}" is not assigned to service "${serviceId}".`);
+      await tx.flagServiceBinding.update({
+        where: { flagId_serviceId: { flagId: flag.id, serviceId } },
+        data: {
+          readMode: patch.readMode && toDbReadMode(patch.readMode),
+          buildTimeValues: patch.buildTimeValues,
+          removedFromCode: patch.removedFromCode,
+        },
+      });
+      await this.audit(tx, { actor, action: "binding-updated", flagKey, serviceKey: binding.service.key, note: `updated ${Object.keys(patch).join(", ")}` });
+      return this.flagByKey(tx, flagKey);
+    });
+  }
+
+  /** Removes a flag, only when that cannot change any service's behaviour (rule 5, canRetire). */
+  async retireFlag(flagKey: string, actor: string): Promise<void> {
+    await this.locked(async (tx) => {
+      const flags = await this.listFlags(tx);
+      const flag = flags.find((f) => f.key === flagKey);
+      if (!flag) throw new NotFoundException(`Flag "${flagKey}" not found.`);
+      const services = await tx.service.findMany({ select: { id: true, key: true } });
+      const check = canRetire(flag, flags, (id) => services.find((s) => s.id === id)?.key ?? id);
+      if (!check.allowed) throw new ConflictException(check.blockers.join(" "));
+      await tx.flag.delete({ where: { key: flagKey } });
+      await this.audit(tx, { actor, action: "flag-retired", flagKey });
+    });
+  }
+
+  async setEnvironment(flagKey: string, env: Environment, enabled: boolean, actor: string): Promise<Flag> {
+    const result = await this.locked(async (tx) => {
       const flags = await this.listFlags(tx);
       const flag = flags.find((f) => f.key === flagKey);
       if (!flag) throw new NotFoundException(`Flag "${flagKey}" not found.`);

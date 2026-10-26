@@ -27,6 +27,13 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
   const history = auditLog.filter((e) => e.flagKey === flag.key).slice(0, 8);
 
   const [pendingEnv, setPendingEnv] = useState<Environment | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  /** Details and service edits save on their own; show why one was refused. */
+  async function save(action: Promise<{ ok: boolean; reason?: string }>) {
+    const result = await action;
+    setActionError(result.ok ? null : (result.reason ?? "The change was not saved."));
+  }
 
   async function handleToggle(env: Environment) {
     setBlockedNotice(null);
@@ -85,6 +92,11 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
             </div>
           )}
 
+          {actionError && (
+            <p role="alert" className="rounded-xl border border-signal-critical/40 px-3.5 py-2.5 text-xs text-signal-critical">
+              Not saved: {actionError}
+            </p>
+          )}
           <section>
             <h3 className="text-shell text-[10px] font-semibold uppercase tracking-widest text-mist-700">Details</h3>
             <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
@@ -94,7 +106,7 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
                   key={`owner-${flag.owner}`}
                   defaultValue={flag.owner ?? ""}
                   disabled={!editable}
-                  onBlur={(e) => e.target.value.trim() !== (flag.owner ?? "") && updateFlagMeta(flag.key, { owner: e.target.value.trim() })}
+                  onBlur={(e) => e.target.value.trim() !== (flag.owner ?? "") && void save(updateFlagMeta(flag.key, { owner: e.target.value.trim() }))}
                   className="text-shell mt-1 w-full rounded-lg border border-ink-500 bg-ink-850 px-2.5 py-1.5 text-mist-100 outline-none disabled:opacity-60"
                 />
               </label>
@@ -105,7 +117,9 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
                   key={`review-${flag.reviewBy}`}
                   defaultValue={flag.reviewBy?.slice(0, 10) ?? ""}
                   disabled={!editable}
-                  onBlur={(e) => e.target.value !== (flag.reviewBy?.slice(0, 10) ?? "") && updateFlagMeta(flag.key, { reviewBy: e.target.value || undefined })}
+                  onBlur={(e) =>
+                    e.target.value !== (flag.reviewBy?.slice(0, 10) ?? "") && void save(updateFlagMeta(flag.key, { reviewBy: e.target.value || undefined }))
+                  }
                   className="text-shell mt-1 w-full rounded-lg border border-ink-500 bg-ink-850 px-2.5 py-1.5 text-mist-100 outline-none disabled:opacity-60"
                 />
               </label>
@@ -117,7 +131,7 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
                   disabled={!editable}
                   onBlur={(e) => {
                     const next = parseTags(e.target.value);
-                    if (next.join(",") !== (flag.tags ?? []).join(",")) updateFlagMeta(flag.key, { tags: next });
+                    if (next.join(",") !== (flag.tags ?? []).join(",")) void save(updateFlagMeta(flag.key, { tags: next }));
                   }}
                   className="text-shell mt-1 w-full rounded-lg border border-ink-500 bg-ink-850 px-2.5 py-1.5 text-mist-100 outline-none disabled:opacity-60"
                 />
@@ -187,7 +201,7 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
                   flag={flag}
                   binding={binding}
                   editable={editable}
-                  onChange={(patch) => updateBinding(flag.key, binding.serviceId, patch)}
+                  onChange={(patch) => void save(updateBinding(flag.key, binding.serviceId, patch))}
                 />
               ))}
             </div>

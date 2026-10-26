@@ -50,4 +50,30 @@ describe("API (e2e)", () => {
     await request(app.getHttpServer()).get("/api/sdk/flags?env=staging").expect(400);
     await request(app.getHttpServer()).get("/api/sdk/flags?env=prod&service=nope").expect(404);
   });
+
+  it("POST /api/flags creates a flag (201), 400 on invalid input, 409 on a duplicate key", async () => {
+    const created = await request(app.getHttpServer())
+      .post("/api/flags")
+      .send({ key: "e2e-flag", type: "feature", description: "from e2e", serviceIds: [seedState().services[0].id], actor: "e2e" })
+      .expect(201);
+    expect(created.body).toMatchObject({ key: "e2e-flag", createdBy: "e2e", services: [{ serviceId: seedState().services[0].id }] });
+
+    await request(app.getHttpServer()).post("/api/flags").send({ key: "bad key", type: "feature" }).expect(400);
+    await request(app.getHttpServer()).post("/api/flags").send({ key: "e2e-flag", type: "feature" }).expect(409);
+  });
+
+  it("PATCH and DELETE /api/flags/:key update and retire a flag, with 409 when retiring is unsafe", async () => {
+    const flag = seedState().flags.find((f) => f.services.some((b) => b.readMode === "runtime"))!;
+    const patched = await request(app.getHttpServer()).patch(`/api/flags/${flag.key}`).send({ owner: "e2e-owner" }).expect(200);
+    expect(patched.body.owner).toBe("e2e-owner");
+
+    const res = await request(app.getHttpServer()).delete(`/api/flags/${flag.key}`).send({ actor: "e2e" }).expect(409);
+    expect(res.body.message).toMatch(/still reads this flag at runtime/);
+
+    const created = await request(app.getHttpServer()).post("/api/flags").send({ key: "throwaway", type: "release" }).expect(201);
+    await request(app.getHttpServer()).delete(`/api/flags/${created.body.key}`).send({ actor: "e2e" }).expect(200, { ok: true });
+    await request(app.getHttpServer())
+      .get("/api/sdk/flags?env=test")
+      .expect((r) => expect(r.body.flags).not.toHaveProperty("throwaway"));
+  });
 });

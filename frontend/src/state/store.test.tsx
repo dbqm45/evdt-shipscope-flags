@@ -8,7 +8,18 @@ import { StoreProvider, useStore } from "./store";
 
 vi.mock("../api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api/client")>();
-  return { ...actual, api: { load: vi.fn(), listAuditLog: vi.fn(), setEnvironmentState: vi.fn() } };
+  return {
+    ...actual,
+    api: {
+      load: vi.fn(),
+      listAuditLog: vi.fn(),
+      setEnvironmentState: vi.fn(),
+      createFlag: vi.fn(),
+      updateFlag: vi.fn(),
+      updateBinding: vi.fn(),
+      retireFlag: vi.fn(),
+    },
+  };
 });
 
 const wrapper = ({ children }: { children: ReactNode }) => <StoreProvider>{children}</StoreProvider>;
@@ -125,41 +136,92 @@ describe("store in demo mode", () => {
   });
 });
 
-describe("store permissions and local actions", () => {
+describe("store: flag management with the API", () => {
+  it("creates a flag on the server and shows what it stored", async () => {
+    const created = makeFlag({ key: "new-search", services: [makeBinding("svc-web")] });
+    vi.mocked(api.createFlag).mockResolvedValue(created);
+    const { result } = await renderStore();
+
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.createFlag({ key: "new-search", description: "d", type: "release", serviceIds: ["svc-web"] });
+    });
+
+    expect(outcome).toEqual({ ok: true });
+    expect(api.createFlag).toHaveBeenCalledWith({ key: "new-search", description: "d", type: "release", serviceIds: ["svc-web"] }, "m.chen");
+    expect(result.current.flags[0]).toEqual(created);
+    await waitFor(() => expect(result.current.auditLog).toEqual(serverAudit));
+  });
+
+  it("shows the server's reason when it refuses to retire a flag, and keeps the flag", async () => {
+    vi.mocked(api.retireFlag).mockRejectedValue(new ApiError('"frontend" depends on this flag.', 409));
+    const { result } = await renderStore();
+
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.retireFlag("backend");
+    });
+
+    expect(outcome).toEqual({ ok: false, reason: '"frontend" depends on this flag.' });
+    expect(result.current.flags.map((f) => f.key)).toContain("backend");
+  });
+
+  it("removes a retired flag and replaces an edited one with the server's version", async () => {
+    vi.mocked(api.retireFlag).mockResolvedValue({ ok: true });
+    const edited = { ...flags[0], owner: "a.kowalska" };
+    vi.mocked(api.updateFlag).mockResolvedValue(edited);
+    const { result } = await renderStore();
+
+    await act(async () => {
+      await result.current.retireFlag("frontend");
+      await result.current.updateFlagMeta("backend", { owner: "a.kowalska" });
+    });
+
+    expect(result.current.flags).toEqual([edited]);
+    expect(api.updateFlag).toHaveBeenCalledWith("backend", { owner: "a.kowalska" }, "m.chen");
+  });
+});
+
+describe("store: permissions and local changes in demo mode", () => {
   it("lets a viewer change nothing", async () => {
     const { result } = await renderStore();
     act(() => result.current.setRole("viewer"));
 
     expect(await toggle(result, "backend", "qa")).toMatchObject({ ok: false });
-    expect(result.current.createFlag({ key: "x", description: "", type: "feature", serviceIds: [] })).toMatchObject({ ok: false });
-    expect(result.current.retireFlag("frontend")).toMatchObject({ ok: false });
+    expect(await result.current.createFlag({ key: "x", description: "", type: "feature", serviceIds: [] })).toMatchObject({ ok: false });
+    expect(await result.current.retireFlag("frontend")).toMatchObject({ ok: false });
+    expect(await result.current.updateFlagMeta("backend", { owner: "x" })).toMatchObject({ ok: false });
     expect(api.setEnvironmentState).not.toHaveBeenCalled();
+    expect(api.createFlag).not.toHaveBeenCalled();
+    expect(api.retireFlag).not.toHaveBeenCalled();
   });
 
   it("creates a flag OFF everywhere, bound to the chosen services, and rejects a duplicate key", async () => {
+    loadWith(true);
     const { result } = await renderStore();
 
-    act(() => {
-      expect(result.current.createFlag({ key: "new-search", description: "d", type: "release", serviceIds: ["svc-web"] })).toEqual({ ok: true });
+    await act(async () => {
+      expect(await result.current.createFlag({ key: "new-search", description: "d", type: "release", serviceIds: ["svc-web"] })).toEqual({ ok: true });
     });
 
     const created = result.current.flags[0];
     expect(created).toMatchObject({ key: "new-search", owner: "m.chen", services: [expect.objectContaining({ serviceId: "svc-web", readMode: "runtime" })] });
     expect(Object.values(created.environments).every((e) => !e.enabled)).toBe(true);
     expect(result.current.auditLog.slice(0, 2).map((e) => e.action)).toEqual(["service-assigned", "flag-created"]);
-
-    expect(result.current.createFlag({ key: "backend", description: "", type: "release", serviceIds: [] })).toEqual({
+    expect(await result.current.createFlag({ key: "backend", description: "", type: "release", serviceIds: [] })).toEqual({
       ok: false,
       reason: "A flag with this key already exists.",
     });
+    expect(api.createFlag).not.toHaveBeenCalled();
   });
 
   it("refuses to retire a flag that is not safe to remove", async () => {
+    loadWith(true);
     const { result } = await renderStore();
 
-    let outcome: { ok: boolean; reason?: string } | undefined;
-    act(() => {
-      outcome = result.current.retireFlag("backend");
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.retireFlag("backend");
     });
 
     expect(outcome).toEqual({ ok: false, reason: '"frontend" depends on this flag.' });

@@ -134,7 +134,7 @@ Wersję produkcyjną buduje się poleceniem `npm run build`, a jej podgląd uruc
 ## 9. Ograniczenia obecnej wersji
 
 - Aplikacja korzysta z **danych przykładowych** (plik `frontend/src/data/mock.ts`). Próbuje połączyć się z serwerem pod adresem `/api`, a gdy ten nie odpowiada, używa danych przykładowych. Zmiany wykonywane w interfejsie nie są zapisywane trwale i znikają po odświeżeniu strony.
-- **Usunięcie flagi** („Retire flag”) usuwa ją tylko z aplikacji. Usunięcie odwołań w kodzie oraz flagi z serwera pozostaje po stronie zespołu.
+- **Usunięcie flagi** („Retire flag”) usuwa ją z ShipScope Flags, także z odpowiedzi `GET /api/sdk/flags`. Usunięcie odwołań w kodzie serwisów pozostaje po stronie zespołu.
 - **Wartości z kodu** (build-time) są wprowadzane ręcznie, ponieważ aplikacja nie ma wglądu w kod serwisów. Wymagają one aktualizacji przy zmianach w kodzie.
 - Logowanie jednokrotne (SSO) jest w tej wersji tylko odwzorowane wizualnie.
 

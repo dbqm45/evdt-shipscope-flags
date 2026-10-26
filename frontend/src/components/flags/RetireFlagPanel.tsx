@@ -8,6 +8,8 @@ import { IconAlertTriangle, IconCheck } from "../icons";
 export function RetireFlagPanel({ flag, onRetired }: { flag: Flag; onRetired: () => void }) {
   const { flags, services, role, retireFlag } = useStore();
   const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const check = canRetire(flag, flags, (id) => services.find((s) => s.id === id)?.key ?? id);
   const editable = canEditFlags(role);
 
@@ -49,8 +51,13 @@ export function RetireFlagPanel({ flag, onRetired }: { flag: Flag; onRetired: ()
             <>
               <button
                 type="button"
-                onClick={() => {
-                  if (retireFlag(flag.key).ok) onRetired();
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  const result = await retireFlag(flag.key);
+                  setBusy(false);
+                  if (result.ok) onRetired();
+                  else setError(result.reason ?? "Could not retire the flag.");
                 }}
                 className="text-shell rounded-xl bg-signal-critical px-3.5 py-2 text-xs font-semibold text-ink-950"
               >
@@ -62,6 +69,11 @@ export function RetireFlagPanel({ flag, onRetired }: { flag: Flag; onRetired: ()
             </>
           )}
         </div>
+      )}
+      {error && (
+        <p role="alert" className="mt-3 text-xs text-signal-critical">
+          {error}
+        </p>
       )}
     </section>
   );

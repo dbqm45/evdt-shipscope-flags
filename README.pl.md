@@ -175,10 +175,10 @@ Serwer przechowuje dane w bazie PostgreSQL wskazanej zmienną `DATABASE_URL`. Da
 
 ## 9. Ograniczenia obecnej wersji
 
-- Bez uruchomionego serwera aplikacja korzysta z **danych przykładowych** (plik `frontend/src/data/mock.ts`), a zmiany znikają po odświeżeniu strony. Z serwerem zapisywane są zmiany stanu flag na środowiskach, ustawienia powiadomień i dziennik zmian. Tworzenie flag, edycja właściciela, tagów i sposobu odczytu oraz usuwanie flag nie są jeszcze zapisywane na serwerze.
+- Bez uruchomionego serwera aplikacja korzysta z **danych przykładowych** (plik `frontend/src/data/mock.ts`), a zmiany znikają po odświeżeniu strony. Z serwerem zapisywane są wszystkie zmiany: stan flag na środowiskach, tworzenie, edycja szczegółów i sposobu odczytu, usuwanie flag, ustawienia powiadomień i dziennik zmian. Gdy serwer odrzuci zmianę (np. z powodu zasad z punktu 5), aplikacja pokazuje powód i nie zmienia stanu.
 - Serwer nie ma jeszcze uwierzytelniania użytkowników (poza opcjonalnym tokenem do odczytu flag); nie należy wystawiać go poza zaufaną sieć.
 - Pliki `src/flags/shared/*` są kopiami reguł i danych z interfejsu. Powstają poleceniem `npm run sync:shared` (uruchamianym automatycznie przed `npm run build`).
-- **Usunięcie flagi** („Retire flag”) usuwa ją tylko z aplikacji. Usunięcie odwołań w kodzie oraz flagi z serwera pozostaje po stronie zespołu.
+- **Usunięcie flagi** („Retire flag”) usuwa ją z ShipScope Flags, także z odpowiedzi `GET /api/sdk/flags`. Usunięcie odwołań w kodzie serwisów pozostaje po stronie zespołu.
 - **Wartości z kodu** (build-time) są wprowadzane ręcznie, ponieważ aplikacja nie ma wglądu w kod serwisów. Wymagają one aktualizacji przy zmianach w kodzie.
 - Logowanie jednokrotne (SSO) jest w tej wersji tylko odwzorowane wizualnie.
 

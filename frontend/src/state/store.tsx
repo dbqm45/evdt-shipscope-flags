@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { api, failureReason } from "../api/client";
+import { api, failureReason, type BindingPatch, type FlagDetailsPatch, type NewFlag } from "../api/client";
 import { canDisable, canEnable, canRetire } from "../lib/businessLogic";
 import { canEditFlags } from "../lib/permissions";
-import { ENVIRONMENTS, type AuditLogEntry, type Environment, type Flag, type FlagServiceBinding, type FlagType, type Role, type Service } from "../types";
+import { ENVIRONMENTS, type AuditLogEntry, type Environment, type Flag, type Role, type Service } from "../types";
 
 interface ToggleResult {
   ok: boolean;
@@ -22,20 +22,11 @@ interface StoreValue {
   setRole: (role: Role) => void;
   currentUser: string;
   toggleEnvironment: (flagKey: string, environment: Environment) => Promise<ToggleResult>;
-  updateBinding: (flagKey: string, serviceId: string, patch: Partial<FlagServiceBinding>) => ToggleResult;
-  retireFlag: (flagKey: string) => ToggleResult;
+  updateBinding: (flagKey: string, serviceId: string, patch: BindingPatch) => Promise<ToggleResult>;
+  retireFlag: (flagKey: string) => Promise<ToggleResult>;
   registerAuditEntry: (entry: Omit<AuditLogEntry, "id" | "timestamp">) => void;
-  createFlag: (input: {
-    key: string;
-    description: string;
-    type: FlagType;
-    serviceIds: string[];
-    dependsOn?: string;
-    owner?: string;
-    reviewBy?: string;
-    tags?: string[];
-  }) => ToggleResult;
-  updateFlagMeta: (flagKey: string, patch: Pick<Partial<Flag>, "owner" | "reviewBy" | "tags" | "description">) => ToggleResult;
+  createFlag: (input: NewFlag) => Promise<ToggleResult>;
+  updateFlagMeta: (flagKey: string, patch: FlagDetailsPatch) => Promise<ToggleResult>;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -84,6 +75,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .listAuditLog()
         .then(setAuditLog)
         .catch(() => {});
+
+    /** With the API: run the call, apply what the server returned, and show its audit log; a refusal becomes the reason. */
+    const viaApi = async <T,>(callApi: () => Promise<T>, apply: (result: T) => void): Promise<ToggleResult> => {
+      try {
+        apply(await callApi());
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, reason: failureReason(err) };
+      } finally {
+        void refreshAuditLog();
+      }
+    };
+    const replaceFlag = (stored: Flag) => setFlags((prev) => prev.map((f) => (f.key === stored.key ? stored : f)));
+    const actor = CURRENT_USER_BY_ROLE[role];
 
     const toggleEnvironment: StoreValue["toggleEnvironment"] = async (flagKey, environment) => {
       if (role === "viewer") return { ok: false, reason: "Viewers cannot change flag state." };
@@ -150,8 +155,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { ok: true };
     };
 
-    const updateBinding: StoreValue["updateBinding"] = (flagKey, serviceId, patch) => {
+    const updateBinding: StoreValue["updateBinding"] = async (flagKey, serviceId, patch) => {
       if (!canEditFlags(role)) return { ok: false, reason: "Only Editors and Admins can change how a service reads a flag." };
+      if (!demo) return viaApi(() => api.updateBinding(flagKey, serviceId, patch, actor), replaceFlag);
       const svc = services.find((s) => s.id === serviceId);
       const changed = Object.keys(patch).join(", ");
       setFlags((prev) =>
@@ -167,8 +173,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { ok: true };
     };
 
-    const retireFlag: StoreValue["retireFlag"] = (flagKey) => {
+    const retireFlag: StoreValue["retireFlag"] = async (flagKey) => {
       if (!canEditFlags(role)) return { ok: false, reason: "Only Editors and Admins can retire flags." };
+      if (!demo)
+        return viaApi(
+          () => api.retireFlag(flagKey, actor),
+          () => setFlags((prev) => prev.filter((f) => f.key !== flagKey)),
+        );
       const flag = flags.find((f) => f.key === flagKey);
       if (!flag) return { ok: false, reason: "Flag not found." };
       const check = canRetire(flag, flags, (id) => services.find((s) => s.id === id)?.key ?? id);
@@ -178,16 +189,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { ok: true };
     };
 
-    const updateFlagMeta: StoreValue["updateFlagMeta"] = (flagKey, patch) => {
+    const updateFlagMeta: StoreValue["updateFlagMeta"] = async (flagKey, patch) => {
       if (!canEditFlags(role)) return { ok: false, reason: "Only Editors and Admins can edit flag details." };
+      if (!demo) return viaApi(() => api.updateFlag(flagKey, patch, actor), replaceFlag);
       setFlags((prev) => prev.map((f) => (f.key === flagKey ? { ...f, ...patch } : f)));
       registerAuditEntry({ actor: CURRENT_USER_BY_ROLE[role], action: "flag-updated", flagKey, note: `updated ${Object.keys(patch).join(", ")}` });
       return { ok: true };
     };
 
-    const createFlag: StoreValue["createFlag"] = ({ key, description, type, serviceIds, dependsOn, owner, reviewBy, tags }) => {
+    const createFlag: StoreValue["createFlag"] = async (input) => {
+      const { key, description, type, serviceIds, dependsOn, owner, reviewBy, tags } = input;
       if (!canEditFlags(role)) return { ok: false, reason: "Only Editors and Admins can create flags." };
       if (!key.trim()) return { ok: false, reason: "Flag key is required." };
+      if (!demo)
+        return viaApi(
+          () => api.createFlag(input, actor),
+          (created) => setFlags((prev) => [created, ...prev]),
+        );
       if (flags.some((f) => f.key === key)) return { ok: false, reason: "A flag with this key already exists." };
 
       const now = new Date().toISOString();
