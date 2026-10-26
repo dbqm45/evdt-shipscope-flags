@@ -19,6 +19,8 @@ scope: `@context/foundation/prd.md`; known gaps: `@docs/TODO.md`. Full depth liv
 - Secrets only through environment variables; the repo holds only `.env.example` and `frontend/.env.example`. `.env`
   files and `data/` are gitignored.
 - The management API has no authentication yet (`@docs/TODO.md`, P0): do not build features that assume it does.
+- `GET /api/sdk/flags` requires `SDK_TOKEN` (503 without it on the server, 401 for a wrong one). Webhook URLs go
+  through `checkWebhookUrl` (`src/flags/webhook.ts`) before every request and are only ever returned masked.
 
 ## Build, test, and development
 

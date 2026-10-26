@@ -1,6 +1,7 @@
-import { BadRequestException, Body, Controller, Delete, Get, Headers, HttpCode, Param, Patch, Post, Put, Query, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, Headers, HttpCode, Param, Patch, Post, Put, Query } from "@nestjs/common";
 import { parseActor, parseBindingPatch, parseCreateFlag, parseFlagPatch, parseNotificationSettings } from "./flags.input.js";
 import { FlagsService, isEnvironment } from "./flags.service.js";
+import { checkSdkToken } from "./sdk-auth.js";
 
 function parseEnv(value: string | undefined) {
   if (!value || !isEnvironment(value)) throw new BadRequestException("env must be one of: test, qa, prod.");
@@ -77,12 +78,11 @@ export class FlagsController {
 
   /**
    * GET /api/sdk/flags?env=prod&service=checkout-api  ->  { env, flags: { "flag-key": true, ... } }
-   * If SDK_TOKEN is set, callers must send "Authorization: Bearer <SDK_TOKEN>".
+   * Callers must send "Authorization: Bearer <SDK_TOKEN>"; without SDK_TOKEN on the server it answers 503 (sdk-auth.ts).
    */
   @Get("sdk/flags")
   async sdkFlags(@Query("env") env: string | undefined, @Query("service") service: string | undefined, @Headers("authorization") auth: string | undefined) {
-    const token = process.env.SDK_TOKEN;
-    if (token && auth !== `Bearer ${token}`) throw new UnauthorizedException("Missing or invalid SDK token.");
+    checkSdkToken(auth);
     const environment = parseEnv(env);
     return { env: environment, flags: await this.flags.evaluate(environment, service) };
   }

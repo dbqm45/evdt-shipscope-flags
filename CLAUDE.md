@@ -48,6 +48,8 @@ Two packages, one version:
 | `src/main.ts`, `src/app.module.ts`                  | Nest bootstrap; global prefix `api`                                                          |
 | `src/flags/flags.controller.ts`                     | management routes (`/flags` incl. create/update/retire, `/flags/:key/environments/:env`, `/flags/:key/services/:id`, `/services`, `/audit-log`, `/settings/notifications`) and the consumer route `GET /sdk/flags` |
 | `src/flags/flags.input.ts`                          | validation of management request bodies (400 with a readable reason, unknown fields rejected) |
+| `src/flags/webhook.ts`                              | webhook URL checks against SSRF (https, no private/local addresses, `NOTIFY_WEBHOOK_HOSTS`) and masking |
+| `src/flags/sdk-auth.ts`                             | `SDK_TOKEN` check for `GET /api/sdk/flags` (constant-time; 503 when the server has no token) |
 | `src/flags/flags.service.ts`                        | reads and changes state in PostgreSQL, rule checks, audit entries, webhook notifications     |
 | `src/flags/flag-mapper.ts`                          | database rows ↔ the API shapes from `shared/types.ts`                                        |
 | `prisma/schema.prisma`, `prisma/migrations/`        | database schema and its migrations; `prisma.config.ts` configures the CLI                    |
@@ -79,6 +81,9 @@ Two packages, one version:
   migration.
 - **Flag state changes go through `FlagsService.setEnvironment`**: it takes a transaction-scoped advisory lock, so
   the rules (which read all flags) never see a half-applied concurrent change.
+- **The server never fetches a user-supplied URL without `checkWebhookUrl`** (`webhook.ts`), right before the request
+  and with `redirect: "manual"`; DNS can change between saving and sending. The stored webhook URL is a secret:
+  responses carry `maskWebhookUrl(...)` only.
 - No new npm dependency without a reason stated in the commit body; runtime dependencies are audited in CI.
 
 ## Checks (run before committing)

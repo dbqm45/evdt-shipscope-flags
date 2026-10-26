@@ -48,8 +48,10 @@ services:
       target: api
     environment:
       DATABASE_URL: *database-url
-      SDK_TOKEN: ${SDK_TOKEN:-}
+      # Local default so the stack works out of the box; set a real SDK_TOKEN anywhere shared.
+      SDK_TOKEN: ${SDK_TOKEN:-local-sdk-token}
       NOTIFY_WEBHOOK_URL: ${NOTIFY_WEBHOOK_URL:-}
+      NOTIFY_WEBHOOK_HOSTS: ${NOTIFY_WEBHOOK_HOSTS:-}
     depends_on:
       migrate:
         condition: service_completed_successfully

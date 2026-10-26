@@ -12,7 +12,11 @@ describe("API (e2e)", () => {
   let app: INestApplication<App>;
   let prisma: PrismaClient;
 
+  const SDK_TOKEN = "e2e-sdk-token";
+  const sdkGet = (path: string) => request(app.getHttpServer()).get(path).set("Authorization", `Bearer ${SDK_TOKEN}`);
+
   beforeAll(async () => {
+    process.env.SDK_TOKEN = SDK_TOKEN;
     prisma = testPrisma();
     const moduleFixture: TestingModule = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = configureApp(moduleFixture.createNestApplication());
@@ -26,6 +30,7 @@ describe("API (e2e)", () => {
 
   afterAll(async () => {
     await app.close();
+    delete process.env.SDK_TOKEN;
     await prisma.$disconnect();
   });
 
@@ -42,13 +47,26 @@ describe("API (e2e)", () => {
     const patched = await request(app.getHttpServer()).patch(`/api/flags/${flag.key}/environments/qa`).send({ enabled: true, actor: "e2e" }).expect(200);
     expect(patched.body).toMatchObject({ ok: true, flag: { key: flag.key, environments: { qa: { enabled: true, updatedBy: "e2e" } } } });
 
-    const sdk = await request(app.getHttpServer()).get("/api/sdk/flags?env=qa").expect(200);
+    const sdk = await sdkGet("/api/sdk/flags?env=qa").expect(200);
     expect(sdk.body).toMatchObject({ env: "qa", flags: { [flag.key]: true } });
   });
 
+  it("GET /api/sdk/flags needs the SDK token: 401 without or with a wrong one, 503 when the server has none", async () => {
+    await request(app.getHttpServer()).get("/api/sdk/flags?env=prod").expect(401);
+    await request(app.getHttpServer()).get("/api/sdk/flags?env=prod").set("Authorization", "Bearer wrong").expect(401);
+    await sdkGet("/api/sdk/flags?env=prod").expect(200);
+
+    delete process.env.SDK_TOKEN;
+    try {
+      await sdkGet("/api/sdk/flags?env=prod").expect(503);
+    } finally {
+      process.env.SDK_TOKEN = SDK_TOKEN;
+    }
+  });
+
   it("GET /api/sdk/flags rejects an unknown environment and an unknown service", async () => {
-    await request(app.getHttpServer()).get("/api/sdk/flags?env=staging").expect(400);
-    await request(app.getHttpServer()).get("/api/sdk/flags?env=prod&service=nope").expect(404);
+    await sdkGet("/api/sdk/flags?env=staging").expect(400);
+    await sdkGet("/api/sdk/flags?env=prod&service=nope").expect(404);
   });
 
   it("POST /api/flags creates a flag (201), 400 on invalid input, 409 on a duplicate key", async () => {
@@ -72,8 +90,6 @@ describe("API (e2e)", () => {
 
     const created = await request(app.getHttpServer()).post("/api/flags").send({ key: "throwaway", type: "release" }).expect(201);
     await request(app.getHttpServer()).delete(`/api/flags/${created.body.key}`).send({ actor: "e2e" }).expect(200, { ok: true });
-    await request(app.getHttpServer())
-      .get("/api/sdk/flags?env=test")
-      .expect((r) => expect(r.body.flags).not.toHaveProperty("throwaway"));
+    await sdkGet("/api/sdk/flags?env=test").expect((r) => expect(r.body.flags).not.toHaveProperty("throwaway"));
   });
 });

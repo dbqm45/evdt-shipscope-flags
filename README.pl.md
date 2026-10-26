@@ -115,7 +115,7 @@ Dodatkowo żadna inna flaga nie może od usuwanej zależeć.
 
 **Dziennik zmian (zakładka „Audit log”).** Pełna historia zmian: kto, kiedy, jaką flagę i w jakim środowisku zmienił. Dziennik można przeszukiwać i filtrować według rodzaju działania. Wpisuje się do niego także zablokowane próby, np. próbę włączenia flagi na produkcji z pominięciem QA.
 
-**Powiadomienia (zakładka „Settings”).** Można podać adres webhooka (zgodny ze Slackiem). Gdy powiadomienia są włączone, każda zmiana flagi na produkcji powoduje wysłanie wiadomości, np. „b2cCustomersEnabled was turned ON in PROD by m.chen”. Wiadomość wysyła serwer, więc dotyczy także zmian wykonanych poza ekranem aplikacji. Przycisk „Send test message” pozwala sprawdzić połączenie.
+**Powiadomienia (zakładka „Settings”).** Można podać adres webhooka (zgodny ze Slackiem). Gdy powiadomienia są włączone, każda zmiana flagi na produkcji powoduje wysłanie wiadomości, np. „b2cCustomersEnabled was turned ON in PROD by m.chen”. Wiadomość wysyła serwer, więc dotyczy także zmian wykonanych poza ekranem aplikacji. Przycisk „Send test message” pozwala sprawdzić połączenie. Adres musi zaczynać się od `https://` i nie może wskazywać na adres w sieci wewnętrznej (serwer to sprawdza przy zapisie i przed każdą wysyłką; zmienna `NOTIFY_WEBHOOK_HOSTS` pozwala zawęzić listę dozwolonych hostów lub dopuścić wewnętrzny serwer czatu). Zapisany adres jest poufny, więc aplikacja pokazuje tylko jego początek i koniec.
 
 **Motyw jasny i ciemny.** Przycisk z ikoną księżyca lub słońca w nagłówku przełącza wygląd aplikacji. Wybór jest zapamiętywany w przeglądarce.
 
@@ -169,7 +169,7 @@ Serwer udostępnia adres, z którego aplikacje (serwisy) mogą pobierać aktualn
 GET /api/sdk/flags?env=prod&service=evam-service-host
 ```
 
-Odpowiedź ma postać: `{ "env": "prod", "flags": { "allowEvseNameEdit": true, "b2cCustomersEnabled": false } }`. Parametr `service` jest opcjonalny i ogranicza wynik do flag przypisanych do danego serwisu. Jeżeli w środowisku serwera ustawiona jest zmienna `SDK_TOKEN`, każde zapytanie musi zawierać nagłówek `Authorization: Bearer <wartość>`.
+Odpowiedź ma postać: `{ "env": "prod", "flags": { "allowEvseNameEdit": true, "b2cCustomersEnabled": false } }`. Parametr `service` jest opcjonalny i ogranicza wynik do flag przypisanych do danego serwisu. Każde zapytanie musi zawierać nagłówek `Authorization: Bearer <SDK_TOKEN>`, gdzie `SDK_TOKEN` to zmienna środowiskowa serwera. Bez niej serwer odpowiada kodem 503 i nie udostępnia flag.
 
 Serwer przechowuje dane w bazie PostgreSQL wskazanej zmienną `DATABASE_URL`. Dane z pliku `data/state.json` używanego przez wersje przed 0.2.0 można przenieść do pustej bazy poleceniem `npm run db:import -- data/state.json`. Zasady opisane w punkcie 5 są egzekwowane także po stronie serwera, więc nie da się ich ominąć wywołaniem API. Domyślny adres webhooka powiadomień można podać zmienną `NOTIFY_WEBHOOK_URL`.
 
