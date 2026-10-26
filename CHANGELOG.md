@@ -3,6 +3,13 @@
 Notable changes to ShipScope Flags, newest first. Versions follow [Semantic Versioning](https://semver.org/) and are
 released automatically from [Conventional Commits](https://www.conventionalcommits.org/) (see `RELEASING.md`).
 
+## [0.2.1] - 2026-10-26
+
+### Fixed
+
+- **deps:** bump the frontend group with 11 updates (#2)
+- **deps:** bump the backend group, keeping TypeScript 6 (#3)
+
 ## [0.2.0] - 2026-10-26
 
 The API now stores its state in PostgreSQL (through Prisma) instead of a JSON file. To upgrade:
