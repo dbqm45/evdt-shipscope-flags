@@ -6,13 +6,7 @@ import { encodeAuditCursor, type BindingPatch, type CreateFlagInput, type FlagPa
 import { CREDENTIAL_GRACE_MS, hashToken, newServiceToken } from "./sdk-auth.js";
 import { canDisable, canEnable, canRetire } from "./shared/rules.js";
 import { checkWebhookUrl, maskWebhookUrl, type Lookup } from "./webhook.js";
-import { ENVIRONMENTS, type AuditLogEntry, type AuditLogPage, type Environment, type Flag, type Service } from "./shared/types.js";
-
-export interface NotificationSettings {
-  enabled: boolean;
-  /** Slack-compatible incoming webhook (POST {"text": "..."}); any URL accepting JSON works. */
-  webhookUrl: string;
-}
+import { ENVIRONMENTS, type AuditLogEntry, type AuditLogPage, type Environment, type Flag, type NotificationSettings, type Service } from "./shared/types.js";
 
 /** A service and its new credential: the only time the credential is shown. */
 export interface IssuedCredential {
@@ -350,8 +344,4 @@ export class FlagsService {
   private async audit(db: Db, entry: Omit<AuditLogEntry, "id" | "timestamp">): Promise<void> {
     await db.auditLogEntry.create({ data: { ...entry, id: newAuditId(), timestamp: new Date().toISOString() } });
   }
-}
-
-export function isEnvironment(value: string): value is Environment {
-  return (ENVIRONMENTS as string[]).includes(value);
 }

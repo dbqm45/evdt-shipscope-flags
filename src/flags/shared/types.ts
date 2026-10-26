@@ -118,7 +118,7 @@ export interface AuditLogQuery {
 
 export interface NotificationSettings {
   enabled: boolean;
-  /** Slack-compatible incoming webhook; receives a message whenever a flag changes in prod. */
+  /** Slack-compatible incoming webhook (POST {"text": "..."}; any URL accepting JSON works); gets a message whenever a flag changes in prod. */
   webhookUrl: string;
 }
 

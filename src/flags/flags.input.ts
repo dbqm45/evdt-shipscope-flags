@@ -75,6 +75,19 @@ function tags(value: unknown): string[] {
   return [...new Set(value.map((t) => text(t, "tags", 50)).filter(Boolean))];
 }
 
+/** An environment from the URL or the query string; 400 for anything else. */
+export function parseEnvironment(value: string | undefined): Environment {
+  if (!value || !(ENVIRONMENTS as string[]).includes(value)) throw bad("env must be one of: test, qa, prod.");
+  return value as Environment;
+}
+
+/** Body of PATCH /flags/:key/environments/:env. */
+export function parseEnvironmentChange(input: unknown): boolean {
+  const enabled = input && typeof input === "object" ? (input as Record<string, unknown>).enabled : undefined;
+  if (typeof enabled !== "boolean") throw bad('Body must contain boolean "enabled".');
+  return enabled;
+}
+
 /** Who made the change. Taken from the body until the API has authentication (docs/TODO.md, P0). */
 export function parseActor(body: unknown): string {
   const actor = body && typeof body === "object" ? (body as Record<string, unknown>).actor : undefined;
