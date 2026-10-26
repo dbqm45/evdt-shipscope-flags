@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { useStore } from "../state/useStore";
 import { canEditFlags } from "../lib/permissions";
 import { FlagTable } from "../components/flags/FlagTable";
+import { ServiceMatrix } from "../components/flags/ServiceMatrix";
 import { FlagDrawer } from "../components/flags/FlagDrawer";
 import { CreateFlagModal } from "../components/flags/CreateFlagModal";
 import { useSelectedFlag } from "../lib/useSelectedFlag";
@@ -25,6 +26,7 @@ export function DashboardPage() {
   const [stageFilter, setStageFilter] = useState<LifecycleStage | "all">("all");
   const [tagFilter, setTagFilter] = useState("all");
   const [sort, setSort] = useState<"attention" | "newest">("attention");
+  const [view, setView] = useState<"flags" | "services">("flags");
   const allTags = useMemo(() => [...new Set(flags.flatMap((f) => f.tags ?? []))].sort(), [flags]);
 
   const needAttention = useMemo(() => flags.filter((f) => attentionScore(f, services) > 0).length, [flags, services]);
@@ -74,6 +76,21 @@ export function DashboardPage() {
           />
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
+          <div role="group" aria-label="View" className="flex rounded-xl border border-ink-600 p-0.5">
+            {(["flags", "services"] as const).map((v) => (
+              <button
+                key={v}
+                aria-pressed={view === v}
+                onClick={() => setView(v)}
+                className={clsx(
+                  "text-shell rounded-lg px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide transition-colors",
+                  view === v ? "bg-accent text-ink-950" : "text-mist-500 hover:text-mist-300",
+                )}
+              >
+                {v === "flags" ? "By flag" : "By service"}
+              </button>
+            ))}
+          </div>
           <select
             aria-label="Sort"
             value={sort}
@@ -124,7 +141,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <FlagTable flags={filtered} onSelect={select} />
+      {view === "flags" ? <FlagTable flags={filtered} onSelect={select} /> : <ServiceMatrix flags={filtered} onSelect={select} />}
 
       {selectedFlag && <FlagDrawer flag={selectedFlag} onClose={() => select(null)} />}
       {creating && (

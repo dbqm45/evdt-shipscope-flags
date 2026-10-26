@@ -112,7 +112,7 @@ Lista flag jest domyślnie ułożona według tego, co wymaga uwagi („Needs att
 
 ## 6. Co można robić w aplikacji
 
-**Lista flag (zakładka „Flags”).** Tabela wszystkich flag z następującymi informacjami: nazwa, opis i tagi, typ, etap życia, właściciel, stan w każdym środowisku (ON / OFF), kto i kiedy dodał flagę, kto i kiedy ostatnio zmienił jej stan. Listę można przeszukiwać i filtrować według typu, etapu życia oraz tagu.
+**Lista flag (zakładka „Flags”).** Tabela wszystkich flag z następującymi informacjami: nazwa, opis i tagi, typ, etap życia, właściciel, stan w każdym środowisku (ON / OFF), kto i kiedy dodał flagę, kto i kiedy ostatnio zmienił jej stan. Listę można przeszukiwać i filtrować według typu, etapu życia oraz tagu. Przełącznik „By service” pokazuje te same flagi pogrupowane według serwisów: dla każdego serwisu jego flagi, sposób odczytu i stan w środowiskach, ze znaczkiem „drift” tam, gdzie serwis może używać innej wartości.
 
 **Panel szczegółów flagi.** Po kliknięciu wiersza otwiera się panel boczny, w którym można:
 
