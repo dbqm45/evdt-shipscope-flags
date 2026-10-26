@@ -24,6 +24,11 @@ updates:
     groups:
       backend:
         patterns: ["*"]
+    ignore:
+      # The Nest CLI builds through the TypeScript compiler API, which TypeScript 7.0 does not ship (expected back in
+      # 7.1). The frontend only runs `tsc`, so it may move to 7.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: fix
       prefix-development: build
