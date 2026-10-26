@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import { ENVIRONMENTS, type Environment, type Flag, type FlagServiceBinding, type ReadMode } from "../../types";
-import { serviceById } from "../../data/mock";
+import { serviceLabel } from "../../lib/labels";
+import { useStore } from "../../state/store";
 import { Badge } from "../common/Badge";
 import { IconAlertTriangle } from "../icons";
 
@@ -27,7 +28,8 @@ export function BindingCard({
   editable: boolean;
   onChange: (patch: Partial<FlagServiceBinding>) => void;
 }) {
-  const svc = serviceById(binding.serviceId);
+  const { services } = useStore();
+  const svc = serviceLabel(services, binding.serviceId);
   const carriesConstant = binding.readMode !== "runtime" && !binding.removedFromCode;
 
   function setEnv(env: Environment) {
@@ -42,8 +44,8 @@ export function BindingCard({
     <div className="rounded-xl border border-ink-600 bg-ink-850/60 px-3.5 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-shell truncate text-sm text-mist-100">{svc?.name}</p>
-          <p className="text-shell text-[11px] text-mist-700">{svc?.key}</p>
+          <p className="text-shell truncate text-sm text-mist-100">{svc.name}</p>
+          <p className="text-shell text-[11px] text-mist-700">{svc.key}</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {binding.driftSuspected && (

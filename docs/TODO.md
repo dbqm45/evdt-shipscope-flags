@@ -111,7 +111,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 - [x] _(zrobione: `.env.example` i `frontend/.env.example`)_ Dodać `.env.example` z obsługiwanymi zmiennymi: `PORT`, `SDK_TOKEN`, `FLAGS_DATA_FILE`, `NOTIFY_WEBHOOK_URL`, `VITE_API_BASE_URL`.
 - [x] _(zrobione; `.prettierrc` dopasowany do stylu kodu: double quotes, `printWidth` 160)_ Dodać `.editorconfig`. Dopisać `format:check` (`prettier --check`) i objąć formatowaniem także `frontend/` (dziś `format` dotyczy tylko `src/` i `test/`).
 - [ ] Naprawić ostrzeżenia oxlint `only-export-components`: wydzielić `parseTags` z `CreateFlagModal.tsx` i `useStore` z `store.tsx` do osobnych plików.
-- [ ] Konfiguracja `ENV_LABEL` jest importowana z `data/mock` w kodzie produkcyjnym (`FlagDrawer.tsx`), a `serviceById` z danych mock w `BindingCard.tsx`. Przenieść je do `lib/` i brać serwisy ze store, nie z fixture’ów.
+- [x] _(zrobione: `lib/labels.ts`; nazwy serwisów ze store)_ Konfiguracja `ENV_LABEL` jest importowana z `data/mock` w kodzie produkcyjnym (`FlagDrawer.tsx`), a `serviceById` z danych mock w `BindingCard.tsx`. Przenieść je do `lib/` i brać serwisy ze store, nie z fixture’ów.
 
 ### CI/CD i deployment
 
@@ -124,7 +124,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 
 - [ ] `README.md` i `README.pl.md` są oba po polsku i już się różnią (inne przykłady, sekcja o owner/tags/review tylko w `.pl.md`). Zostawić jedno źródło prawdy albo zrobić z `README.md` wersję angielską.
 - [ ] README (§8–9) opisuje uruchomienie tylko frontendu i twierdzi, że zmiany „nie są zapisywane trwale”. Nie wspomina backendu (`npm run start:dev` w katalogu głównym, proxy `/api` w Vite), pliku `data/state.json`, endpointu SDK ani zmiennych środowiskowych. Do zaktualizowania.
-- [ ] Opisać kontrakt Consumer API dla zespołów serwisów: format odpowiedzi, uwierzytelnianie, zalecany interwał odpytywania ≤ 60 s (FR-013), zachowanie przy błędzie (cache).
+- [x] _(zrobione: `docs/sdk-api.md`)_ Opisać kontrakt Consumer API dla zespołów serwisów: format odpowiedzi, uwierzytelnianie, zalecany interwał odpytywania ≤ 60 s (FR-013), zachowanie przy błędzie (cache).
 - [x] _(zrobione: `CLAUDE.md`)_ Brak `CLAUDE.md` / `AGENTS.md` z instrukcjami dla agentów: komendy build/test/lint, zasada „nie edytuj `src/flags/shared/*` ręcznie, uruchom `npm run sync:shared`”, struktura monorepo.
 - [ ] `context/foundation/` zawiera dwa warianty PRD (`prd.md` i `shape-notes.md` z innym nazewnictwem: Okta, Slack, „poll”). Oznaczyć, który jest aktualny, i wpisać stan implementacji względem FR (np. tabela FR → status).
 - [ ] `tech-stack.md` deklaruje PostgreSQL + Prisma + Passport/OIDC; PostgreSQL i Prisma już są, OIDC nadal brak. Zaktualizować dokument albo dodać ADR opisujący, że plik JSON to rozwiązanie tymczasowe.

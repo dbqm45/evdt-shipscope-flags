@@ -4,7 +4,7 @@ import { useStore } from "../../state/store";
 import { canEnable, daysFullyOn, isStaleCandidate, migrationProgress } from "../../lib/businessLogic";
 import { canEditFlags } from "../../lib/permissions";
 import { ENVIRONMENTS, type Environment, type Flag } from "../../types";
-import { ENV_LABEL } from "../../data/mock";
+import { ENV_LABEL } from "../../lib/labels";
 import { StatusDot } from "../common/StatusDot";
 import { Toggle } from "../common/Toggle";
 import { LifecycleBadge, ReviewBadge, TypeBadge } from "./FlagBadges";

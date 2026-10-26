@@ -1,4 +1,4 @@
-import type { AuditLogEntry, Environment, EnvironmentState, Flag, FlagServiceBinding, Service } from "../types";
+import type { AuditLogEntry, EnvironmentState, Flag, FlagServiceBinding, Service } from "../types";
 
 function daysAgo(n: number): string {
   return new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString();
@@ -246,13 +246,3 @@ const rawAuditLog: AuditLogEntry[] = [
 ];
 
 export const auditLog: AuditLogEntry[] = [...rawAuditLog].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-export function serviceById(id: string): Service | undefined {
-  return services.find((s) => s.id === id);
-}
-
-export const ENV_LABEL: Record<Environment, string> = {
-  test: "Test",
-  qa: "QA",
-  prod: "Prod",
-};
