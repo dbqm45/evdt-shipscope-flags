@@ -3,6 +3,16 @@
 Notable changes to ShipScope Flags, newest first. Versions follow [Semantic Versioning](https://semver.org/) and are
 released automatically from [Conventional Commits](https://www.conventionalcommits.org/) (see `RELEASING.md`).
 
+## [0.6.0] - 2026-10-26
+
+### Breaking
+
+- **api:** page and filter the audit log on the server
+
+### Added
+
+- **sdk:** add a reference client that survives flag service outages
+
 ## [0.5.0] - 2026-10-26
 
 ### Breaking
