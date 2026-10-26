@@ -77,8 +77,8 @@ npm run test:scripts   # node:test for scripts/
 npm run build
 ```
 
-Frontend: `cd frontend && npm run lint && npm run build` (the build runs `tsc -b` first). The frontend has no tests
-yet. `npm run format` fixes formatting; `.editorconfig` covers the basics for editors.
+Frontend: `cd frontend && npm run lint && npm test && npm run build` (the build runs `tsc -b` first, which also
+type-checks the tests). `npm run format` fixes formatting; `.editorconfig` covers the basics for editors.
 
 ## Code style
 
@@ -88,6 +88,10 @@ yet. `npm run format` fixes formatting; `.editorconfig` covers the basics for ed
   cannot say why.
 - Backend tests use Vitest with globals (`describe`, `it`, `expect`) and `@nestjs/testing`; script tests use
   `node:test` + `node:assert/strict`.
+- Frontend tests use Vitest (jsdom, React Testing Library) with explicit imports from `vitest`, next to the code as
+  `*.test.ts(x)` — never `*.spec.ts`, which the backend's Vitest collects across the whole repo. Build data with
+  `frontend/src/test/factories.ts` and pin the clock (`vi.setSystemTime`) for date rules; mock `../api/client` in
+  store tests.
 
 ## Commits, versions, releases
 

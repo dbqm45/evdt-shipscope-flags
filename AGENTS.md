@@ -24,13 +24,13 @@ scope: `@context/foundation/prd.md`; known gaps: `@docs/TODO.md`. Full depth liv
 
 - API: `npm ci && npm run start:dev` (port 3000). Dashboard: `cd frontend && npm ci && npm run dev` (proxies `/api`).
 - Before committing: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:e2e`,
-  `npm run test:scripts`, `npm run build`, and in `frontend/`: `npm run lint && npm run build`.
+  `npm run test:scripts`, `npm run build`, and in `frontend/`: `npm run lint && npm test && npm run build`.
 
 ## Coding style & testing
 
 - TypeScript `strict` in both packages; Prettier with double quotes and `printWidth` 160 (`npm run format`).
-- Backend tests: Vitest (`src/**/*.spec.ts`, `test/**/*.e2e-spec.ts`); script tests: `node:test`. The frontend has no
-  tests yet.
+- Backend tests: Vitest (`src/**/*.spec.ts`, `test/**/*.e2e-spec.ts`); script tests: `node:test`; frontend tests:
+  Vitest + React Testing Library (`frontend/src/**/*.test.ts(x)`, never `*.spec.ts`).
 
 ## Commits & CI
 

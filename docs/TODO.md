@@ -89,7 +89,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
   - e2e dla `/api/flags`, `/api/sdk/flags` (z tokenem i bez), `PATCH` (409 przy naruszeniu kolejności);
   - test SDK z `FLAGS_DATA_FILE` wskazującym na katalog tymczasowy (dziś testy mogłyby nadpisać `data/state.json`).
 - [ ] **E2E nie odwzorowuje produkcyjnej konfiguracji.** `setGlobalPrefix('api')` jest tylko w `main.ts`, więc w testach routy działają bez `/api`. Wydzielić `configureApp(app)` i wywoływać go w `main.ts` i w e2e.
-- [ ] **Frontend nie ma testów.** Dodać Vitest + React Testing Library (`npm i -D vitest @testing-library/react jsdom`) i skrypt `test`. Zacząć od `store.tsx` (toggle, rollback, uprawnienia) i `client.ts` (fallback tylko przy błędzie sieci).
+- [x] _(zrobione: Vitest + RTL, testy `businessLogic.ts`, `client.ts`, `store.tsx`; brak testów rollbacku, bo store go jeszcze nie ma)_ **Frontend nie ma testów.** Dodać Vitest + React Testing Library (`npm i -D vitest @testing-library/react jsdom`) i skrypt `test`. Zacząć od `store.tsx` (toggle, rollback, uprawnienia) i `client.ts` (fallback tylko przy błędzie sieci).
 - [ ] Usunąć szablonowe `AppController` i `AppService` („Hello World!”) albo zastąpić je endpointem health.
 
 ### Architektura i struktura kodu
