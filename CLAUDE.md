@@ -51,6 +51,7 @@ Two packages, one version:
 | `src/rate-limit.ts`                                 | rate limits per client address and route (`@nestjs/throttler`, `RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_SDK_PER_MINUTE`); `@SdkRoute()` marks the consumer route |
 | `src/flags/*.controller.ts`                        | routes: `flags` (create/update/retire, `/:key/environments/:env`, `/:key/services/:id`), `services` (register, `/:id/credential`), `audit-log` (pages with a `before` cursor and filters), `settings` (`/settings/notifications`), `sdk` (the consumer route `GET /v1/sdk/flags`, also at `/sdk/flags`) |
 | `src/flags/flags.input.ts`                          | validation of management request bodies (400 with a readable reason, unknown fields rejected) |
+| `src/flags/audit-retention.ts`                      | deletes audit entries older than `AUDIT_RETENTION_DAYS` (default 730, 0 = keep) once a day, noting it in the log |
 | `src/flags/webhook.ts`                              | webhook URL checks against SSRF (https, no private/local addresses, `NOTIFY_WEBHOOK_HOSTS`) and masking |
 | `src/flags/sdk-auth.ts`                             | who calls the consumer route: a service by its credential (only a SHA-256 digest is stored), or the deprecated shared `SDK_TOKEN` (constant-time) |
 | `src/flags/flags.service.ts`                        | reads and changes state in PostgreSQL, rule checks, audit entries, webhook notifications     |

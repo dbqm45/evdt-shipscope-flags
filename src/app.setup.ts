@@ -1,10 +1,13 @@
 import type { INestApplication } from "@nestjs/common";
 import helmet from "helmet";
+import { auditRetentionDays } from "./flags/audit-retention.js";
 import { rateLimits, trustProxy } from "./rate-limit.js";
 
 /** Settings shared by main.ts and the e2e tests, so the tests see the same routes as production. */
 export function configureApp(app: INestApplication): INestApplication {
-  rateLimits(); // fails at start-up on a malformed RATE_LIMIT_* value rather than on the first request
+  // Fail at start-up on a malformed value rather than on the first request or the first pruning.
+  rateLimits();
+  auditRetentionDays();
   app.setGlobalPrefix("api");
   // Security headers (nosniff, frame-ancestors, HSTS, …) and no X-Powered-By. The API serves JSON only.
   app.use(helmet());

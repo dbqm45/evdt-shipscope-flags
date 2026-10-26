@@ -83,6 +83,7 @@ export const AUDIT_ACTIONS = [
   "flag-retired",
   "flag-updated",
   "notification-failed",
+  "audit-log-pruned",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
