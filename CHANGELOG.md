@@ -3,6 +3,12 @@
 Notable changes to ShipScope Flags, newest first. Versions follow [Semantic Versioning](https://semver.org/) and are
 released automatically from [Conventional Commits](https://www.conventionalcommits.org/) (see `RELEASING.md`).
 
+## [0.2.0] - 2026-10-26
+
+### Breaking
+
+- **api:** store state in PostgreSQL through Prisma
+
 ## [0.1.0] - 2026-10-26
 
 First versioned release: the state of the pilot as it is today.
