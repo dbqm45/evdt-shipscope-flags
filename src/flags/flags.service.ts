@@ -4,7 +4,7 @@ import { PrismaService } from "../prisma/prisma.service.js";
 import { FLAG_INCLUDE, SERVICE_INCLUDE, toAuditEntry, toDbReadMode, toFlag, toService } from "./flag-mapper.js";
 import { encodeAuditCursor, type BindingPatch, type CreateFlagInput, type FlagPatch, type ParsedAuditQuery, type RegisterServiceInput } from "./flags.input.js";
 import { CREDENTIAL_GRACE_MS, hashToken, newServiceToken } from "./sdk-auth.js";
-import { canDisable, canEnable, canRetire, DEFAULT_STALE_THRESHOLD_DAYS } from "./shared/rules.js";
+import { canDisable, canEnable, canRetire, DEFAULT_STALE_THRESHOLD_DAYS } from "@shipscope/shared/rules";
 import { checkWebhookUrl, maskWebhookUrl, type Lookup } from "./webhook.js";
 import {
   ENVIRONMENTS,
@@ -15,7 +15,7 @@ import {
   type NotificationSettings,
   type RuleSettings,
   type Service,
-} from "./shared/types.js";
+} from "@shipscope/shared/types";
 
 /** A service and its new credential: the only time the credential is shown. */
 export interface IssuedCredential {

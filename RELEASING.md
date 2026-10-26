@@ -1,8 +1,8 @@
 # Wersjonowanie i wydania
 
 ShipScope Flags ma jeden numer wersji zgodny z [Semantic Versioning 2.0.0](https://semver.org/lang/pl/)
-(`MAJOR.MINOR.PATCH`). Numer jest zapisany w `package.json` i `frontend/package.json` oraz w ich lockfile’ach: API
-i frontend wydaje się razem. Wydana wersja ma tag git `vX.Y.Z` i
+(`MAJOR.MINOR.PATCH`). Numer jest zapisany w `package.json`, `frontend/package.json` i `packages/shared/package.json`
+oraz we wspólnym `package-lock.json`: API, dashboard i pakiet wspólny wydaje się razem. Wydana wersja ma tag git `vX.Y.Z` i
 [GitHub Release](https://github.com/dbqm45/evdt-shipscope-flags/releases) z wpisem z `CHANGELOG.md`.
 
 Mechanizm jest taki sam jak w `dbqm45/evdt-service-shipscope`. Różnice opisuje ostatnia sekcja.
@@ -65,7 +65,7 @@ Po każdym pushu na `main` workflow `Release` (`.github/workflows/release.yml`):
 1. **Wylicza wersję** (`node scripts/release.mjs --ci`) z commitów od ostatniego tagu `vX.Y.Z`, według tabel powyżej.
    - Brak `feat`, `fix`, `perf` i zmian niezgodnych (np. tylko `docs`, `test`, `ci`, `chore`, `build`, `refactor`):
      nie ma nowej wersji i nic więcej się nie dzieje.
-   - W przeciwnym razie ustawia nową wersję w obu `package.json` i lockfile’ach i dopisuje na górze `CHANGELOG.md`
+   - W przeciwnym razie ustawia nową wersję we wszystkich `package.json` i w lockfile’u i dopisuje na górze `CHANGELOG.md`
      wpis (sekcje _Breaking_, _Added_, _Fixed_) z tytułów commitów.
 2. **Commituje** to na `main` jako `github-actions[bot]` z wiadomością `chore(release): X.Y.Z`. Push wykonany przez
    `GITHUB_TOKEN` nie uruchamia innych workflow, więc commit wydania nie wywołuje kolejnego wydania.

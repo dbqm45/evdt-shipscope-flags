@@ -9,6 +9,10 @@
   "engines": {
     "node": "^22.22.3 || ^24.15.0 || >=26.0.0"
   },
+  "workspaces": [
+    "packages/shared",
+    "frontend"
+  ],
   "scripts": {
     "build": "nest build",
     "format": "prettier --write .",
@@ -17,18 +21,22 @@
     "start:dev": "nest start --watch --exec \"node --env-file-if-exists=.env\"",
     "start:debug": "nest start --debug --watch --exec \"node --env-file-if-exists=.env\"",
     "start:prod": "node --env-file-if-exists=.env dist/main",
-    "lint": "oxlint --type-aware src/ test/ sdk/client.ts",
+    "prelint": "npm run build:shared",
+    "lint": "oxlint --type-aware src/ test/ sdk/client.ts packages/shared/src/",
+    "pretypecheck": "npm run build:shared",
     "typecheck": "tsc --noEmit && tsc -p sdk",
+    "pretest": "npm run build:shared",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
+    "pretest:e2e": "npm run build:shared",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
     "test:sdk": "node --test \"sdk/**/*.test.ts\"",
-    "sync:shared": "node scripts/sync-shared.mjs",
-    "prebuild": "npm run sync:shared",
-    "postinstall": "prisma generate",
+    "build:shared": "npm run build -w @shipscope/shared",
+    "prebuild": "npm run build:shared",
+    "postinstall": "prisma generate && npm run build:shared",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
@@ -45,6 +53,7 @@
     "@nestjs/throttler": "^6.7.1",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "@shipscope/shared": "*",
     "helmet": "^8.3.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"

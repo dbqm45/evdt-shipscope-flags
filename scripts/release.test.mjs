@@ -19,10 +19,11 @@ const CHANGELOG = "# Changelog\n\nIntro.\n\n## [0.1.0] - 2026-10-16\n\n- First.\
 let TMP;
 let seq = 0;
 
-/** A throwaway git repo with both package.json files and lockfiles, tagged v0.1.0, plus the given commits after it. */
+/** A throwaway git repo shaped like the workspace (three package.json files, one lockfile), tagged v0.1.0, plus the given commits. */
 function makeRepo(commits) {
   const dir = join(TMP, `repo-${seq++}`);
   mkdirSync(join(dir, "frontend"), { recursive: true });
+  mkdirSync(join(dir, "packages", "shared"), { recursive: true });
   const git = (...a) => execFileSync("git", a, { cwd: dir, encoding: "utf8" });
   git("init", "-q", "-b", "main");
   git("config", "user.email", "t@example.test");
@@ -30,11 +31,20 @@ function makeRepo(commits) {
   git("config", "commit.gpgsign", "false");
   git("config", "tag.gpgsign", "false");
   const write = (file, value) => writeFileSync(join(dir, file), typeof value === "string" ? value : JSON.stringify(value, null, 2) + "\n");
-  const lock = (name) => ({ name, version: "0.1.0", lockfileVersion: 3, packages: { "": { name, version: "0.1.0" } } });
-  write("package.json", { name: "api", version: "0.1.0", private: true });
-  write("package-lock.json", lock("api"));
+  write("package.json", { name: "api", version: "0.1.0", private: true, workspaces: ["packages/shared", "frontend"] });
   write("frontend/package.json", { name: "web", version: "0.1.0", private: true });
-  write("frontend/package-lock.json", lock("web"));
+  write("packages/shared/package.json", { name: "@x/shared", version: "0.1.0", private: true });
+  write("package-lock.json", {
+    name: "api",
+    version: "0.1.0",
+    lockfileVersion: 3,
+    packages: {
+      "": { name: "api", version: "0.1.0" },
+      frontend: { name: "web", version: "0.1.0" },
+      "packages/shared": { name: "@x/shared", version: "0.1.0" },
+      "node_modules/web": { resolved: "frontend", link: true },
+    },
+  });
   write("CHANGELOG.md", CHANGELOG);
   git("add", "-A");
   git("commit", "-qm", "chore(release): 0.1.0");
@@ -56,17 +66,16 @@ before(() => {
 after(() => rmSync(TMP, { recursive: true, force: true }));
 
 describe("release.mjs", () => {
-  it("REL-CI-1: a feat after v0.1.0 sets 0.1.1 in both packages and lockfiles and adds the changelog entry on top", () => {
+  it("REL-CI-1: a feat after v0.1.0 sets 0.1.1 in every package and the lockfile and adds the changelog entry on top", () => {
     const repo = makeRepo(["feat(SHPFL): retire a flag from the API (#8)", "fix(api): reject empty keys", "docs: readme"]);
     const res = run(RELEASE, ["--ci"], repo.dir);
     assert.equal(res.status, 0, res.stderr);
 
-    for (const pkg of ["package.json", "frontend/package.json"]) assert.equal(repo.json(pkg).version, "0.1.1", pkg);
-    for (const file of ["package-lock.json", "frontend/package-lock.json"]) {
-      const lock = repo.json(file);
-      assert.equal(lock.version, "0.1.1", file);
-      assert.equal(lock.packages[""].version, "0.1.1", file);
-    }
+    for (const pkg of ["package.json", "frontend/package.json", "packages/shared/package.json"]) assert.equal(repo.json(pkg).version, "0.1.1", pkg);
+    const lock = repo.json("package-lock.json");
+    assert.equal(lock.version, "0.1.1");
+    for (const dir of ["", "frontend", "packages/shared"]) assert.equal(lock.packages[dir].version, "0.1.1", dir);
+    assert.deepEqual(lock.packages["node_modules/web"], { resolved: "frontend", link: true });
 
     const changelog = repo.read("CHANGELOG.md");
     assert.match(
@@ -140,16 +149,14 @@ describe("release-notes.mjs and check-commit-message.mjs", () => {
 });
 
 describe("repository version", () => {
-  it("VER-1: both package.json files and lockfiles carry the same X.Y.Z, and CHANGELOG.md has its entry", () => {
+  it("VER-1: every package.json of the workspace and the lockfile carry the same X.Y.Z, and CHANGELOG.md has its entry", () => {
     const read = (file) => JSON.parse(readFileSync(join(ROOT, file), "utf8"));
     const { version } = read("package.json");
     assert.match(version, /^\d+\.\d+\.\d+$/);
-    assert.equal(read("frontend/package.json").version, version);
-    for (const file of ["package-lock.json", "frontend/package-lock.json"]) {
-      const lock = read(file);
-      assert.equal(lock.version, version, file);
-      assert.equal(lock.packages[""].version, version, file);
-    }
+    for (const pkg of ["frontend/package.json", "packages/shared/package.json"]) assert.equal(read(pkg).version, version, pkg);
+    const lock = read("package-lock.json");
+    assert.equal(lock.version, version);
+    for (const dir of ["", "frontend", "packages/shared"]) assert.equal(lock.packages[dir].version, version, dir);
     assert.ok(readFileSync(join(ROOT, "CHANGELOG.md"), "utf8").includes(`## [${version}]`), `CHANGELOG.md has ## [${version}]`);
   });
 });

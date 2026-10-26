@@ -8,8 +8,8 @@ import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { PrismaClient } from "../generated/prisma/client.js";
 import { toDbReadMode } from "../flags/flag-mapper.js";
-import { auditLog as seedAudit, flags as seedFlags, services as seedServices } from "../flags/shared/seed.js";
-import { ENVIRONMENTS, type AuditLogEntry, type Environment, type Flag, type NotificationSettings, type Service } from "../flags/shared/types.js";
+import { auditLog as seedAudit, flags as seedFlags, services as seedServices } from "@shipscope/shared/seed";
+import { ENVIRONMENTS, type AuditLogEntry, type Environment, type Flag, type NotificationSettings, type Service } from "@shipscope/shared/types";
 import { prismaOptions } from "../prisma/prisma.service.js";
 
 export interface State {

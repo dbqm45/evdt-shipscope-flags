@@ -1,4 +1,4 @@
-// Database schema of the API. The shapes the API returns (frontend/src/types.ts) are built from these tables in
+// Database schema of the API. The shapes the API returns (packages/shared/src/types.ts) are built from these tables in
 // src/flags/flag-mapper.ts; change both together. Migrations: npm run db:migrate (dev) / npm run db:deploy.
 
 generator client {

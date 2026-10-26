@@ -11,14 +11,15 @@ ARG NGINX_IMAGE=nginx:1.29-alpine
 
 FROM ${NODE_IMAGE} AS api-build
 WORKDIR /app
-# The Prisma schema comes with the manifests: npm ci's postinstall runs `prisma generate`.
+# One lockfile for the workspace: npm ci needs every workspace's package.json. The Prisma schema and the shared
+# package come with the manifests, because the postinstall runs `prisma generate` and builds @shipscope/shared.
 COPY package.json package-lock.json prisma.config.ts ./
+COPY frontend/package.json ./frontend/
+COPY packages/shared ./packages/shared
 COPY prisma ./prisma
-RUN npm ci --no-audit --no-fund
+RUN npm ci -w packages/shared --include-workspace-root --no-audit --no-fund
 COPY tsconfig.json tsconfig.build.json nest-cli.json ./
 COPY src ./src
-# src/flags/shared is committed and CI checks it is in sync with the frontend, so build it as is
-# (`npm run build` would first run sync:shared, which needs the frontend sources).
 RUN npx nest build
 
 # Applies the migrations (Prisma CLI is a dev dependency, so this stage keeps them), then loads the demo data into an
@@ -31,10 +32,14 @@ ENV NODE_ENV=production \
     PORT=3000
 WORKDIR /app
 COPY package.json package-lock.json ./
-# --ignore-scripts: the postinstall `prisma generate` needs the dev-only CLI; the client is already compiled into dist.
+COPY frontend/package.json ./frontend/
+COPY packages/shared/package.json ./packages/shared/
+# --ignore-scripts: the postinstall (`prisma generate`, building @shipscope/shared) needs dev-only tools; the client
+# is already compiled into dist and the shared package's build is copied below.
 # --omit=optional: @prisma/client lists the CLI as an optional peer, which would otherwise pull it (and Prisma Studio,
 # ~250 MB) into the runtime image.
-RUN npm ci --omit=dev --omit=optional --ignore-scripts --no-audit --no-fund && npm cache clean --force
+RUN npm ci -w packages/shared --include-workspace-root --omit=dev --omit=optional --ignore-scripts --no-audit --no-fund && npm cache clean --force
+COPY --from=api-build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=api-build /app/dist ./dist
 USER node
 EXPOSE 3000
@@ -44,11 +49,15 @@ CMD ["node", "dist/main.js"]
 # --- Dashboard -------------------------------------------------------------------------------------------------
 
 FROM ${NODE_IMAGE} AS web-build
-WORKDIR /app/frontend
-COPY frontend/package.json frontend/package-lock.json ./
-RUN npm ci --no-audit --no-fund
-COPY frontend ./
-RUN npm run build
+WORKDIR /app
+# The dashboard and @shipscope/shared only (the dashboard builds the shared package from its sources); --ignore-scripts
+# skips the API's postinstall, which needs Prisma.
+COPY package.json package-lock.json ./
+COPY frontend/package.json ./frontend/
+COPY packages/shared ./packages/shared
+RUN npm ci -w frontend -w packages/shared --ignore-scripts --no-audit --no-fund
+COPY frontend ./frontend
+RUN npm run build -w frontend
 
 FROM ${NGINX_IMAGE} AS web
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf

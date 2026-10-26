@@ -37,6 +37,6 @@ TypeScript + NestJS + PostgreSQL (via Prisma) + Passport.js with an OIDC strateg
 - **Not yet:** Passport.js with OIDC (FR-001/002); the management API has no authentication. Services already
   authenticate with their own credentials (FR-003/005/011).
 - **Differs from the plan:** the stale and attention rules run when the dashboard renders (shared code in
-  `frontend/src/lib/businessLogic.ts`), not as background jobs; nothing needs scheduling so far. Deployment is still
+  `packages/shared/src/rules.ts`), not as background jobs; nothing needs scheduling so far. Deployment is still
   manual: every push to `main` releases a version, but no environment deploys it automatically.
 

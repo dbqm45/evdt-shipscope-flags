@@ -17,23 +17,29 @@ ShipScope Flags is a feature-flag management pilot: one place that shows and con
 (`test` → `qa` → `prod`) for several services, enforces promotion order and flag dependencies, and warns before a
 flag is removed in a way that would silently change a service's behaviour.
 
-Two packages, one version:
+Three npm workspaces, one version and one `package-lock.json` (`npm ci` in the root installs all of them):
 
 - **API** — NestJS 12 in `src/` (root `package.json`), served under `/api`. State lives in PostgreSQL
   through Prisma 7 (`prisma/schema.prisma`, `DATABASE_URL`); demo data is loaded only on request (`npm run db:seed`).
   There is **no authentication** on the management API yet (see `docs/TODO.md`, P0).
 - **Dashboard** — React 19 + Vite 8 + Tailwind 4 in `frontend/` (own `package.json`). `frontend/src/api/client.ts`
   calls the API; only when the API cannot be reached (network error, timeout, 502/503/504) does the dashboard switch to
-  the fixture data in `frontend/src/data/mock.ts` (demo mode, with a banner). An error answer (409 from the rules, 400,
+  the demo data from `@shipscope/shared/seed` (demo mode, with a banner). An error answer (409 from the rules, 400,
   500) is shown to the user, never treated as success. With the API every change (toggles, create, details, service
   bindings, retire, settings) waits for the server and shows what it stored; in demo mode changes stay in the browser.
+- **Shared package** — `@shipscope/shared` in `packages/shared/`: the domain types (`types`), the business rules
+  (`rules`) and the demo data (`seed`). The dashboard uses its TypeScript sources (export condition `source`, set in
+  `frontend/vite.config.ts` and `tsconfig.app.json`); the API and Node use the compiled `packages/shared/dist`, built
+  by `postinstall` and before `build`, `lint`, `typecheck` and the tests (`npm run build:shared`).
 
 ## Run it locally
 
 - Database: `docker compose up -d db` (PostgreSQL on `127.0.0.1:5432`, plus the test database), then
   `npm run db:deploy` (migrations) and, after `npm run build`, `npm run db:seed` (demo data into an empty database).
-- API: `npm ci && npm run start:dev` in the repository root → `http://localhost:3000/api`.
-- Dashboard: `cd frontend && npm ci && npm run dev` → `http://localhost:5173`; Vite proxies `/api` to port 3000.
+- Install: `npm ci` in the repository root, once for all workspaces (never in `frontend/`).
+- API: `npm run start:dev` → `http://localhost:3000/api`. It runs on the shared package's `dist`: when changing
+  `packages/shared` meanwhile, keep `npm run dev -w @shipscope/shared` (tsc in watch mode) running too.
+- Dashboard: `npm run dev -w frontend` → `http://localhost:5173`; Vite proxies `/api` to port 3000.
 - Environment: copy `.env.example` to `.env` (the start scripts load it with `node --env-file-if-exists`) and
   `frontend/.env.example` to `frontend/.env`. Never commit a real `.env`.
 - Whole stack in Docker: `docker compose up --build -d` → dashboard on `http://localhost:8080` (nginx serves the
@@ -59,22 +65,21 @@ Two packages, one version:
 | `prisma/schema.prisma`, `prisma/migrations/`        | database schema and its migrations; `prisma.config.ts` configures the CLI                    |
 | `src/prisma/prisma.service.ts`                      | `PrismaService` (global Nest module); the client is generated into `src/generated/` (gitignored) |
 | `src/db/load-state.ts`                              | loads demo data or an old `data/state.json` into an empty database (`db:seed`, `db:import`)  |
-| `src/flags/shared/`                                 | **generated** copies of frontend files (see Hard rules)                                      |
-| `frontend/src/types.ts`                             | domain types shared by both packages                                                          |
-| `frontend/src/lib/businessLogic.ts`                 | the business rules (promotion order, dependencies, stale detection, build-time checks, retirement, drift from per-environment check-ins, attention ranking) |
+| `packages/shared/src/types.ts`                      | domain types used by the API and the dashboard (`@shipscope/shared/types`)                   |
+| `packages/shared/src/rules.ts`                      | the business rules (promotion and disabling order, dependencies, stale detection, build-time checks, retirement, drift from per-environment check-ins, attention ranking) (`@shipscope/shared/rules`) |
+| `packages/shared/src/seed.ts`                       | demo data: the dashboard's demo mode and `npm run db:seed` (`@shipscope/shared/seed`)        |
+| `frontend/src/types.ts`, `lib/businessLogic.ts`, `data/mock.ts` | re-exports of the shared package, so dashboard code and tests import as before  |
 | `frontend/src/state/store.tsx`, `state/useStore.ts` | client state and actions (React context): `StoreProvider`, and `useStore` with the store's shape |
 | `sdk/`                                              | reference client for services (`client.ts`, no dependencies, run by Node as plain TypeScript); `node:test` tests (`npm run test:sdk`), its own `tsconfig.json` |
-| `scripts/`                                          | tooling only: `sync-shared.mjs`, release scripts and their `node:test` tests                 |
+| `scripts/`                                          | tooling only: release scripts and their `node:test` tests                                    |
 | `.github/workflows/`                                | `ci.yml` (PRs, and verify step of releases), `release.yml` (every push to `main`)            |
 | `Dockerfile`, `docker-compose.yml`, `docker/`       | images `api` (Nest, prod deps only, user `node`), `migrate` and `web` (nginx, security headers incl. a strict CSP in `docker/security-headers.conf`); compose adds PostgreSQL; CI builds and smoke-tests them |
 
 ## Hard rules
 
-- **Never edit `src/flags/shared/*` by hand.** They are copies of `frontend/src/types.ts`,
-  `frontend/src/lib/businessLogic.ts` and `frontend/src/data/mock.ts`, made by `npm run sync:shared` (also run by
-  `prebuild`). Change the frontend file, run `npm run sync:shared`, commit both. CI fails when they differ.
-- **Business rules live in one place**, `frontend/src/lib/businessLogic.ts`: the dashboard and the API both enforce
-  them (the API through the shared copy). A rule change must keep both sides behaving the same.
+- **Business rules live in one place**, `packages/shared/src/rules.ts`: the dashboard and the API both enforce
+  them. Types and demo data live next to them. The package is plain TypeScript for both: inside it, relative
+  imports end in `.js` (`./types.js`), and it depends on nothing at runtime. Never put copies of it anywhere else.
 - **Backend imports are ESM with `nodenext`**: relative imports end in `.js` (`./flags.service.js`), and so do
   subpath imports of packages without an `exports` map (`supertest/types.js`). The frontend uses bundler resolution
   and imports without extensions.
@@ -99,9 +104,8 @@ Two packages, one version:
 Root, in this order (CI runs the same):
 
 ```bash
-npm run format:check   # Prettier over the whole repo (both packages, configs, workflows)
-npm run sync:shared && git diff --exit-code -- src/flags/shared
-npm run lint           # oxlint --type-aware on src/, test/ and sdk/client.ts
+npm run format:check   # Prettier over the whole repo (every workspace, configs, workflows)
+npm run lint           # oxlint --type-aware on src/, test/, sdk/client.ts and packages/shared/src/
 npm run typecheck      # tsc --noEmit on src/ and test/, then on sdk/
 npm test               # vitest unit tests (src/**/*.spec.ts), service tests against TEST_DATABASE_URL
 npm run test:e2e       # vitest e2e tests (test/**/*.e2e-spec.ts), against TEST_DATABASE_URL
@@ -110,12 +114,12 @@ npm run test:sdk       # node:test for the reference client in sdk/
 npm run build
 ```
 
-Frontend: `cd frontend && npm run lint && npm test && npm run build` (the build runs `tsc -b` first, which also
-type-checks the tests). `npm run format` fixes formatting; `.editorconfig` covers the basics for editors.
+Frontend: `npm run lint -w frontend && npm test -w frontend && npm run build -w frontend` (the build runs `tsc -b`
+first, which also type-checks the tests). `npm run format` fixes formatting; `.editorconfig` covers the basics for editors.
 
 ## Code style
 
-- TypeScript `strict` in both packages. Prettier: double quotes, trailing commas, `printWidth` 160 (`.prettierrc`);
+- TypeScript `strict` in every workspace. Prettier: double quotes, trailing commas, `printWidth` 160 (`.prettierrc`);
   lockfiles and Markdown are not formatted (`.prettierignore`).
 - Match the surrounding code: compact one-line guards, small pure functions in `lib/`, comments only where the code
   cannot say why.

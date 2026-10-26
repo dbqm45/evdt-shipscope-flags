@@ -8,7 +8,7 @@ import {
   type FlagType,
   type ReadMode,
   type RuleSettings,
-} from "./shared/types.js";
+} from "@shipscope/shared/types";
 
 // Parses and validates request bodies of the management API. Anything unexpected is a 400 with a reason the dashboard
 // can show as is; unknown fields are rejected rather than ignored, so a typo does not silently do nothing.

@@ -73,17 +73,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: package-lock.json
-      # Also generates the Prisma Client (postinstall).
+      # One install for the whole workspace; also generates the Prisma Client and builds @shipscope/shared (postinstall).
       - run: npm ci
       - name: Check formatting (whole repo)
         run: npm run format:check
-      - name: Check src/flags/shared is in sync with the frontend
-        run: |
-          npm run sync:shared
-          git diff --exit-code -- src/flags/shared || {
-            echo "::error::src/flags/shared is out of date. Run 'npm run sync:shared' and commit the result."
-            exit 1
-          }
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
@@ -149,9 +142,6 @@ jobs:
     if: github.event.action != 'edited'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -160,12 +150,14 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-      - run: npm run lint
-      - run: npm test
+          cache-dependency-path: package-lock.json
+      # The dashboard and @shipscope/shared only; --ignore-scripts skips the API's postinstall (Prisma). The dashboard
+      # uses the shared package from its sources, so it needs no build of it.
+      - run: npm ci -w frontend -w packages/shared --ignore-scripts
+      - run: npm run lint -w frontend
+      - run: npm test -w frontend
       - name: Typecheck and build
-        run: npm run build
+        run: npm run build -w frontend
 
   audit:
     name: Dependency audit
@@ -179,17 +171,10 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-      # Blocking: high/critical advisories in what ships to production.
-      - name: Audit runtime dependencies (backend)
-        run: npm audit --omit=dev --audit-level=high
-      - name: Audit runtime dependencies (frontend)
-        working-directory: frontend
+      # Blocking: high/critical advisories in what ships to production (the one lockfile covers every workspace).
+      - name: Audit runtime dependencies
         run: npm audit --omit=dev --audit-level=high
       # Informational: dev tooling (Nest CLI, Vite, linters) is reported but does not fail the build.
       - name: Audit all dependencies (report only)
         continue-on-error: true
-        run: |
-          status=0
-          npm audit --audit-level=high || status=1
-          (cd frontend && npm audit --audit-level=high) || status=1
-          exit $status
+        run: npm audit --audit-level=high

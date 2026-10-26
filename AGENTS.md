@@ -1,15 +1,13 @@
 # Repository Guidelines
 
 ShipScope Flags is a feature-flag management pilot: a NestJS API in `src/` (state in PostgreSQL through Prisma, served under `/api`)
-and a React + Vite dashboard in `frontend/` (its own `package.json`), released together under one version. Product
+and a React + Vite dashboard in `frontend/`, with the shared types and rules in `packages/shared/` (npm workspaces, one lockfile), released together under one version. Product
 scope: `@context/foundation/prd.md`; known gaps: `@docs/TODO.md`. Full depth lives in `@CLAUDE.md`.
 
 ## Hard rules
 
-- Never edit `src/flags/shared/*` by hand: they are generated from `frontend/src/types.ts`,
-  `frontend/src/lib/businessLogic.ts` and `frontend/src/data/mock.ts` by `npm run sync:shared`. Change the frontend
-  file, run the script, commit both.
-- Business rules live only in `frontend/src/lib/businessLogic.ts`; the dashboard and the API both enforce them.
+- Business rules, domain types and demo data live only in the workspace package `@shipscope/shared`
+  (`packages/shared/src/`); the dashboard (from its sources) and the API (from its `dist`) both use it.
 - Backend imports are ESM (`nodenext`): relative imports end in `.js`.
 - The consumer contract `GET /api/v1/sdk/flags` (`docs/sdk-api.md`) is what services integrate against; change it
   only on purpose, with a new version path and a breaking-change commit.
@@ -27,13 +25,14 @@ scope: `@context/foundation/prd.md`; known gaps: `@docs/TODO.md`. Full depth liv
 
 ## Build, test, and development
 
-- API: `npm ci && npm run start:dev` (port 3000). Dashboard: `cd frontend && npm ci && npm run dev` (proxies `/api`).
+- One `npm ci` in the root installs every workspace. API: `npm run start:dev` (port 3000). Dashboard:
+  `npm run dev -w frontend` (proxies `/api`).
 - Docker: `docker compose up --build -d` runs PostgreSQL, the migrations (with demo data), the API and the dashboard
   (`http://localhost:8080`); `docker compose up -d db` starts only the database.
 - Database: schema in `prisma/schema.prisma`; every change ships with a migration (`npm run db:migrate -- --name …`).
   Backend tests need `TEST_DATABASE_URL` (see `.env.example`) and truncate that database.
 - Before committing: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:e2e`,
-  `npm run test:scripts`, `npm run test:sdk`, `npm run build`, and in `frontend/`: `npm run lint && npm test && npm run build`.
+  `npm run test:scripts`, `npm run test:sdk`, `npm run build`, and for the dashboard: `npm run lint -w frontend && npm test -w frontend && npm run build -w frontend`.
 
 ## Coding style & testing
 

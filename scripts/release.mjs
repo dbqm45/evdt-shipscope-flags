@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Prepares a release on the current branch: computes the next SemVer version from Conventional Commits since
-// the last tag vX.Y.Z, sets it in both package.json files and their lockfiles and adds an entry to CHANGELOG.md.
+// the last tag vX.Y.Z, sets it in every package.json of the workspace and the lockfile and adds an entry to CHANGELOG.md.
 // It does not commit, tag or push: on main the Release workflow runs it with --ci after every push, commits
 // "chore(release): X.Y.Z" and tags it (RELEASING.md). Run from the repository root.
 //   npm run release                    # version from the commits
@@ -11,9 +11,10 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { bump, bumpKind, changelogEntry, compareVersions, insertEntry, isVersion, nextVersion } from "./lib/conventional.mjs";
 
-// One version for the whole application: the API and the frontend are released together.
-const PACKAGE_FILES = ["package.json", "frontend/package.json"];
-const LOCK_FILES = ["package-lock.json", "frontend/package-lock.json"];
+// One version for the whole application: the API, the dashboard and the shared package are released together.
+// The workspace has one lockfile, which lists each package by its folder ("" is the root).
+const PACKAGES = ["", "frontend", "packages/shared"];
+const LOCK_FILE = "package-lock.json";
 const CHANGELOG = "CHANGELOG.md";
 
 const args = process.argv.slice(2);
@@ -68,13 +69,14 @@ const entry = changelogEntry(version, date, messages);
 console.log(`${messages.length} commit(s) since v${last}${kind ? ` call for a ${kind} change` : ""} → ${version}\n\n${entry}`);
 if (dryRun) process.exit(0);
 
-for (const file of PACKAGE_FILES) writeJson(file, { ...readJson(file), version });
-for (const file of LOCK_FILES) {
-  const lock = readJson(file);
-  lock.version = version;
-  if (lock.packages?.[""]) lock.packages[""].version = version;
-  writeJson(file, lock);
+for (const dir of PACKAGES) {
+  const file = dir ? `${dir}/package.json` : "package.json";
+  writeJson(file, { ...readJson(file), version });
 }
+const lock = readJson(LOCK_FILE);
+lock.version = version;
+for (const dir of PACKAGES) if (lock.packages?.[dir]) lock.packages[dir].version = version;
+writeJson(LOCK_FILE, lock);
 writeFileSync(CHANGELOG, insertEntry(readFileSync(CHANGELOG, "utf8"), entry));
 
 if (ci) {

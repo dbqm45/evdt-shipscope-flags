@@ -1,7 +1,7 @@
 import type { Prisma } from "../generated/prisma/client.js";
-import type { AuditLogEntry, Environment, EnvironmentState, Flag, FlagServiceBinding, ReadMode, Service } from "./shared/types.js";
+import type { AuditLogEntry, Environment, EnvironmentState, Flag, FlagServiceBinding, ReadMode, Service } from "@shipscope/shared/types";
 
-// Converts between database rows and the shapes the API returns (src/flags/shared/types.ts, generated from the
+// Converts between database rows and the shapes the API returns (@shipscope/shared/types, also used by the
 // frontend). Optional fields stay absent instead of null, as the dashboard and the seed data expect.
 
 export const FLAG_INCLUDE = { environments: true, services: { orderBy: { position: "asc" } } } satisfies Prisma.FlagInclude;

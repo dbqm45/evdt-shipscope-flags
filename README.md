@@ -146,14 +146,13 @@ W prawym górnym rogu widoczny jest przełącznik roli. Do czasu wdrożenia logo
 
 ## 8. Uruchomienie aplikacji
 
-Wymagane jest zainstalowane środowisko Node.js. Aplikacja składa się z dwóch części: interfejsu (katalog `frontend`) oraz serwera (katalog główny projektu, NestJS).
+Wymagane jest zainstalowane środowisko Node.js. Aplikacja składa się z trzech części w jednym repozytorium (npm workspaces): interfejsu (katalog `frontend`), serwera (katalog główny projektu, NestJS) i wspólnego pakietu z typami, zasadami i danymi przykładowymi (`packages/shared`). Jedno `npm install` w katalogu głównym instaluje wszystko.
 
 **Sam interfejs (tryb demonstracyjny, dane przykładowe):**
 
 ```bash
-cd frontend
-npm install        # tylko przy pierwszym uruchomieniu
-npm run dev        # uruchomienie w trybie deweloperskim
+npm install            # tylko przy pierwszym uruchomieniu, w katalogu głównym
+npm run dev -w frontend
 ```
 
 **Interfejs wraz z serwerem (dane zapisywane trwale w PostgreSQL):**
@@ -168,8 +167,7 @@ npm run build && npm run db:seed   # opcjonalnie: dane przykładowe, tylko do pu
 npm run start:dev         # nasłuchuje na porcie 3000
 
 # terminal 2 – interfejs
-cd frontend
-npm run dev        # zapytania /api są automatycznie kierowane do serwera
+npm run dev -w frontend   # zapytania /api są automatycznie kierowane do serwera
 ```
 
 **Całość w Dockerze (baza, migracje z danymi przykładowymi, serwer i interfejs):**
@@ -202,9 +200,9 @@ Adres `GET /api/health` pozwala sprawdzić, czy serwer działa i ma połączenie
 
 ## 9. Ograniczenia obecnej wersji
 
-- Bez uruchomionego serwera aplikacja korzysta z **danych przykładowych** (plik `frontend/src/data/mock.ts`), a zmiany znikają po odświeżeniu strony. Z serwerem zapisywane są wszystkie zmiany: stan flag na środowiskach, tworzenie, edycja szczegółów i sposobu odczytu, usuwanie flag, ustawienia powiadomień i dziennik zmian. Gdy serwer odrzuci zmianę (np. z powodu zasad z punktu 5), aplikacja pokazuje powód i nie zmienia stanu.
+- Bez uruchomionego serwera aplikacja korzysta z **danych przykładowych** (plik `packages/shared/src/seed.ts`), a zmiany znikają po odświeżeniu strony. Z serwerem zapisywane są wszystkie zmiany: stan flag na środowiskach, tworzenie, edycja szczegółów i sposobu odczytu, usuwanie flag, ustawienia powiadomień i dziennik zmian. Gdy serwer odrzuci zmianę (np. z powodu zasad z punktu 5), aplikacja pokazuje powód i nie zmienia stanu.
 - Serwer nie ma jeszcze uwierzytelniania użytkowników (uwierzytelniane są tylko serwisy odczytujące flagi); nie należy wystawiać go poza zaufaną sieć.
-- Pliki `src/flags/shared/*` są kopiami reguł i danych z interfejsu. Powstają poleceniem `npm run sync:shared` (uruchamianym automatycznie przed `npm run build`).
+- Typy, zasady z punktu 5 i dane przykładowe są we wspólnym pakiecie `packages/shared`, z którego korzystają i interfejs, i serwer. Interfejs czyta jego źródła wprost; serwer korzysta z wersji skompilowanej, którą `npm install` i polecenia `npm run build`/`npm test` budują same. Przy pracy nad serwerem z `npm run start:dev` zmiany w pakiecie kompiluje na bieżąco `npm run dev -w @shipscope/shared`.
 - Role (Viewer, Editor, Admin) wybiera się przełącznikiem w interfejsie, a autora zmiany w dzienniku podaje interfejs. Serwer nie sprawdza jeszcze, kto wywołuje API zarządzania.
 - Poświadczeń serwisów nie da się wydać w trybie demonstracyjnym, bo wydaje je serwer.
 - **Usunięcie flagi** („Retire flag”) usuwa ją z ShipScope Flags, także z odpowiedzi `GET /api/v1/sdk/flags`. Usunięcie odwołań w kodzie serwisów pozostaje po stronie zespołu.

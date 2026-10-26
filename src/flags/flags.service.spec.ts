@@ -7,7 +7,7 @@ import { PrismaModule } from "../prisma/prisma.service.js";
 import { parseAuditQuery } from "./flags.input.js";
 import { FlagsService } from "./flags.service.js";
 import { hashToken } from "./sdk-auth.js";
-import type { Environment, Flag, Service } from "./shared/types.js";
+import type { Environment, Flag, Service } from "@shipscope/shared/types";
 
 const T0 = "2026-10-01T08:00:00.000Z";
 /** The cursor the API hands out, as the controller parses it back. */
