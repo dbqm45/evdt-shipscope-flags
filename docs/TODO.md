@@ -16,7 +16,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 | Typecheck frontendu | ✅ `strict: true` (włączone) |
 | Lint (oxlint) | ✅ backend czysto; frontend 2 ostrzeżenia `react(only-export-components)` |
 | Audyt zależności | ⚠️ `npm audit` nie dał wyniku w tym środowisku (brak dostępu do rejestru). Log bootstrapu odnotował 2 HIGH (`tmp`, `undici`) — oba przechodnie, w narzędziach Nest CLI |
-| CI/CD | ❌ brak (`.github/workflows` nie istnieje) |
+| CI/CD | ✅ GitHub Actions: `.github/workflows/ci.yml` (format, sync, lint, typecheck, testy, build, audyt) |
 | Persystencja | ⚠️ plik JSON (`data/state.json`), a nie PostgreSQL + Prisma z `tech-stack.md` |
 | Uwierzytelnianie i autoryzacja | ❌ tylko symulacja w UI; API nie ma żadnej kontroli dostępu |
 
@@ -115,7 +115,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 
 ### CI/CD i deployment
 
-- [ ] Workflow GitHub Actions (`.github/workflows/ci.yml`): `npm ci` (oba pakiety) → lint → typecheck → test → build → `npm audit --audit-level=high`, plus kontrola, że `sync:shared` nie zostawia diffu. Sam build na czystym klonie wychwyciłby problem z `mock.ts`.
+- [x] _(zrobione; `npm audit` blokuje tylko na zależnościach runtime, narzędzia dev są raportowane)_ Workflow GitHub Actions (`.github/workflows/ci.yml`): `npm ci` (oba pakiety) → lint → typecheck → test → build → `npm audit --audit-level=high`, plus kontrola, że `sync:shared` nie zostawia diffu. Sam build na czystym klonie wychwyciłby problem z `mock.ts`.
 - [ ] Dependabot lub Renovate dla obu `package.json`.
 - [ ] `Dockerfile` (multi-stage: build backendu i frontendu, serwowanie statycznego frontendu przez Nest lub osobny kontener) i `docker-compose.yml` z PostgreSQL. `tech-stack.md` zakłada deployment kontenerowy i ręczną promocję na produkcję.
 
