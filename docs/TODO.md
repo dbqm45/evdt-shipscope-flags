@@ -108,7 +108,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 - [x] _(zrobione)_ Usunąć z repozytorium artefakty i pliki IDE: `tsconfig.build.tsbuildinfo` (zmienia się przy każdym `tsc`), `.idea/`. Dodać je do głównego `.gitignore`.
 - [x] _(zrobione)_ Usunąć pozostałości po placeholderze: `index.js` (`console.log('Happy developing ✨')`), szablonowy `frontend/README.md` (Vite).
 - [ ] Sprawdzić skrypt `"deploy": "nest deploy"` w `package.json`: nie wiadomo, czy Nest CLI ma taką komendę. Usunąć go albo zastąpić realnym procesem.
-- [ ] Dodać `.env.example` z obsługiwanymi zmiennymi: `PORT`, `SDK_TOKEN`, `FLAGS_DATA_FILE`, `NOTIFY_WEBHOOK_URL`, `VITE_API_BASE_URL`.
+- [x] _(zrobione: `.env.example` i `frontend/.env.example`)_ Dodać `.env.example` z obsługiwanymi zmiennymi: `PORT`, `SDK_TOKEN`, `FLAGS_DATA_FILE`, `NOTIFY_WEBHOOK_URL`, `VITE_API_BASE_URL`.
 - [ ] Dodać `.editorconfig`. Dopisać `format:check` (`prettier --check`) i objąć formatowaniem także `frontend/` (dziś `format` dotyczy tylko `src/` i `test/`).
 - [ ] Naprawić ostrzeżenia oxlint `only-export-components`: wydzielić `parseTags` z `CreateFlagModal.tsx` i `useStore` z `store.tsx` do osobnych plików.
 - [ ] Konfiguracja `ENV_LABEL` jest importowana z `data/mock` w kodzie produkcyjnym (`FlagDrawer.tsx`), a `serviceById` z danych mock w `BindingCard.tsx`. Przenieść je do `lib/` i brać serwisy ze store, nie z fixture’ów.
