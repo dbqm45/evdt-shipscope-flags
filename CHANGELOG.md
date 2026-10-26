@@ -3,6 +3,26 @@
 Notable changes to ShipScope Flags, newest first. Versions follow [Semantic Versioning](https://semver.org/) and are
 released automatically from [Conventional Commits](https://www.conventionalcommits.org/) (see `RELEASING.md`).
 
+## [0.3.0] - 2026-10-26
+
+The consumer endpoint `GET /api/sdk/flags` now always needs a token. To upgrade:
+
+1. Set `SDK_TOKEN` on the server to a long random value (e.g. `openssl rand -hex 32`). Without it the endpoint
+   answers 503; services with a local cache keep serving their last known state.
+2. Make every service that reads flags send `Authorization: Bearer <SDK_TOKEN>`. A wrong or missing token gets 401.
+3. Webhooks for notifications must now be https and must not point to a private or local address. If yours goes to an
+   internal chat server, list its host in `NOTIFY_WEBHOOK_HOSTS`. The API shows the saved webhook URL masked.
+
+With `docker compose up`, the API uses the local token `local-sdk-token` unless `SDK_TOKEN` is set.
+
+### Breaking
+
+- **api:** require SDK_TOKEN for the consumer endpoint
+
+### Fixed
+
+- **api:** block SSRF through the notification webhook and mask its URL
+
 ## [0.2.3] - 2026-10-26
 
 ### Added
