@@ -3,6 +3,13 @@
 Notable changes to ShipScope Flags, newest first. Versions follow [Semantic Versioning](https://semver.org/) and are
 released automatically from [Conventional Commits](https://www.conventionalcommits.org/) (see `RELEASING.md`).
 
+## [0.6.2] - 2026-10-26
+
+### Added
+
+- **api:** notify per flag and retry failed notifications
+- **frontend:** show flags grouped by service
+
 ## [0.6.1] - 2026-10-26
 
 ### Fixed
