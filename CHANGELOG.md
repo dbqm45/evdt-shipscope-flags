@@ -3,6 +3,16 @@
 Notable changes to ShipScope Flags, newest first. Versions follow [Semantic Versioning](https://semver.org/) and are
 released automatically from [Conventional Commits](https://www.conventionalcommits.org/) (see `RELEASING.md`).
 
+## [0.2.3] - 2026-10-26
+
+### Added
+
+- **api:** create, edit and retire flags through the API
+
+### Fixed
+
+- **frontend:** let dialogs scroll when they are taller than the window
+
 ## [0.2.2] - 2026-10-26
 
 ### Fixed
