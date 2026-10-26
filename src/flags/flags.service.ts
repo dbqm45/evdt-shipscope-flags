@@ -4,6 +4,7 @@ import { PrismaService } from "../prisma/prisma.service.js";
 import { FLAG_INCLUDE, toAuditEntry, toDbReadMode, toFlag, toService } from "./flag-mapper.js";
 import type { BindingPatch, CreateFlagInput, FlagPatch } from "./flags.input.js";
 import { canDisable, canEnable, canRetire } from "./shared/rules.js";
+import { checkWebhookUrl, maskWebhookUrl, type Lookup } from "./webhook.js";
 import { ENVIRONMENTS, type AuditLogEntry, type Environment, type Flag, type Service } from "./shared/types.js";
 
 export interface NotificationSettings {
@@ -187,18 +188,35 @@ export class FlagsService {
     return result.flag;
   }
 
-  async getNotifications(): Promise<NotificationSettings> {
+  /** DNS lookup used to vet webhook hosts; tests replace it. */
+  webhookLookup: Lookup | undefined;
+
+  private async storedNotifications(): Promise<NotificationSettings> {
     const row = await this.prisma.notificationSettings.findUnique({ where: { id: 1 } });
     return row ? { enabled: row.enabled, webhookUrl: row.webhookUrl } : { enabled: false, webhookUrl: process.env.NOTIFY_WEBHOOK_URL ?? "" };
   }
 
+  /** The settings as the API shows them: the webhook URL is a secret, so only a masked form leaves the server. */
+  async getNotifications(): Promise<NotificationSettings> {
+    const stored = await this.storedNotifications();
+    return { enabled: stored.enabled, webhookUrl: maskWebhookUrl(stored.webhookUrl) };
+  }
+
+  /** Sending the masked URL back unchanged keeps the stored one, so the settings form can save `enabled` alone. */
   async setNotifications(input: Partial<NotificationSettings>): Promise<NotificationSettings> {
-    const next = { ...(await this.getNotifications()), ...input };
-    if (next.enabled && !/^https?:\/\//.test(next.webhookUrl)) {
-      throw new BadRequestException("A valid http(s) webhook URL is required to enable notifications.");
+    const stored = await this.storedNotifications();
+    const webhookUrl = input.webhookUrl === undefined || input.webhookUrl === maskWebhookUrl(stored.webhookUrl) ? stored.webhookUrl : input.webhookUrl;
+    const next = { enabled: input.enabled ?? stored.enabled, webhookUrl };
+    if (next.enabled && !next.webhookUrl) throw new BadRequestException("A webhook URL is required to enable notifications.");
+    if (next.webhookUrl && next.webhookUrl !== stored.webhookUrl) {
+      try {
+        await checkWebhookUrl(next.webhookUrl, this.webhookLookup);
+      } catch (err) {
+        throw new BadRequestException((err as Error).message);
+      }
     }
     await this.prisma.notificationSettings.upsert({ where: { id: 1 }, create: { id: 1, ...next }, update: next });
-    return next;
+    return { enabled: next.enabled, webhookUrl: maskWebhookUrl(next.webhookUrl) };
   }
 
   async testNotification(): Promise<{ ok: boolean; error?: string }> {
@@ -206,15 +224,18 @@ export class FlagsService {
   }
 
   private async notify(text: string, force = false): Promise<{ ok: boolean; error?: string }> {
-    const { enabled, webhookUrl } = await this.getNotifications();
+    const { enabled, webhookUrl } = await this.storedNotifications();
     if (!force && !enabled) return { ok: false, error: "disabled" };
     if (!webhookUrl) return { ok: false, error: "no webhook URL" };
     try {
-      const res = await fetch(webhookUrl, {
+      // Checked again on every send: the host's DNS may now point somewhere it did not when the URL was saved.
+      const url = await checkWebhookUrl(webhookUrl, this.webhookLookup);
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
         signal: AbortSignal.timeout(4000),
+        redirect: "manual", // a redirect could point into the internal network
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return { ok: true };

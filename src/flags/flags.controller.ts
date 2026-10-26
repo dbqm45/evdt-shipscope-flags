@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, Headers, HttpCode, Param, Patch, Post, Put, Query, UnauthorizedException } from "@nestjs/common";
-import { parseActor, parseBindingPatch, parseCreateFlag, parseFlagPatch } from "./flags.input.js";
+import { parseActor, parseBindingPatch, parseCreateFlag, parseFlagPatch, parseNotificationSettings } from "./flags.input.js";
 import { FlagsService, isEnvironment } from "./flags.service.js";
 
 function parseEnv(value: string | undefined) {
@@ -64,8 +64,8 @@ export class FlagsController {
   }
 
   @Put("settings/notifications")
-  setNotifications(@Body() body: { enabled?: boolean; webhookUrl?: string }) {
-    return this.flags.setNotifications({ enabled: body?.enabled, webhookUrl: body?.webhookUrl });
+  setNotifications(@Body() body: unknown) {
+    return this.flags.setNotifications(parseNotificationSettings(body));
   }
 
   @Post("settings/notifications/test")

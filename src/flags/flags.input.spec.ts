@@ -1,5 +1,5 @@
 import { BadRequestException } from "@nestjs/common";
-import { parseActor, parseBindingPatch, parseCreateFlag, parseFlagPatch } from "./flags.input.js";
+import { parseActor, parseBindingPatch, parseCreateFlag, parseFlagPatch, parseNotificationSettings } from "./flags.input.js";
 
 const reason = (fn: () => unknown) => {
   try {
@@ -68,5 +68,14 @@ describe("parseFlagPatch and parseBindingPatch", () => {
     expect(parseActor({ actor: "m.chen" })).toBe("m.chen");
     expect(parseActor({})).toBe("api");
     expect(parseActor(undefined)).toBe("api");
+  });
+});
+
+describe("parseNotificationSettings", () => {
+  it("passes only enabled and webhookUrl, with their types checked", () => {
+    expect(parseNotificationSettings({ enabled: true })).toEqual({ enabled: true });
+    expect(parseNotificationSettings({ webhookUrl: " https://hooks.slack.com/x " })).toEqual({ webhookUrl: "https://hooks.slack.com/x" });
+    expect(reason(() => parseNotificationSettings({ enabled: "yes" }))).toMatch(/"enabled" must be true or false/);
+    expect(reason(() => parseNotificationSettings({ url: "x" }))).toBe("Unknown field: url.");
   });
 });

@@ -25,9 +25,9 @@ export function SettingsPage() {
 
   /** `previous` is restored when the server refuses (the toggle flips `enabled` before saving). */
   async function save(nextEnabled = enabled, previous = enabled) {
-    if (nextEnabled && !/^https?:\/\//.test(webhookUrl.trim())) {
+    if (nextEnabled && !/^https:\/\//.test(webhookUrl.trim())) {
       setEnabled(previous);
-      setMessage({ tone: "error", text: "Enter a valid http(s) webhook URL first." });
+      setMessage({ tone: "error", text: "Enter a valid https webhook URL first." });
       return;
     }
     if (demo) {
@@ -101,6 +101,9 @@ export function SettingsPage() {
             placeholder="https://hooks.slack.com/services/…"
             className="text-shell mt-1.5 w-full rounded-xl border border-ink-500 bg-ink-900 px-3 py-2 text-sm text-mist-100 outline-none placeholder:text-mist-700 focus:border-accent/60 disabled:opacity-60"
           />
+          <span className="mt-1.5 block text-[11px] text-mist-700">
+            The saved URL is a secret, so only its start and end are shown. Paste a new one to replace it.
+          </span>
         </label>
 
         <div className="flex items-center gap-2">

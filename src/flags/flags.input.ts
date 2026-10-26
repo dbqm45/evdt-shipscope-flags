@@ -130,3 +130,15 @@ export function parseBindingPatch(input: unknown): BindingPatch {
   if (Object.keys(patch).length === 0) throw bad("Nothing to change: send readMode, buildTimeValues or removedFromCode.");
   return patch;
 }
+
+export function parseNotificationSettings(input: unknown): { enabled?: boolean; webhookUrl?: string } {
+  const body = object(input);
+  onlyFields(body, ["enabled", "webhookUrl"]);
+  const settings: { enabled?: boolean; webhookUrl?: string } = {};
+  if (body.enabled !== undefined) {
+    if (typeof body.enabled !== "boolean") throw bad('"enabled" must be true or false.');
+    settings.enabled = body.enabled;
+  }
+  if (body.webhookUrl !== undefined) settings.webhookUrl = text(body.webhookUrl, "webhookUrl", 2000);
+  return settings;
+}
