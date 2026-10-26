@@ -1,0 +1,166 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: -apple-system, "Inter", "Segoe UI", sans-serif;
+  --font-mono: 'SFMono-Regular', 'JetBrains Mono', Consolas, monospace;
+  --font-sans: -apple-system, "Inter", "Segoe UI", sans-serif;
+
+  /* Surfaces (dark, near-black) */
+  --color-ink-950: #070708;
+  --color-ink-900: #0d0e10;
+  --color-ink-850: #111214;
+  --color-ink-800: #16191c;
+  --color-ink-700: #1c1f23;
+  --color-ink-600: #24272c;
+  --color-ink-500: #30343b;
+  --color-ink-400: #454a53;
+
+  /* Text */
+  --color-mist-100: #f4f4f5;
+  --color-mist-300: #d0d3d9;
+  --color-mist-400: #b1b5bd;
+  --color-mist-500: #949aa5;
+  --color-mist-700: #6a6f79;
+
+  /* Primary accent = white pill (active tab / primary button) */
+  --color-accent: #f4f4f5;
+  --color-accent-dim: #2a2d33;
+  --color-accent-glow: #ffffff;
+
+  /* Logo tile */
+  --color-logo-bg: #1a2033;
+  --color-logo-fg: #5b7cfa;
+
+  /* Signals */
+  --color-signal-on: #4cd98a;
+  --color-signal-on-dim: #163d2a;
+  --color-signal-off: #4b5160;
+  --color-signal-warn: #f5a623;
+  --color-signal-warn-dim: #4a3510;
+  --color-signal-critical: #f0616d;
+  --color-signal-critical-dim: #4c1c24;
+  --color-signal-info: #4d8bf5;
+  --color-signal-info-dim: #17284d;
+
+  --shadow-panel: none;
+  --shadow-glow-amber: none;
+}
+
+/* Light theme: same tokens, inverted scale */
+html[data-theme="light"] {
+  color-scheme: light;
+
+  --color-ink-950: #e9eaed;
+  --color-ink-900: #f6f6f7;
+  --color-ink-850: #ffffff;
+  --color-ink-800: #f1f2f4;
+  --color-ink-700: #e7e8eb;
+  --color-ink-600: #dcdee2;
+  --color-ink-500: #c6c9cf;
+  --color-ink-400: #a3a7b0;
+
+  --color-mist-100: #111214;
+  --color-mist-300: #33363d;
+  --color-mist-400: #4a4e57;
+  --color-mist-500: #6b6f78;
+  --color-mist-700: #8b8f98;
+
+  --color-accent: #111214;
+  --color-accent-dim: #dcdee2;
+  --color-accent-glow: #000000;
+
+  --color-logo-bg: #e3e8ff;
+  --color-logo-fg: #3e5df0;
+
+  --color-signal-on: #16a15a;
+  --color-signal-on-dim: #d3f3e2;
+  --color-signal-off: #a3a7b0;
+  --color-signal-warn: #c77a06;
+  --color-signal-warn-dim: #fbe8c6;
+  --color-signal-critical: #d6394a;
+  --color-signal-critical-dim: #fbdadf;
+  --color-signal-info: #2f6fe0;
+  --color-signal-info-dim: #d9e6fb;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-ink-600);
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-ink-950);
+    color: var(--color-mist-100);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--color-accent-dim);
+    color: var(--color-accent-glow);
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-ink-600);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink-500);
+  }
+}
+
+@layer utilities {
+  .text-shell {
+    font-family: var(--font-mono);
+    letter-spacing: 0;
+  }
+
+  /* dashed underline used on version / value chips */
+  .value-dash {
+    text-decoration: underline dashed;
+    text-decoration-color: var(--color-mist-700);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+  }
+
+  .signal-pulse::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: currentColor;
+    animation: signal-pulse 2.2s cubic-bezier(0.3, 0, 0.6, 1) infinite;
+  }
+
+  /* legacy decorative helpers, neutralised in the new look */
+  .scan-sweep,
+  .grain {
+    position: relative;
+  }
+}
+
+@keyframes signal-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
