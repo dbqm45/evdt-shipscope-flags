@@ -13,7 +13,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 | Testy backendu (`vitest`, unit + e2e) | ✅ przechodzą, ale testują wyłącznie szablonowe „Hello World!” |
 | Testy frontendu | ❌ brak test runnera |
 | Typecheck backendu (`strict: true`) | ✅ |
-| Typecheck frontendu | ⚠️ brak `strict`; z `--strict` przechodzi bez błędów, więc włączenie jest tanie |
+| Typecheck frontendu | ✅ `strict: true` (włączone) |
 | Lint (oxlint) | ✅ backend czysto; frontend 2 ostrzeżenia `react(only-export-components)` |
 | Audyt zależności | ⚠️ `npm audit` nie dał wyniku w tym środowisku (brak dostępu do rejestru). Log bootstrapu odnotował 2 HIGH (`tmp`, `undici`) — oba przechodnie, w narzędziach Nest CLI |
 | CI/CD | ❌ brak (`.github/workflows` nie istnieje) |
@@ -104,7 +104,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 
 ### Konfiguracja i higiena repozytorium
 
-- [ ] Włączyć `"strict": true` w `frontend/tsconfig.app.json` (sprawdzone: kod przechodzi z `--strict` bez nowych błędów).
+- [x] Włączyć `"strict": true` w `frontend/tsconfig.app.json` _(zrobione)_ (sprawdzone: kod przechodzi z `--strict` bez nowych błędów).
 - [ ] Usunąć z repozytorium artefakty i pliki IDE: `tsconfig.build.tsbuildinfo` (zmienia się przy każdym `tsc`), `.idea/`. Dodać je do głównego `.gitignore`.
 - [ ] Usunąć pozostałości po placeholderze: `index.js` (`console.log('Happy developing ✨')`), szablonowy `frontend/README.md` (Vite).
 - [ ] Sprawdzić skrypt `"deploy": "nest deploy"` w `package.json`: nie wiadomo, czy Nest CLI ma taką komendę. Usunąć go albo zastąpić realnym procesem.
