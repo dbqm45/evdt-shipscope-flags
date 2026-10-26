@@ -11,7 +11,6 @@
   },
   "scripts": {
     "build": "nest build",
-    "deploy": "nest deploy",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "start": "nest start --exec \"node --env-file-if-exists=.env\"",
