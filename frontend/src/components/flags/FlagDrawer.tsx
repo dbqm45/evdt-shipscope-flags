@@ -51,6 +51,7 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
   return (
     <AnimatePresence>
       <motion.div
+        key="backdrop"
         className="fixed inset-0 z-40 bg-ink-950/70 backdrop-blur-sm"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -58,6 +59,7 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
         onClick={onClose}
       />
       <motion.aside
+        key="panel"
         className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-ink-600 bg-ink-900 shadow-2xl"
         initial={{ x: "100%" }}
         animate={{ x: 0 }}
@@ -155,6 +157,17 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
                   }}
                   className="text-shell mt-1 w-full rounded-lg border border-ink-500 bg-ink-850 px-2.5 py-1.5 text-mist-100 outline-none disabled:opacity-60"
                 />
+              </label>
+              <label className="col-span-2 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={flag.notify ?? false}
+                  disabled={role !== "admin"}
+                  onChange={(e) => void save(updateFlagMeta(flag.key, { notify: e.target.checked }))}
+                  className="accent-accent disabled:opacity-60"
+                />
+                <span className="text-mist-300">Notify about prod changes of this flag</span>
+                <span className="text-mist-700">{role === "admin" ? "(also when notifications are off for all flags)" : "(Admins only)"}</span>
               </label>
             </div>
           </section>

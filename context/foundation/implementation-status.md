@@ -23,7 +23,7 @@ moves it; `docs/TODO.md` holds the planned work in detail. Status: **done**, **p
 | FR-013 | Change reaches services within 60 s | done | Clients poll at most every 60 s (`docs/sdk-api.md`, `sdk/client.ts`); the dashboard flags a service that has not read a change. |
 | FR-014 | Every state change in an audit log | partial | Logged on the server, paged and filtered; the actor still comes from the request until FR-001; retention is Open Question 1. |
 | FR-015 | Flag change history in the dashboard | done | Flag panel "Recent history", Audit log tab. |
-| FR-016 | Notifications on change, per flag or globally | partial | Global switch only, prod changes only, no retry. |
+| FR-016 | Notifications on change, per flag or globally | done | Settings switch for all flags, or per flag (`notify`, Admins in the UI); two retries, then a `notification-failed` audit entry. Prod changes only. |
 | FR-017 | Per flag and service: build-time or runtime read | done | Read mode and build-time values per binding (entered by hand), with mismatch warnings and retirement checks. |
 
 ## Business logic (`prd.md` → Business Logic)

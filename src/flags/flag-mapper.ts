@@ -43,6 +43,7 @@ export function toFlag(row: FlagRow): Flag {
   if (row.owner !== null) flag.owner = row.owner;
   if (row.reviewBy !== null) flag.reviewBy = iso(row.reviewBy);
   if (row.tags.length) flag.tags = row.tags;
+  if (row.notify) flag.notify = true;
   return flag;
 }
 

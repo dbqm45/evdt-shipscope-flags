@@ -65,6 +65,8 @@ export interface Flag {
   reviewBy?: string;
   /** Free-form labels, e.g. the business domain ("checkout", "orders"). */
   tags?: string[];
+  /** Notify about every prod change of this flag, also when notifications are not on for all flags. */
+  notify?: boolean;
 }
 
 /** Where a flag is in its life: derived from environment state, never stored. */
@@ -81,6 +83,7 @@ export const AUDIT_ACTIONS = [
   "binding-updated",
   "flag-retired",
   "flag-updated",
+  "notification-failed",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -117,6 +120,7 @@ export interface AuditLogQuery {
 }
 
 export interface NotificationSettings {
+  /** Notify about prod changes of every flag; flags with `notify` are notified also when this is off. */
   enabled: boolean;
   /** Slack-compatible incoming webhook (POST {"text": "..."}; any URL accepting JSON works); gets a message whenever a flag changes in prod. */
   webhookUrl: string;

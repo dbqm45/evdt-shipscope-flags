@@ -128,3 +128,10 @@ describe("parseAuditQuery", () => {
     expect(parseAuditQuery({ before: encodeAuditCursor(cursor) }).before).toEqual(cursor);
   });
 });
+
+describe("parseFlagPatch: notify", () => {
+  it("takes notify as true or false only", () => {
+    expect(parseFlagPatch({ notify: true })).toEqual({ notify: true });
+    expect(reason(() => parseFlagPatch({ notify: "yes" }))).toMatch(/"notify" must be true or false/);
+  });
+});

@@ -54,6 +54,7 @@ export async function loadState(prisma: PrismaClient, state: State): Promise<boo
           owner: f.owner ?? null,
           reviewBy: f.reviewBy ?? null,
           tags: f.tags ?? [],
+          notify: f.notify ?? false,
           environments: { create: ENVIRONMENTS.map((environment) => ({ environment, ...f.environments[environment] })) },
           services: {
             create: f.services.map((b, position) => ({

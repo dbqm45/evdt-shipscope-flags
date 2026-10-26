@@ -34,6 +34,7 @@ export interface FlagPatch {
   /** ISO date; null or "" clears it. */
   reviewBy?: string | null;
   tags?: string[];
+  notify?: boolean;
 }
 
 export interface BindingPatch {
@@ -117,13 +118,17 @@ export function parseCreateFlag(input: unknown): CreateFlagInput {
 
 export function parseFlagPatch(input: unknown): FlagPatch {
   const body = object(input);
-  onlyFields(body, ["description", "owner", "reviewBy", "tags", "actor"]);
+  onlyFields(body, ["description", "owner", "reviewBy", "tags", "notify", "actor"]);
   const patch: FlagPatch = {};
   if (body.description !== undefined) patch.description = text(body.description, "description");
   if (body.owner !== undefined) patch.owner = body.owner === null ? null : text(body.owner, "owner") || null;
   if (body.reviewBy !== undefined) patch.reviewBy = body.reviewBy === null || body.reviewBy === "" ? null : isoDate(body.reviewBy, "reviewBy");
   if (body.tags !== undefined) patch.tags = tags(body.tags);
-  if (Object.keys(patch).length === 0) throw bad("Nothing to change: send description, owner, reviewBy or tags.");
+  if (body.notify !== undefined) {
+    if (typeof body.notify !== "boolean") throw bad('"notify" must be true or false.');
+    patch.notify = body.notify;
+  }
+  if (Object.keys(patch).length === 0) throw bad("Nothing to change: send description, owner, reviewBy, tags or notify.");
   return patch;
 }
 

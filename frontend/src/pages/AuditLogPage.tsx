@@ -16,6 +16,7 @@ const ACTION_TONE: Record<AuditAction, "on" | "off" | "warn" | "critical" | "inf
   "binding-updated": "info",
   "flag-retired": "neutral",
   "flag-updated": "neutral",
+  "notification-failed": "critical",
 };
 
 function actionLabel(action: AuditAction): string {

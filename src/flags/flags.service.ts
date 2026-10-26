@@ -212,6 +212,7 @@ export class FlagsService {
           owner: patch.owner,
           reviewBy: patch.reviewBy === undefined ? undefined : patch.reviewBy && new Date(patch.reviewBy),
           tags: patch.tags,
+          notify: patch.notify,
         },
       });
       await this.audit(tx, { actor, action: "flag-updated", flagKey, note: `updated ${Object.keys(patch).join(", ")}` });
@@ -280,7 +281,8 @@ export class FlagsService {
     });
 
     if (result.blocked) throw new ConflictException(result.blocked);
-    if (result.changed && env === "prod") void this.notify(`:rotating_light: *${flagKey}* was turned *${enabled ? "ON" : "OFF"}* in *PROD* by ${actor}`);
+    if (result.changed && env === "prod")
+      void this.notifyChange(result.flag, `:rotating_light: *${flagKey}* was turned *${enabled ? "ON" : "OFF"}* in *PROD* by ${actor}`);
     return result.flag;
   }
 
@@ -316,28 +318,55 @@ export class FlagsService {
   }
 
   async testNotification(): Promise<{ ok: boolean; error?: string }> {
-    return this.notify("Test message from ShipScope Flags", true);
+    return this.send((await this.storedNotifications()).webhookUrl, "Test message from ShipScope Flags");
   }
 
-  private async notify(text: string, force = false): Promise<{ ok: boolean; error?: string }> {
-    const { enabled, webhookUrl } = await this.storedNotifications();
-    if (!force && !enabled) return { ok: false, error: "disabled" };
+  /** Waits before the 2nd and 3rd attempt of a notification; tests shorten them. */
+  notificationRetryDelaysMs = [2_000, 10_000];
+
+  /**
+   * Notifies about a prod change when notifications are on for all flags or for this one. Retries a failed send;
+   * when every attempt fails, the audit log says so (the change itself stands).
+   */
+  private async notifyChange(flag: Flag, text: string): Promise<void> {
+    const settings = await this.storedNotifications();
+    if (!settings.enabled && !flag.notify) return;
+    const result = await this.send(settings.webhookUrl, text, this.notificationRetryDelaysMs);
+    if (!result.ok) {
+      await this.audit(this.prisma, { actor: "shipscope", action: "notification-failed", flagKey: flag.key, environment: "prod", note: result.error });
+    }
+  }
+
+  /** Posts `text` to the webhook; a network error, 429 or 5xx is retried after each of `retryDelaysMs`. */
+  private async send(webhookUrl: string, text: string, retryDelaysMs: number[] = []): Promise<{ ok: boolean; error?: string }> {
     if (!webhookUrl) return { ok: false, error: "no webhook URL" };
-    try {
-      // Checked again on every send: the host's DNS may now point somewhere it did not when the URL was saved.
-      const url = await checkWebhookUrl(webhookUrl, this.webhookLookup);
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-        signal: AbortSignal.timeout(4000),
-        redirect: "manual", // a redirect could point into the internal network
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return { ok: true };
-    } catch (err) {
-      this.logger.warn(`Notification failed: ${(err as Error).message}`);
-      return { ok: false, error: (err as Error).message };
+    for (let attempt = 0; ; attempt++) {
+      let retryable = true;
+      try {
+        // Checked again on every send: the host's DNS may now point somewhere it did not when the URL was saved.
+        const url = await checkWebhookUrl(webhookUrl, this.webhookLookup).catch((err: Error) => {
+          retryable = false;
+          throw err;
+        });
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+          signal: AbortSignal.timeout(4000),
+          redirect: "manual", // a redirect could point into the internal network
+        });
+        if (res.ok) return { ok: true };
+        retryable = res.status === 429 || res.status >= 500;
+        throw new Error(`HTTP ${res.status}`);
+      } catch (err) {
+        const error = (err as Error).message;
+        const delay = retryDelaysMs[attempt];
+        if (!retryable || delay === undefined) {
+          this.logger.warn(`Notification failed after ${attempt + 1} attempt(s): ${error}`);
+          return { ok: false, error };
+        }
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
     }
   }
 

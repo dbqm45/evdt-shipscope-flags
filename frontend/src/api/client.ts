@@ -75,7 +75,7 @@ export interface NewFlag {
   tags?: string[];
 }
 
-export type FlagDetailsPatch = Pick<Partial<Flag>, "owner" | "reviewBy" | "tags" | "description">;
+export type FlagDetailsPatch = Pick<Partial<Flag>, "owner" | "reviewBy" | "tags" | "description" | "notify">;
 export type BindingPatch = Pick<Partial<FlagServiceBinding>, "readMode" | "buildTimeValues" | "removedFromCode">;
 
 /** A field set to undefined means "clear it"; JSON would drop it, so send null. */

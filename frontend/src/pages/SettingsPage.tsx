@@ -77,8 +77,9 @@ export function SettingsPage() {
           <div>
             <h2 className="text-sm font-semibold text-mist-100">Production change notifications</h2>
             <p className="mt-1 text-xs text-mist-500">
-              Sends a message to a Slack-compatible webhook whenever a flag is turned on or off in prod. Sent by the API, so it also covers changes made outside
-              this screen.
+              Sends a message to a Slack-compatible webhook whenever a flag is turned on or off in prod. This switch covers every flag; a single flag can be
+              notified about on its own from its panel. Sent by the API, so it also covers changes made outside this screen; a failed message is retried twice
+              and then noted in the audit log.
             </p>
           </div>
           <Toggle

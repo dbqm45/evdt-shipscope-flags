@@ -175,6 +175,72 @@ describe("FlagsService (PostgreSQL)", () => {
     }
   });
 
+  describe("per-flag notifications and retries", () => {
+    const WEBHOOK = "https://hooks.example.test/services/T0/B0/secret1234";
+    const promote = async (flagKey: string) => {
+      await flags.setEnvironment(flagKey, "qa", true, "m.chen");
+      await flags.setEnvironment(flagKey, "prod", true, "m.chen");
+    };
+
+    beforeEach(async () => {
+      await loadState(prisma, pair());
+      flags.webhookLookup = async () => [{ address: "203.0.113.10", family: 4 }];
+      flags.notificationRetryDelaysMs = [1, 1];
+      await flags.setNotifications({ enabled: false, webhookUrl: WEBHOOK });
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      flags.webhookLookup = undefined;
+      flags.notificationRetryDelaysMs = [2_000, 10_000];
+    });
+
+    it("notifies about a flag that asks for it while notifications for all flags are off", async () => {
+      const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+      vi.stubGlobal("fetch", fetch);
+      await flags.setEnvironment("backend", "qa", true, "m.chen");
+      await flags.setEnvironment("backend", "prod", true, "m.chen");
+      await flags.setEnvironment("backend", "prod", false, "m.chen");
+      expect(fetch).not.toHaveBeenCalled();
+
+      expect(await flags.updateFlag("backend", { notify: true }, "a.kowalska")).toMatchObject({ notify: true });
+      await flags.setEnvironment("backend", "prod", true, "m.chen");
+
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+      expect(JSON.parse(fetch.mock.calls[0][1].body).text).toContain("*backend* was turned *ON* in *PROD*");
+    });
+
+    it("retries a failed send and logs the failure once every attempt failed", async () => {
+      await flags.updateFlag("backend", { notify: true }, "a.kowalska");
+      const fetch = vi
+        .fn()
+        .mockRejectedValueOnce(new TypeError("fetch failed"))
+        .mockResolvedValueOnce(new Response(null, { status: 503 }))
+        .mockResolvedValueOnce(new Response(null, { status: 200 }));
+      vi.stubGlobal("fetch", fetch);
+
+      await promote("backend");
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(3));
+      expect((await auditEntries()).some((e) => e.action === "notification-failed")).toBe(false);
+
+      fetch.mockReset().mockResolvedValue(new Response(null, { status: 502 }));
+      await flags.setEnvironment("backend", "prod", false, "m.chen");
+      await vi.waitFor(async () => expect((await auditEntries())[0]).toMatchObject({ action: "notification-failed", flagKey: "backend", note: "HTTP 502" }));
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("does not retry an answer that will not change, such as 404", async () => {
+      await flags.updateFlag("backend", { notify: true }, "a.kowalska");
+      const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 404 }));
+      vi.stubGlobal("fetch", fetch);
+
+      await promote("backend");
+
+      await vi.waitFor(async () => expect((await auditEntries())[0]).toMatchObject({ action: "notification-failed", note: "HTTP 404" }));
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("refuses a webhook that points into the network, at save and again at send", async () => {
     await loadState(prisma, pair());
     let address = "10.0.0.5";

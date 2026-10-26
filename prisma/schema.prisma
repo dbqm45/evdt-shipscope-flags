@@ -73,6 +73,8 @@ model Flag {
   owner        String?
   reviewBy     DateTime?            @db.Timestamptz(3)
   tags         String[]
+  /// Notify about every prod change of this flag, also when notifications are not on for all flags.
+  notify       Boolean              @default(false)
   environments FlagEnvironment[]
   services     FlagServiceBinding[]
 }
