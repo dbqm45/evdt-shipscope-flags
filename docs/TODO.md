@@ -105,7 +105,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 ### Konfiguracja i higiena repozytorium
 
 - [x] Włączyć `"strict": true` w `frontend/tsconfig.app.json` _(zrobione)_ (sprawdzone: kod przechodzi z `--strict` bez nowych błędów).
-- [ ] Usunąć z repozytorium artefakty i pliki IDE: `tsconfig.build.tsbuildinfo` (zmienia się przy każdym `tsc`), `.idea/`. Dodać je do głównego `.gitignore`.
+- [x] _(zrobione)_ Usunąć z repozytorium artefakty i pliki IDE: `tsconfig.build.tsbuildinfo` (zmienia się przy każdym `tsc`), `.idea/`. Dodać je do głównego `.gitignore`.
 - [ ] Usunąć pozostałości po placeholderze: `index.js` (`console.log('Happy developing ✨')`), szablonowy `frontend/README.md` (Vite).
 - [ ] Sprawdzić skrypt `"deploy": "nest deploy"` w `package.json`: nie wiadomo, czy Nest CLI ma taką komendę. Usunąć go albo zastąpić realnym procesem.
 - [ ] Dodać `.env.example` z obsługiwanymi zmiennymi: `PORT`, `SDK_TOKEN`, `FLAGS_DATA_FILE`, `NOTIFY_WEBHOOK_URL`, `VITE_API_BASE_URL`.
