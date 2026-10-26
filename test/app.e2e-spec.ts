@@ -51,17 +51,60 @@ describe("API (e2e)", () => {
     expect(sdk.body).toMatchObject({ env: "qa", flags: { [flag.key]: true } });
   });
 
-  it("GET /api/sdk/flags needs the SDK token: 401 without or with a wrong one, 503 when the server has none", async () => {
+  it("GET /api/sdk/flags with the shared token: 401 without or with a wrong one, and 401 once the server has none", async () => {
     await request(app.getHttpServer()).get("/api/sdk/flags?env=prod").expect(401);
     await request(app.getHttpServer()).get("/api/sdk/flags?env=prod").set("Authorization", "Bearer wrong").expect(401);
     await sdkGet("/api/sdk/flags?env=prod").expect(200);
 
     delete process.env.SDK_TOKEN;
     try {
-      await sdkGet("/api/sdk/flags?env=prod").expect(503);
+      await sdkGet("/api/sdk/flags?env=prod").expect(401);
     } finally {
       process.env.SDK_TOKEN = SDK_TOKEN;
     }
+  });
+
+  it("a registered service reads only its own flags with its credential, which records its check-in", async () => {
+    const server = app.getHttpServer();
+    const flag = seedState().flags[0];
+    const registered = await request(server).post("/api/services").send({ key: "billing-api", actor: "e2e" }).expect(201);
+    expect(registered.body).toMatchObject({ service: { key: "billing-api", hasCredential: true }, token: expect.stringMatching(/^ssf_/) });
+    expect(registered.body.service).not.toHaveProperty("lastCheckInAt");
+    const read = (path: string, token = registered.body.token as string) => request(server).get(path).set("Authorization", `Bearer ${token}`);
+    await request(server).post("/api/services").send({ key: "billing-api" }).expect(409);
+
+    await read("/api/v1/sdk/flags?env=prod").expect(200, { env: "prod", flags: {} });
+    await request(server)
+      .post("/api/flags")
+      .send({ key: "billing-flag", type: "feature", serviceIds: ["svc-billing-api"] })
+      .expect(201);
+    await read("/api/v1/sdk/flags?env=test").expect(200, { env: "test", flags: { "billing-flag": false } });
+    await read("/api/sdk/flags?env=test&service=billing-api").expect(200, { env: "test", flags: { "billing-flag": false } });
+    await read(`/api/v1/sdk/flags?env=test&service=${seedState().services[0].key}`).expect(403);
+    await read("/api/v1/sdk/flags?env=test", "ssf_not-a-credential").expect(401);
+    await sdkGet("/api/v1/sdk/flags?env=test").expect((r) => expect(r.body.flags).toHaveProperty(flag.key));
+
+    const services = await request(server).get("/api/services").expect(200);
+    const billing = services.body.find((s: { key: string }) => s.key === "billing-api");
+    expect(Date.now() - Date.parse(billing.lastCheckInAt)).toBeLessThan(60_000);
+  });
+
+  it("POST /api/services/:id/credential rotates: the old credential works for 24 h, or stops at once when revoked", async () => {
+    const server = app.getHttpServer();
+    const read = (token: string) => request(server).get("/api/v1/sdk/flags?env=prod").set("Authorization", `Bearer ${token}`);
+    const first = (await request(server).post("/api/services").send({ key: "billing-api" }).expect(201)).body.token as string;
+
+    const rotated = await request(server).post("/api/services/svc-billing-api/credential").send({ actor: "e2e" }).expect(200);
+    expect(rotated.body.service).toMatchObject({ credentialStatus: "rotating", previousCredentialExpiresAt: expect.any(String) });
+    await read(first).expect(200);
+    await read(rotated.body.token).expect(200);
+
+    const revoked = await request(server).post("/api/services/svc-billing-api/credential").send({ revokePrevious: true }).expect(200);
+    await read(first).expect(401);
+    await read(rotated.body.token).expect(401);
+    await read(revoked.body.token).expect(200);
+    await request(server).post("/api/services/svc-nope/credential").send({}).expect(404);
+    await request(server).post("/api/services/svc-billing-api/credential").send({ revokePrevious: "yes" }).expect(400);
   });
 
   it("GET /api/sdk/flags rejects an unknown environment and an unknown service", async () => {

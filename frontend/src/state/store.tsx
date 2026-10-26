@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { api, failureReason, type BindingPatch, type FlagDetailsPatch, type NewFlag } from "../api/client";
+import { api, failureReason, type BindingPatch, type FlagDetailsPatch, type IssuedCredential, type NewFlag } from "../api/client";
 import { canDisable, canEnable, canRetire } from "../lib/businessLogic";
 import { canEditFlags } from "../lib/permissions";
 import { ENVIRONMENTS, type AuditLogEntry, type Environment, type Flag, type Role, type Service } from "../types";
@@ -7,6 +7,11 @@ import { ENVIRONMENTS, type AuditLogEntry, type Environment, type Flag, type Rol
 interface ToggleResult {
   ok: boolean;
   reason?: string;
+}
+
+/** `token` is the new credential, to be shown once. */
+interface CredentialResult extends ToggleResult {
+  token?: string;
 }
 
 interface StoreValue {
@@ -27,6 +32,8 @@ interface StoreValue {
   registerAuditEntry: (entry: Omit<AuditLogEntry, "id" | "timestamp">) => void;
   createFlag: (input: NewFlag) => Promise<ToggleResult>;
   updateFlagMeta: (flagKey: string, patch: FlagDetailsPatch) => Promise<ToggleResult>;
+  registerService: (key: string, name: string) => Promise<CredentialResult>;
+  rotateCredential: (serviceId: string, revokePrevious: boolean) => Promise<CredentialResult>;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -235,6 +242,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return { ok: true };
     };
 
+    /** Credentials exist only on the server, so these need the API; the result carries the new credential. */
+    const issueCredential = async (call: () => Promise<IssuedCredential>): Promise<CredentialResult> => {
+      if (role !== "admin") return { ok: false, reason: "Only Admins can register services and rotate their credentials." };
+      if (demo) return { ok: false, reason: "Credentials are issued by the API, which is not running (demo data)." };
+      let token: string | undefined;
+      const result = await viaApi(call, (issued) => {
+        token = issued.token;
+        setServices((prev) =>
+          prev.some((s) => s.id === issued.service.id) ? prev.map((s) => (s.id === issued.service.id ? issued.service : s)) : [...prev, issued.service],
+        );
+      });
+      return { ...result, token };
+    };
+    const registerService: StoreValue["registerService"] = (key, name) => {
+      if (!key.trim()) return Promise.resolve({ ok: false, reason: "Service key is required." });
+      return issueCredential(() => api.registerService(key.trim(), name.trim(), actor));
+    };
+    const rotateCredential: StoreValue["rotateCredential"] = (serviceId, revokePrevious) =>
+      issueCredential(() => api.rotateCredential(serviceId, revokePrevious, actor));
+
     return {
       loading,
       demo,
@@ -251,6 +278,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateFlagMeta,
       registerAuditEntry,
       createFlag,
+      registerService,
+      rotateCredential,
     };
   }, [loading, demo, loadError, flags, services, auditLog, role]);
 

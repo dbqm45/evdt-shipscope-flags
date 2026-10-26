@@ -5,6 +5,7 @@ import { AppShell } from "./components/layout/AppShell";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
+import { ServicesPage } from "./pages/ServicesPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
 export default function App() {
@@ -20,6 +21,7 @@ export default function App() {
         <Routes>
           <Route element={<AppShell onLogout={() => setAuthenticated(false)} />}>
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/services" element={<ServicesPage />} />
             <Route path="/audit-log" element={<AuditLogPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>

@@ -69,3 +69,21 @@ describe("api.setEnvironmentState", () => {
     await expect(api.setEnvironmentState("a", "test", true, "m.chen")).rejects.toBeInstanceOf(ApiUnavailableError);
   });
 });
+
+describe("service credentials", () => {
+  it("rotates through POST /services/:id/credential and returns the new credential", async () => {
+    const issued = { service: { id: "svc/x", key: "x" }, token: "ssf_new" };
+    const fetch = stubApi({ "/api/services/svc%2Fx/credential": () => jsonResponse(issued) });
+
+    await expect(api.rotateCredential("svc/x", true, "a.kowalska")).resolves.toEqual(issued);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/services/svc%2Fx/credential",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ revokePrevious: true, actor: "a.kowalska" }) }),
+    );
+  });
+
+  it("registers through POST /services and surfaces a 409 for a taken key", async () => {
+    stubApi({ "/api/services": () => jsonResponse({ message: 'A service with the key "x" already exists.' }, 409) });
+    await expect(api.registerService("x", "", "a.kowalska")).rejects.toEqual(new ApiError('A service with the key "x" already exists.', 409));
+  });
+});

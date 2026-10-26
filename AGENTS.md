@@ -11,16 +11,17 @@ scope: `@context/foundation/prd.md`; known gaps: `@docs/TODO.md`. Full depth liv
   file, run the script, commit both.
 - Business rules live only in `frontend/src/lib/businessLogic.ts`; the dashboard and the API both enforce them.
 - Backend imports are ESM (`nodenext`): relative imports end in `.js`.
-- The consumer contract `GET /api/sdk/flags` is what services integrate against; change it only on purpose, with a
-  breaking-change commit.
+- The consumer contract `GET /api/v1/sdk/flags` (`docs/sdk-api.md`) is what services integrate against; change it
+  only on purpose, with a new version path and a breaking-change commit.
 
 ## Security
 
 - Secrets only through environment variables; the repo holds only `.env.example` and `frontend/.env.example`. `.env`
   files and `data/` are gitignored.
 - The management API has no authentication yet (`@docs/TODO.md`, P0): do not build features that assume it does.
-- `GET /api/sdk/flags` requires `SDK_TOKEN` (503 without it on the server, 401 for a wrong one). Webhook URLs go
-  through `checkWebhookUrl` (`src/flags/webhook.ts`) before every request and are only ever returned masked.
+- `GET /api/v1/sdk/flags` needs a service credential (or the deprecated shared `SDK_TOKEN`), 401 otherwise. Service
+  credentials are shown once; only their SHA-256 digests are stored and they never appear in responses. Webhook URLs
+  go through `checkWebhookUrl` (`src/flags/webhook.ts`) before every request and are only ever returned masked.
 
 ## Build, test, and development
 

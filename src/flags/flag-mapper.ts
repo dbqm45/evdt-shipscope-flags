@@ -47,17 +47,23 @@ export function toFlag(row: FlagRow): Flag {
   return flag;
 }
 
-export function toService(row: ServiceRow): Service {
-  return {
+/** Never exposes the credential digests: only whether a credential exists and until when the previous one works. */
+export function toService(row: ServiceRow, now = new Date()): Service {
+  const previousUntil =
+    row.previousTokenHash !== null && row.previousTokenExpiresAt !== null && row.previousTokenExpiresAt > now ? row.previousTokenExpiresAt : null;
+  const service: Service = {
     id: row.id,
     key: row.key,
     name: row.name,
     registeredAt: iso(row.registeredAt),
     registeredBy: row.registeredBy,
-    credentialStatus: row.credentialStatus,
+    hasCredential: row.tokenHash !== null,
+    credentialStatus: previousUntil ? "rotating" : "active",
     credentialLastRotated: iso(row.credentialLastRotated),
-    lastCheckInAt: iso(row.lastCheckInAt),
   };
+  if (previousUntil) service.previousCredentialExpiresAt = iso(previousUntil);
+  if (row.lastCheckInAt !== null) service.lastCheckInAt = iso(row.lastCheckInAt);
+  return service;
 }
 
 export function toAuditEntry(row: AuditRow): AuditLogEntry {

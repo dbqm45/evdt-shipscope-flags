@@ -48,8 +48,8 @@ services:
       target: api
     environment:
       DATABASE_URL: *database-url
-      # Local default so the stack works out of the box; set a real SDK_TOKEN anywhere shared.
-      SDK_TOKEN: ${SDK_TOKEN:-local-sdk-token}
+      # Services read flags with their own credential (dashboard → Services); SDK_TOKEN is the deprecated shared one.
+      SDK_TOKEN: ${SDK_TOKEN:-}
       NOTIFY_WEBHOOK_URL: ${NOTIFY_WEBHOOK_URL:-}
       NOTIFY_WEBHOOK_HOSTS: ${NOTIFY_WEBHOOK_HOSTS:-}
     depends_on:

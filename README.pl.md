@@ -113,6 +113,8 @@ Dodatkowo żadna inna flaga nie może od usuwanej zależeć.
 
 **Tworzenie flag.** Przycisk „Create flag” otwiera formularz z polami: nazwa (klucz), opis, typ, ewentualna flaga wymagana oraz przypisane serwisy.
 
+**Serwisy (zakładka „Services”).** Lista serwisów, które odczytują flagi: liczba przypisanych flag, stan poświadczenia (aktywne, w trakcie wymiany, brak), data ostatniej wymiany i ostatni check-in, czyli kiedy serwis ostatnio pobrał swoje flagi. Admin rejestruje tu nowe serwisy oraz wydaje i wymienia poświadczenia (punkt 8a). Nowe poświadczenie jest pokazywane tylko raz, bo serwer przechowuje wyłącznie jego skrót.
+
 **Dziennik zmian (zakładka „Audit log”).** Pełna historia zmian: kto, kiedy, jaką flagę i w jakim środowisku zmienił. Dziennik można przeszukiwać i filtrować według rodzaju działania. Wpisuje się do niego także zablokowane próby, np. próbę włączenia flagi na produkcji z pominięciem QA.
 
 **Powiadomienia (zakładka „Settings”).** Można podać adres webhooka (zgodny ze Slackiem). Gdy powiadomienia są włączone, każda zmiana flagi na produkcji powoduje wysłanie wiadomości, np. „b2cCustomersEnabled was turned ON in PROD by m.chen”. Wiadomość wysyła serwer, więc dotyczy także zmian wykonanych poza ekranem aplikacji. Przycisk „Send test message” pozwala sprawdzić połączenie. Adres musi zaczynać się od `https://` i nie może wskazywać na adres w sieci wewnętrznej (serwer to sprawdza przy zapisie i przed każdą wysyłką; zmienna `NOTIFY_WEBHOOK_HOSTS` pozwala zawęzić listę dozwolonych hostów lub dopuścić wewnętrzny serwer czatu). Zapisany adres jest poufny, więc aplikacja pokazuje tylko jego początek i koniec.
@@ -127,7 +129,7 @@ W prawym górnym rogu widoczny jest przełącznik roli. W wersji demonstracyjnej
 | --- | --- |
 | Viewer | Wyłącznie podgląd flag i ich stanu. Nie może niczego zmieniać. |
 | Editor | Może tworzyć flagi, zmieniać ich stan, zmieniać sposób odczytu przez serwisy i usuwać flagi. |
-| Admin | Uprawnienia jak Editor. W założeniach produktu dodatkowo zarządza serwisami. |
+| Admin | Uprawnienia jak Editor. Dodatkowo rejestruje serwisy i wydaje lub wymienia ich poświadczenia (zakładka „Services”). |
 
 ## 8. Uruchomienie aplikacji
 
@@ -166,17 +168,20 @@ Wersję produkcyjną interfejsu buduje się poleceniem `npm run build` w katalog
 Serwer udostępnia adres, z którego aplikacje (serwisy) mogą pobierać aktualny stan flag:
 
 ```
-GET /api/sdk/flags?env=prod&service=evam-service-host
+GET /api/v1/sdk/flags?env=prod
+Authorization: Bearer <poświadczenie serwisu>
 ```
 
-Odpowiedź ma postać: `{ "env": "prod", "flags": { "allowEvseNameEdit": true, "b2cCustomersEnabled": false } }`. Parametr `service` jest opcjonalny i ogranicza wynik do flag przypisanych do danego serwisu. Każde zapytanie musi zawierać nagłówek `Authorization: Bearer <SDK_TOKEN>`, gdzie `SDK_TOKEN` to zmienna środowiskowa serwera. Bez niej serwer odpowiada kodem 503 i nie udostępnia flag.
+Odpowiedź ma postać: `{ "env": "prod", "flags": { "allowEvseNameEdit": true, "b2cCustomersEnabled": false } }` i zawiera tylko flagi przypisane do serwisu, który wysłał zapytanie. Każdy serwis ma własne poświadczenie. Admin rejestruje serwis i wydaje lub wymienia jego poświadczenie w zakładce „Services”; poświadczenie jest pokazywane tylko raz. Po wymianie stare poświadczenie działa jeszcze przez 24 godziny, a „Revoke & reissue” unieważnia je od razu (np. po wycieku). Każde zapytanie serwisu jest zapisywane jako jego „check-in”, widoczny w tej samej zakładce.
+
+Pełny opis kontraktu, kodów błędów i zalecanego zachowania klienta (pamięć podręczna, praca przy niedostępnym serwerze) jest w pliku `docs/sdk-api.md`. Wspólny token `SDK_TOKEN` z wersji 0.3 nadal działa, ale jest przestarzały.
 
 Serwer przechowuje dane w bazie PostgreSQL wskazanej zmienną `DATABASE_URL`. Dane z pliku `data/state.json` używanego przez wersje przed 0.2.0 można przenieść do pustej bazy poleceniem `npm run db:import -- data/state.json`. Zasady opisane w punkcie 5 są egzekwowane także po stronie serwera, więc nie da się ich ominąć wywołaniem API. Domyślny adres webhooka powiadomień można podać zmienną `NOTIFY_WEBHOOK_URL`.
 
 ## 9. Ograniczenia obecnej wersji
 
 - Bez uruchomionego serwera aplikacja korzysta z **danych przykładowych** (plik `frontend/src/data/mock.ts`), a zmiany znikają po odświeżeniu strony. Z serwerem zapisywane są wszystkie zmiany: stan flag na środowiskach, tworzenie, edycja szczegółów i sposobu odczytu, usuwanie flag, ustawienia powiadomień i dziennik zmian. Gdy serwer odrzuci zmianę (np. z powodu zasad z punktu 5), aplikacja pokazuje powód i nie zmienia stanu.
-- Serwer nie ma jeszcze uwierzytelniania użytkowników (poza opcjonalnym tokenem do odczytu flag); nie należy wystawiać go poza zaufaną sieć.
+- Serwer nie ma jeszcze uwierzytelniania użytkowników (uwierzytelniane są tylko serwisy odczytujące flagi); nie należy wystawiać go poza zaufaną sieć.
 - Pliki `src/flags/shared/*` są kopiami reguł i danych z interfejsu. Powstają poleceniem `npm run sync:shared` (uruchamianym automatycznie przed `npm run build`).
 - **Usunięcie flagi** („Retire flag”) usuwa ją z ShipScope Flags, także z odpowiedzi `GET /api/sdk/flags`. Usunięcie odwołań w kodzie serwisów pozostaje po stronie zespołu.
 - **Wartości z kodu** (build-time) są wprowadzane ręcznie, ponieważ aplikacja nie ma wglądu w kod serwisów. Wymagają one aktualizacji przy zmianach w kodzie.

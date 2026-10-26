@@ -18,6 +18,8 @@ vi.mock("../api/client", async (importOriginal) => {
       updateFlag: vi.fn(),
       updateBinding: vi.fn(),
       retireFlag: vi.fn(),
+      registerService: vi.fn(),
+      rotateCredential: vi.fn(),
     },
   };
 });
@@ -226,5 +228,55 @@ describe("store: permissions and local changes in demo mode", () => {
 
     expect(outcome).toEqual({ ok: false, reason: '"frontend" depends on this flag.' });
     expect(result.current.flags.map((f) => f.key)).toContain("backend");
+  });
+});
+
+describe("store: services and credentials", () => {
+  it("lets an Admin register a service through the API: the service is listed and the credential returned once", async () => {
+    const registered = { ...makeService("svc-billing", "billing-api"), lastCheckInAt: undefined };
+    vi.mocked(api.registerService).mockResolvedValue({ service: registered, token: "ssf_secret" });
+    const { result } = await renderStore();
+    act(() => result.current.setRole("admin"));
+
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.registerService(" billing-api ", "");
+    });
+
+    expect(outcome).toEqual({ ok: true, token: "ssf_secret" });
+    expect(api.registerService).toHaveBeenCalledWith("billing-api", "", "a.kowalska");
+    expect(result.current.services.map((s) => s.key)).toEqual(["orders-api", "shop-web", "billing-api"]);
+    await waitFor(() => expect(result.current.auditLog).toEqual(serverAudit));
+  });
+
+  it("replaces the rotated service with the server's version", async () => {
+    const rotated = { ...makeService("svc-api", "orders-api"), credentialStatus: "rotating" as const, previousCredentialExpiresAt: "2026-10-27T10:00:00.000Z" };
+    vi.mocked(api.rotateCredential).mockResolvedValue({ service: rotated, token: "ssf_new" });
+    const { result } = await renderStore();
+    act(() => result.current.setRole("admin"));
+
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.rotateCredential("svc-api", false);
+    });
+
+    expect(outcome).toEqual({ ok: true, token: "ssf_new" });
+    expect(api.rotateCredential).toHaveBeenCalledWith("svc-api", false, "a.kowalska");
+    expect(result.current.services[0]).toEqual(rotated);
+  });
+
+  it("refuses for anyone but an Admin, and in demo mode, without calling the API", async () => {
+    const { result } = await renderStore();
+    expect(await result.current.rotateCredential("svc-api", false)).toEqual({
+      ok: false,
+      reason: "Only Admins can register services and rotate their credentials.",
+    });
+
+    loadWith(true);
+    const demo = await renderStore();
+    act(() => demo.result.current.setRole("admin"));
+    expect(await demo.result.current.registerService("billing-api", "")).toMatchObject({ ok: false, reason: expect.stringMatching(/demo data/) });
+    expect(api.registerService).not.toHaveBeenCalled();
+    expect(api.rotateCredential).not.toHaveBeenCalled();
   });
 });

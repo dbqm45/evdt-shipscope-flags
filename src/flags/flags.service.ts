@@ -2,7 +2,8 @@ import { BadRequestException, ConflictException, Injectable, Logger, NotFoundExc
 import type { Prisma } from "../generated/prisma/client.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { FLAG_INCLUDE, toAuditEntry, toDbReadMode, toFlag, toService } from "./flag-mapper.js";
-import type { BindingPatch, CreateFlagInput, FlagPatch } from "./flags.input.js";
+import type { BindingPatch, CreateFlagInput, FlagPatch, RegisterServiceInput } from "./flags.input.js";
+import { CREDENTIAL_GRACE_MS, hashToken, newServiceToken } from "./sdk-auth.js";
 import { canDisable, canEnable, canRetire } from "./shared/rules.js";
 import { checkWebhookUrl, maskWebhookUrl, type Lookup } from "./webhook.js";
 import { ENVIRONMENTS, type AuditLogEntry, type Environment, type Flag, type Service } from "./shared/types.js";
@@ -13,7 +14,16 @@ export interface NotificationSettings {
   webhookUrl: string;
 }
 
+/** A service and its new credential: the only time the credential is shown. */
+export interface IssuedCredential {
+  service: Service;
+  token: string;
+}
+
 type Db = PrismaService | Prisma.TransactionClient;
+
+/** A service's check-in is stored at most this often, so services polling every few seconds cost no extra writes. */
+const CHECK_IN_INTERVAL_MS = 30_000;
 
 /** Serializes every flag state change: the rules read all flags, so two concurrent toggles must not interleave. */
 const STATE_LOCK = 4_242_001;
@@ -35,7 +45,7 @@ export class FlagsService {
 
   async listServices(): Promise<Service[]> {
     const rows = await this.prisma.service.findMany({ orderBy: { seq: "asc" } });
-    return rows.map(toService);
+    return rows.map((row) => toService(row));
   }
 
   async listAuditLog(): Promise<AuditLogEntry[]> {
@@ -53,6 +63,79 @@ export class FlagsService {
       orderBy: { seq: "desc" },
     });
     return Object.fromEntries(rows.map((f) => [f.key, f.environments[0]?.enabled ?? false]));
+  }
+
+  /** The service a credential digest belongs to: its current credential, or the previous one while the rotation grace period lasts. */
+  serviceByToken(tokenHash: string): Promise<{ id: string; key: string } | null> {
+    return this.prisma.service.findFirst({
+      where: { OR: [{ tokenHash }, { previousTokenHash: tokenHash, previousTokenExpiresAt: { gt: new Date() } }] },
+      select: { id: true, key: true },
+    });
+  }
+
+  /** Records that a service read its flags. Never fails the read: a lost check-in only makes the service look quieter. */
+  async recordCheckIn(serviceId: string): Promise<void> {
+    const now = new Date();
+    const due = new Date(now.getTime() - CHECK_IN_INTERVAL_MS);
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const { count } = await tx.service.updateMany({
+          where: { id: serviceId, OR: [{ lastCheckInAt: null }, { lastCheckInAt: { lt: due } }] },
+          data: { lastCheckInAt: now },
+        });
+        if (count) await tx.flagServiceBinding.updateMany({ where: { serviceId }, data: { lastCheckInAt: now } });
+      });
+    } catch (err) {
+      this.logger.warn(`Could not record the check-in of service ${serviceId}: ${(err as Error).message}`);
+    }
+  }
+
+  async registerService(input: RegisterServiceInput, actor: string): Promise<IssuedCredential> {
+    const token = newServiceToken();
+    const row = await this.locked(async (tx) => {
+      const id = `svc-${input.key}`;
+      if (await tx.service.findFirst({ where: { OR: [{ key: input.key }, { id }] } }))
+        throw new ConflictException(`A service with the key "${input.key}" already exists.`);
+      const now = new Date();
+      const created = await tx.service.create({
+        data: { id, key: input.key, name: input.name, registeredAt: now, registeredBy: actor, tokenHash: hashToken(token), credentialLastRotated: now },
+      });
+      await this.audit(tx, { actor, action: "service-registered", serviceKey: input.key });
+      return created;
+    });
+    return { service: toService(row), token };
+  }
+
+  /**
+   * Issues a new credential. The one it replaces keeps working for CREDENTIAL_GRACE_MS so the service can be redeployed,
+   * unless `revokePrevious` (a leaked credential) ends it at once. A credential older than that is always ended.
+   */
+  async rotateCredential(serviceId: string, revokePrevious: boolean, actor: string): Promise<IssuedCredential> {
+    const token = newServiceToken();
+    const row = await this.locked(async (tx) => {
+      const current = await tx.service.findUnique({ where: { id: serviceId } });
+      if (!current) throw new NotFoundException(`Service "${serviceId}" not found.`);
+      const now = new Date();
+      const keepPrevious = current.tokenHash !== null && !revokePrevious;
+      const until = new Date(now.getTime() + CREDENTIAL_GRACE_MS);
+      const updated = await tx.service.update({
+        where: { id: serviceId },
+        data: {
+          tokenHash: hashToken(token),
+          previousTokenHash: keepPrevious ? current.tokenHash : null,
+          previousTokenExpiresAt: keepPrevious ? until : null,
+          credentialLastRotated: now,
+        },
+      });
+      const note = !current.tokenHash
+        ? "first credential issued"
+        : keepPrevious
+          ? `previous credential works until ${until.toISOString()}`
+          : "previous credential revoked";
+      await this.audit(tx, { actor, action: "credential-rotated", serviceKey: current.key, note });
+      return updated;
+    });
+    return { service: toService(row), token };
   }
 
   /** Runs `fn` in a transaction holding STATE_LOCK: every write that a rule (which reads all flags) depends on goes here. */

@@ -1,5 +1,13 @@
 import { BadRequestException } from "@nestjs/common";
-import { parseActor, parseBindingPatch, parseCreateFlag, parseFlagPatch, parseNotificationSettings } from "./flags.input.js";
+import {
+  parseActor,
+  parseBindingPatch,
+  parseCreateFlag,
+  parseFlagPatch,
+  parseNotificationSettings,
+  parseRegisterService,
+  parseRotateCredential,
+} from "./flags.input.js";
 
 const reason = (fn: () => unknown) => {
   try {
@@ -77,5 +85,21 @@ describe("parseNotificationSettings", () => {
     expect(parseNotificationSettings({ webhookUrl: " https://hooks.slack.com/x " })).toEqual({ webhookUrl: "https://hooks.slack.com/x" });
     expect(reason(() => parseNotificationSettings({ enabled: "yes" }))).toMatch(/"enabled" must be true or false/);
     expect(reason(() => parseNotificationSettings({ url: "x" }))).toBe("Unknown field: url.");
+  });
+});
+
+describe("service registration and credential rotation", () => {
+  it("takes a service key and an optional name, which defaults to the key", () => {
+    expect(parseRegisterService({ key: " billing-api ", actor: "a.kowalska" })).toEqual({ key: "billing-api", name: "billing-api" });
+    expect(parseRegisterService({ key: "billing-api", name: "Billing API" })).toEqual({ key: "billing-api", name: "Billing API" });
+    expect(reason(() => parseRegisterService({ key: "billing api" }))).toMatch(/^Service key is required/);
+    expect(reason(() => parseRegisterService({ key: "x", token: "mine" }))).toBe("Unknown field: token.");
+  });
+
+  it("revokes the previous credential only when asked to", () => {
+    expect(parseRotateCredential({})).toEqual({ revokePrevious: false });
+    expect(parseRotateCredential(undefined)).toEqual({ revokePrevious: false });
+    expect(parseRotateCredential({ revokePrevious: true, actor: "a.kowalska" })).toEqual({ revokePrevious: true });
+    expect(reason(() => parseRotateCredential({ revokePrevious: "yes" }))).toMatch(/true or false/);
   });
 });

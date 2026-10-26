@@ -46,10 +46,10 @@ Two packages, one version:
 | Path                                                | What                                                                                         |
 | --------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `src/main.ts`, `src/app.module.ts`                  | Nest bootstrap; global prefix `api`                                                          |
-| `src/flags/flags.controller.ts`                     | management routes (`/flags` incl. create/update/retire, `/flags/:key/environments/:env`, `/flags/:key/services/:id`, `/services`, `/audit-log`, `/settings/notifications`) and the consumer route `GET /sdk/flags` |
+| `src/flags/flags.controller.ts`                     | management routes (`/flags` incl. create/update/retire, `/flags/:key/environments/:env`, `/flags/:key/services/:id`, `/services` incl. register and `/services/:id/credential`, `/audit-log`, `/settings/notifications`) and the consumer route `GET /v1/sdk/flags` (also at `/sdk/flags`) |
 | `src/flags/flags.input.ts`                          | validation of management request bodies (400 with a readable reason, unknown fields rejected) |
 | `src/flags/webhook.ts`                              | webhook URL checks against SSRF (https, no private/local addresses, `NOTIFY_WEBHOOK_HOSTS`) and masking |
-| `src/flags/sdk-auth.ts`                             | `SDK_TOKEN` check for `GET /api/sdk/flags` (constant-time; 503 when the server has no token) |
+| `src/flags/sdk-auth.ts`                             | who calls the consumer route: a service by its credential (only a SHA-256 digest is stored), or the deprecated shared `SDK_TOKEN` (constant-time) |
 | `src/flags/flags.service.ts`                        | reads and changes state in PostgreSQL, rule checks, audit entries, webhook notifications     |
 | `src/flags/flag-mapper.ts`                          | database rows ↔ the API shapes from `shared/types.ts`                                        |
 | `prisma/schema.prisma`, `prisma/migrations/`        | database schema and its migrations; `prisma.config.ts` configures the CLI                    |
@@ -73,8 +73,11 @@ Two packages, one version:
 - **Backend imports are ESM with `nodenext`**: relative imports end in `.js` (`./flags.service.js`), and so do
   subpath imports of packages without an `exports` map (`supertest/types.js`). The frontend uses bundler resolution
   and imports without extensions.
-- **Do not change the consumer contract casually.** `GET /api/sdk/flags?env=…&service=…` → `{ env, flags: { key: bool } }`
-  is what services integrate against (PRD FR-011). A breaking change needs a `!` commit (see Commits).
+- **Do not change the consumer contract casually.** `GET /api/v1/sdk/flags?env=…` with a service credential →
+  `{ env, flags: { key: bool } }` is what services integrate against (PRD FR-011), documented in `docs/sdk-api.md`.
+  Keep that file in step; a breaking change needs a new version path and a `!` commit (see Commits).
+- **Service credentials are shown once and never stored**: only `hashToken(...)` digests go to the database, and
+  `toService` exposes neither. A rotation keeps the previous credential for `CREDENTIAL_GRACE_MS` (24 h).
 - **Every schema change ships with its migration**: edit `prisma/schema.prisma`, run
   `npm run db:migrate -- --name <change>`, commit both; CI fails on a schema without its migration. Keep
   `flag-mapper.ts` in step, so the API keeps returning the shapes in `shared/types.ts`. Never edit an applied

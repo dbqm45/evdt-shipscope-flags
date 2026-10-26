@@ -5,6 +5,7 @@ import { loadState, seedState, type State } from "../db/load-state.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
 import { PrismaModule } from "../prisma/prisma.service.js";
 import { FlagsService } from "./flags.service.js";
+import { hashToken } from "./sdk-auth.js";
 import type { Environment, Flag, Service } from "./shared/types.js";
 
 const T0 = "2026-10-01T08:00:00.000Z";
@@ -25,7 +26,17 @@ function flag(key: string, on: Environment[], extra: Partial<Flag> = {}): Flag {
 }
 
 function service(id: string, key: string): Service {
-  return { id, key, name: key, registeredAt: T0, registeredBy: "seed", credentialStatus: "active", credentialLastRotated: T0, lastCheckInAt: T0 };
+  return {
+    id,
+    key,
+    name: key,
+    registeredAt: T0,
+    registeredBy: "seed",
+    hasCredential: false,
+    credentialStatus: "active",
+    credentialLastRotated: T0,
+    lastCheckInAt: T0,
+  };
 }
 
 const binding = (serviceId: string) => ({ serviceId, readMode: "runtime" as const, lastCheckInAt: T0, driftSuspected: false });
@@ -63,7 +74,9 @@ describe("FlagsService (PostgreSQL)", () => {
     expect(await loadState(prisma, seed)).toBe(true);
 
     expect(await flags.listFlags()).toEqual(json(seed.flags));
-    expect(await flags.listServices()).toEqual(json(seed.services));
+    // Credentials are never loaded: every service starts without one.
+    const withoutCredentials = seed.services.map((s) => ({ ...s, hasCredential: false, credentialStatus: "active", previousCredentialExpiresAt: undefined }));
+    expect(await flags.listServices()).toEqual(json(withoutCredentials));
     expect(await flags.listAuditLog()).toEqual(json(seed.auditLog));
   });
 
@@ -260,6 +273,84 @@ describe("FlagsService (PostgreSQL)", () => {
       expect(await flags.evaluate("test", "shop-web")).toEqual({});
       expect((await flags.listAuditLog())[0]).toMatchObject({ action: "flag-retired", flagKey: "frontend" });
       await expect(flags.retireFlag("frontend", "m.chen")).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe("services and their credentials", () => {
+    const serviceByToken = (token: string) => flags.serviceByToken(hashToken(token));
+
+    it("registers a service with a credential that is returned once and stored only as a digest", async () => {
+      const { service, token } = await flags.registerService({ key: "billing-api", name: "Billing API" }, "a.kowalska");
+
+      expect(service).toMatchObject({
+        id: "svc-billing-api",
+        key: "billing-api",
+        name: "Billing API",
+        registeredBy: "a.kowalska",
+        hasCredential: true,
+        credentialStatus: "active",
+      });
+      expect(service).not.toHaveProperty("lastCheckInAt");
+      expect(await serviceByToken(token)).toEqual({ id: "svc-billing-api", key: "billing-api" });
+      const row = await prisma.service.findUniqueOrThrow({ where: { id: "svc-billing-api" } });
+      expect(JSON.stringify(row)).not.toContain(token);
+      expect(JSON.stringify(await flags.listServices())).not.toContain(row.tokenHash!);
+      expect((await flags.listAuditLog())[0]).toMatchObject({ action: "service-registered", serviceKey: "billing-api", actor: "a.kowalska" });
+      await expect(flags.registerService({ key: "billing-api", name: "again" }, "a.kowalska")).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it("rotates a credential: the old one keeps working for 24 hours, then stops", async () => {
+      const { token: first } = await flags.registerService({ key: "billing-api", name: "billing-api" }, "a.kowalska");
+
+      const { service, token: second } = await flags.rotateCredential("svc-billing-api", false, "a.kowalska");
+
+      expect(service.credentialStatus).toBe("rotating");
+      const until = Date.parse(service.previousCredentialExpiresAt!);
+      expect(until - Date.now()).toBeGreaterThan(23.9 * 3600_000);
+      expect(await serviceByToken(first)).not.toBeNull();
+      expect(await serviceByToken(second)).not.toBeNull();
+      expect((await flags.listAuditLog())[0]).toMatchObject({
+        action: "credential-rotated",
+        serviceKey: "billing-api",
+        note: expect.stringMatching(/^previous credential works until/),
+      });
+
+      await prisma.service.update({ where: { id: "svc-billing-api" }, data: { previousTokenExpiresAt: new Date(Date.now() - 1000) } });
+      expect(await serviceByToken(first)).toBeNull();
+      expect(await serviceByToken(second)).not.toBeNull();
+      expect((await flags.listServices())[0]).toMatchObject({ credentialStatus: "active" });
+    });
+
+    it("revokes the old credential at once when asked, and issues a first one to a service that had none", async () => {
+      const { token: first } = await flags.registerService({ key: "billing-api", name: "billing-api" }, "a.kowalska");
+      const { service, token } = await flags.rotateCredential("svc-billing-api", true, "a.kowalska");
+      expect(service.credentialStatus).toBe("active");
+      expect(await serviceByToken(first)).toBeNull();
+      expect(await serviceByToken(token)).not.toBeNull();
+      expect((await flags.listAuditLog())[0]).toMatchObject({ note: "previous credential revoked" });
+
+      await prisma.service.create({ data: { id: "svc-old", key: "old", name: "old", registeredAt: T0, registeredBy: "seed", credentialLastRotated: T0 } });
+      expect((await flags.listServices()).find((s) => s.key === "old")).toMatchObject({ hasCredential: false });
+      const issued = await flags.rotateCredential("svc-old", false, "a.kowalska");
+      expect(issued.service).toMatchObject({ hasCredential: true, credentialStatus: "active" });
+      expect((await flags.listAuditLog())[0]).toMatchObject({ serviceKey: "old", note: "first credential issued" });
+      await expect(flags.rotateCredential("svc-nope", false, "a.kowalska")).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it("records a check-in on the service and its flag bindings, at most every 30 seconds", async () => {
+      await loadState(prisma, pair());
+      const before = Date.now();
+
+      await flags.recordCheckIn("svc-api");
+
+      const [api, web] = await flags.listServices();
+      expect(Date.parse(api.lastCheckInAt!)).toBeGreaterThanOrEqual(before);
+      expect(web.lastCheckInAt).toBe(T0);
+      const backend = (await flags.listFlags()).find((f) => f.key === "backend")!;
+      expect(Date.parse(backend.services[0].lastCheckInAt)).toBeGreaterThanOrEqual(before);
+
+      await flags.recordCheckIn("svc-api");
+      expect((await flags.listServices())[0].lastCheckInAt).toBe(api.lastCheckInAt);
     });
   });
 });

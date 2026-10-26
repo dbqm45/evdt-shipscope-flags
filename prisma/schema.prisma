@@ -2,11 +2,11 @@
 // src/flags/flag-mapper.ts; change both together. Migrations: npm run db:migrate (dev) / npm run db:deploy.
 
 generator client {
-  provider               = "prisma-client"
-  output                 = "../src/generated/prisma"
-  moduleFormat           = "esm"
-  importFileExtension    = "js"
-  runtime                = "nodejs"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+  runtime             = "nodejs"
 }
 
 datasource db {
@@ -30,23 +30,23 @@ enum ReadMode {
   both
 }
 
-enum CredentialStatus {
-  active
-  rotating
-}
-
 model Service {
-  id                    String           @id
+  id                     String               @id
   /// Registration order: the API lists services as they were registered.
-  seq                   Int              @unique @default(autoincrement())
-  key                   String           @unique
-  name                  String
-  registeredAt          DateTime         @db.Timestamptz(3)
-  registeredBy          String
-  credentialStatus      CredentialStatus
-  credentialLastRotated DateTime         @db.Timestamptz(3)
-  lastCheckInAt         DateTime         @db.Timestamptz(3)
-  bindings              FlagServiceBinding[]
+  seq                    Int                  @unique @default(autoincrement())
+  key                    String               @unique
+  name                   String
+  registeredAt           DateTime             @db.Timestamptz(3)
+  registeredBy           String
+  /// SHA-256 (hex) of the service's credential; the credential itself is shown once and never stored. Null = none issued.
+  tokenHash              String?              @unique
+  /// The credential replaced by the last rotation; it keeps working until previousTokenExpiresAt.
+  previousTokenHash      String?              @unique
+  previousTokenExpiresAt DateTime?            @db.Timestamptz(3)
+  credentialLastRotated  DateTime             @db.Timestamptz(3)
+  /// Last time the service read its flags with its own credential; null = never.
+  lastCheckInAt          DateTime?            @db.Timestamptz(3)
+  bindings               FlagServiceBinding[]
 }
 
 model Flag {

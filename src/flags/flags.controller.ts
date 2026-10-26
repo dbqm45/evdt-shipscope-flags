@@ -1,7 +1,15 @@
-import { BadRequestException, Body, Controller, Delete, Get, Headers, HttpCode, Param, Patch, Post, Put, Query } from "@nestjs/common";
-import { parseActor, parseBindingPatch, parseCreateFlag, parseFlagPatch, parseNotificationSettings } from "./flags.input.js";
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Headers, HttpCode, Param, Patch, Post, Put, Query } from "@nestjs/common";
+import {
+  parseActor,
+  parseBindingPatch,
+  parseCreateFlag,
+  parseFlagPatch,
+  parseNotificationSettings,
+  parseRegisterService,
+  parseRotateCredential,
+} from "./flags.input.js";
 import { FlagsService, isEnvironment } from "./flags.service.js";
-import { checkSdkToken } from "./sdk-auth.js";
+import { identifySdkCaller } from "./sdk-auth.js";
 
 function parseEnv(value: string | undefined) {
   if (!value || !isEnvironment(value)) throw new BadRequestException("env must be one of: test, qa, prod.");
@@ -47,6 +55,19 @@ export class FlagsController {
     return this.flags.listServices();
   }
 
+  /** 201 with the service and its credential; the credential is shown only in this response. */
+  @Post("services")
+  registerService(@Body() body: unknown) {
+    return this.flags.registerService(parseRegisterService(body), parseActor(body));
+  }
+
+  /** New credential (shown once); the old one keeps working for 24 h unless the body says "revokePrevious": true. */
+  @Post("services/:id/credential")
+  @HttpCode(200)
+  rotateCredential(@Param("id") id: string, @Body() body: unknown) {
+    return this.flags.rotateCredential(id, parseRotateCredential(body).revokePrevious, parseActor(body));
+  }
+
   @Get("audit-log")
   auditLog() {
     return this.flags.listAuditLog();
@@ -77,13 +98,21 @@ export class FlagsController {
   // --- Consumer API (used by your services to read flag state) ---
 
   /**
-   * GET /api/sdk/flags?env=prod&service=checkout-api  ->  { env, flags: { "flag-key": true, ... } }
-   * Callers must send "Authorization: Bearer <SDK_TOKEN>"; without SDK_TOKEN on the server it answers 503 (sdk-auth.ts).
+   * GET /api/v1/sdk/flags?env=prod  ->  { env, flags: { "flag-key": true, ... } }, the contract in docs/sdk-api.md.
+   * A service sends "Authorization: Bearer <its credential>" and gets the flags assigned to it; each read is its
+   * check-in. The shared SDK_TOKEN (deprecated) reads every flag, or one service's with ?service=. /api/sdk/flags is
+   * the same endpoint under its pre-v1 path.
    */
-  @Get("sdk/flags")
+  @Get(["v1/sdk/flags", "sdk/flags"])
   async sdkFlags(@Query("env") env: string | undefined, @Query("service") service: string | undefined, @Headers("authorization") auth: string | undefined) {
-    checkSdkToken(auth);
+    const caller = await identifySdkCaller(auth, (tokenHash) => this.flags.serviceByToken(tokenHash));
     const environment = parseEnv(env);
-    return { env: environment, flags: await this.flags.evaluate(environment, service) };
+    if ("shared" in caller) return { env: environment, flags: await this.flags.evaluate(environment, service) };
+    const own = caller.service;
+    if (service !== undefined && service !== own.key)
+      throw new ForbiddenException(`This credential belongs to "${own.key}"; it cannot read the flags of "${service}".`);
+    const flags = await this.flags.evaluate(environment, own.key);
+    await this.flags.recordCheckIn(own.id);
+    return { env: environment, flags };
   }
 }

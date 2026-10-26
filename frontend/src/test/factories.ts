@@ -35,6 +35,7 @@ export function makeService(id: string, key = id): Service {
     name: key,
     registeredAt: daysBefore(90),
     registeredBy: "tester",
+    hasCredential: true,
     credentialStatus: "active",
     credentialLastRotated: daysBefore(30),
     lastCheckInAt: daysBefore(0),

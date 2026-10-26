@@ -82,6 +82,12 @@ export type BindingPatch = Pick<Partial<FlagServiceBinding>, "readMode" | "build
 const clearing = <T extends object>(patch: T) => Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v === undefined ? null : v]));
 const flagPath = (flagKey: string) => `/flags/${encodeURIComponent(flagKey)}`;
 
+/** A service with a new credential: the only time the API shows the credential. */
+export interface IssuedCredential {
+  service: Service;
+  token: string;
+}
+
 export interface InitialData {
   flags: Flag[];
   services: Service[];
@@ -122,4 +128,10 @@ export const api = {
     call<Flag>(`${flagPath(flagKey)}/services/${encodeURIComponent(serviceId)}`, withBody("PATCH", { ...patch, actor })),
 
   retireFlag: (flagKey: string, actor: string) => call<{ ok: true }>(flagPath(flagKey), withBody("DELETE", { actor })),
+
+  registerService: (key: string, name: string, actor: string) => call<IssuedCredential>("/services", withBody("POST", { key, name, actor })),
+
+  /** The old credential keeps working for 24 h, unless `revokePrevious` ends it at once. */
+  rotateCredential: (serviceId: string, revokePrevious: boolean, actor: string) =>
+    call<IssuedCredential>(`/services/${encodeURIComponent(serviceId)}/credential`, withBody("POST", { revokePrevious, actor })),
 };

@@ -27,7 +27,19 @@ export async function loadState(prisma: PrismaClient, state: State): Promise<boo
     if ((await tx.flag.count()) + (await tx.service.count()) > 0) return false;
 
     // Sequence columns keep the order of the arrays: services ascending, flags and audit entries newest first.
-    for (const s of state.services) await tx.service.create({ data: s });
+    // Credentials are never part of a state file: services get theirs from an Admin ("Rotate credential").
+    for (const s of state.services)
+      await tx.service.create({
+        data: {
+          id: s.id,
+          key: s.key,
+          name: s.name,
+          registeredAt: s.registeredAt,
+          registeredBy: s.registeredBy,
+          credentialLastRotated: s.credentialLastRotated,
+          lastCheckInAt: s.lastCheckInAt ?? null,
+        },
+      });
     for (const f of [...state.flags].reverse()) {
       await tx.flag.create({
         data: {

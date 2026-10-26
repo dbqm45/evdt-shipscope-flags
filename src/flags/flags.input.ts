@@ -4,7 +4,7 @@ import { ENVIRONMENTS, type Environment, type FlagType, type ReadMode } from "./
 // Parses and validates request bodies of the management API. Anything unexpected is a 400 with a reason the dashboard
 // can show as is; unknown fields are rejected rather than ignored, so a typo does not silently do nothing.
 
-/** Same characters the dashboard allows in a flag key (CreateFlagModal). */
+/** Same characters the dashboard allows in a flag key (CreateFlagModal); service keys follow the same rule. */
 const FLAG_KEY = /^[A-Za-z0-9._-]{1,100}$/;
 const FLAG_TYPES: FlagType[] = ["release", "feature"];
 const READ_MODES: ReadMode[] = ["build-time", "runtime", "both"];
@@ -20,6 +20,11 @@ export interface CreateFlagInput {
   owner?: string;
   reviewBy?: string;
   tags: string[];
+}
+
+export interface RegisterServiceInput {
+  key: string;
+  name: string;
 }
 
 export interface FlagPatch {
@@ -129,6 +134,22 @@ export function parseBindingPatch(input: unknown): BindingPatch {
   }
   if (Object.keys(patch).length === 0) throw bad("Nothing to change: send readMode, buildTimeValues or removedFromCode.");
   return patch;
+}
+
+export function parseRegisterService(input: unknown): RegisterServiceInput {
+  const body = object(input);
+  onlyFields(body, ["key", "name", "actor"]);
+  const key = typeof body.key === "string" ? body.key.trim() : "";
+  if (!FLAG_KEY.test(key)) throw bad("Service key is required: 1–100 letters, digits, dots, dashes or underscores.");
+  return { key, name: (body.name === undefined ? "" : text(body.name, "name", 100)) || key };
+}
+
+/** `revokePrevious`: end the replaced credential at once instead of after the grace period. */
+export function parseRotateCredential(input: unknown): { revokePrevious: boolean } {
+  const body = input === undefined ? {} : object(input);
+  onlyFields(body, ["revokePrevious", "actor"]);
+  if (body.revokePrevious !== undefined && typeof body.revokePrevious !== "boolean") throw bad('"revokePrevious" must be true or false.');
+  return { revokePrevious: body.revokePrevious === true };
 }
 
 export function parseNotificationSettings(input: unknown): { enabled?: boolean; webhookUrl?: string } {

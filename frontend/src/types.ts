@@ -26,9 +26,14 @@ export interface Service {
   name: string;
   registeredAt: string;
   registeredBy: string;
+  /** False until the service has been issued a credential (services from before 0.4 start without one). */
+  hasCredential: boolean;
+  /** "rotating" while the credential replaced by the last rotation still works (until previousCredentialExpiresAt). */
   credentialStatus: "active" | "rotating";
+  previousCredentialExpiresAt?: string;
   credentialLastRotated: string;
-  lastCheckInAt: string;
+  /** Last time the service read its flags with its own credential; missing = never. */
+  lastCheckInAt?: string;
 }
 
 export interface FlagServiceBinding {
