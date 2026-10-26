@@ -3,6 +3,12 @@
 Notable changes to ShipScope Flags, newest first. Versions follow [Semantic Versioning](https://semver.org/) and are
 released automatically from [Conventional Commits](https://www.conventionalcommits.org/) (see `RELEASING.md`).
 
+## [0.4.1] - 2026-10-26
+
+### Added
+
+- **api:** add /api/health, security headers and rate limits
+
 ## [0.4.0] - 2026-10-26
 
 Every service now reads flags with its own credential, and sees only the flags assigned to it. The contract is
