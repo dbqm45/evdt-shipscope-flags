@@ -128,6 +128,7 @@ jobs:
         run: |
           curl -fsS -o /dev/null http://localhost:8080/
           curl -fsS -o /dev/null http://localhost:8080/audit-log
+          curl -fsS http://localhost:8080/api/health | jq -e '.status == "ok"' > /dev/null
           curl -fsS http://localhost:8080/api/flags | jq -e 'length > 0' > /dev/null
           # A registered service reads its flags with its own credential; without one the consumer endpoint refuses.
           token=$(curl -fsS -H "Content-Type: application/json" -d '{"key":"smoke-test"}' http://localhost:8080/api/services | jq -er .token)

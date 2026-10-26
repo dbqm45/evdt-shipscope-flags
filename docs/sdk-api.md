@@ -41,6 +41,7 @@ Treść błędu ma postać `{ "statusCode": 401, "message": "…" }`.
 | 400     | Brak `env` albo nieznane środowisko.                                                    | Błąd konfiguracji serwisu — do poprawienia, nie ponawiać.          |
 | 401     | Brak nagłówka `Authorization`, nieznane, unieważnione lub wygasłe poświadczenie.        | Dalej używa ostatniego znanego stanu i alarmuje (poświadczenie do wymiany). |
 | 403     | Parametr `service` wskazuje inny serwis niż właściciel poświadczenia.                   | Błąd konfiguracji — usunąć `service` albo poprawić jego wartość.   |
+| 429     | Przekroczony limit zapytań z jednego adresu (domyślnie 600 na minutę).                  | Dalej używa ostatniego znanego stanu; ponawia po liczbie sekund z nagłówka `Retry-After`. |
 | 5xx, brak odpowiedzi, przekroczony czas | Serwer flag jest niedostępny.                               | Dalej używa ostatniego znanego stanu i ponawia przy kolejnym odpytaniu. |
 
 ## Zalecane zachowanie klienta

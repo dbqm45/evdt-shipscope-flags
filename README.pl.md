@@ -178,6 +178,8 @@ Pełny opis kontraktu, kodów błędów i zalecanego zachowania klienta (pamię�
 
 Serwer przechowuje dane w bazie PostgreSQL wskazanej zmienną `DATABASE_URL`. Dane z pliku `data/state.json` używanego przez wersje przed 0.2.0 można przenieść do pustej bazy poleceniem `npm run db:import -- data/state.json`. Zasady opisane w punkcie 5 są egzekwowane także po stronie serwera, więc nie da się ich ominąć wywołaniem API. Domyślny adres webhooka powiadomień można podać zmienną `NOTIFY_WEBHOOK_URL`.
 
+Adres `GET /api/health` pozwala sprawdzić, czy serwer działa i ma połączenie z bazą (odpowiedź 200, a przy niedostępnej bazie 503). Serwer ogranicza liczbę zapytań z jednego adresu: domyślnie 300 na minutę do API zarządzania i 600 na minutę do odczytu flag przez serwisy (zmienne `RATE_LIMIT_PER_MINUTE` i `RATE_LIMIT_SDK_PER_MINUTE`). Po przekroczeniu limitu odpowiada kodem 429 z nagłówkiem `Retry-After`. Gdy serwer stoi za serwerem pośredniczącym (np. nginx), zmienna `TRUST_PROXY` wskazuje, któremu ufać przy ustalaniu adresu klienta.
+
 ## 9. Ograniczenia obecnej wersji
 
 - Bez uruchomionego serwera aplikacja korzysta z **danych przykładowych** (plik `frontend/src/data/mock.ts`), a zmiany znikają po odświeżeniu strony. Z serwerem zapisywane są wszystkie zmiany: stan flag na środowiskach, tworzenie, edycja szczegółów i sposobu odczytu, usuwanie flag, ustawienia powiadomień i dziennik zmian. Gdy serwer odrzuci zmianę (np. z powodu zasad z punktu 5), aplikacja pokazuje powód i nie zmienia stanu.

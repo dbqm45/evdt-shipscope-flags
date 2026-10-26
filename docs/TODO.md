@@ -75,8 +75,8 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 - [x] _(zrobione: dane demo tylko na żądanie, `npm run db:seed` / `SEED_DEMO_DATA`, i tylko do pustej bazy)_ **Uszkodzony plik stanu po cichu wraca do danych seedowych.** Ryzyko utraty produkcyjnego stanu flag. Seed powinien ładować się tylko w trybie dev/demo albo jawnym poleceniem.
 - [x] _(nie dotyczy produkcji: dane demo ładuje się jawnie, raz)_ **Seed zawiera daty względne** (`daysAgo()`), więc każdy start bez pliku stanu daje inne dane. Akceptowalne w demo, ale nie w produkcji.
 - [x] _(zrobione: wszystkie body management API walidowane w `flags.input.ts`, bez nowych zależności)_ **Brak walidacji wejścia.** Body opisano typami inline (`{ enabled?: boolean; actor?: string }`). Dodać DTO z `class-validator` i globalny `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })`.
-- [ ] **Brak endpointu health/readiness** (np. `@nestjs/terminus`, `GET /api/health`), potrzebnego do deploymentu w kontenerze.
-- [ ] **Brak hardeningu HTTP:** `helmet`, polityka CORS, rate limiting (`@nestjs/throttler`), szczególnie dla endpointu SDK; do tego `app.enableShutdownHooks()`.
+- [x] _(zrobione: `GET /api/health` sprawdza też bazę, 503 gdy jest niedostępna; używa go healthcheck Dockera)_ **Brak endpointu health/readiness** (np. `@nestjs/terminus`, `GET /api/health`), potrzebnego do deploymentu w kontenerze.
+- [x] _(zrobione: `helmet`, limity zapytań na adres klienta — `RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_SDK_PER_MINUTE`, `TRUST_PROXY` — i `enableShutdownHooks`. CORS pozostaje wyłączony, bo dashboard jest serwowany z tego samego adresu co API. Limity są liczone w pamięci jednej instancji; przy kilku instancjach potrzebny wspólny magazyn, np. Redis. Nagłówki bezpieczeństwa dla samego dashboardu (CSP w nginx) — do zrobienia)_ **Brak hardeningu HTTP:** `helmet`, polityka CORS, rate limiting (`@nestjs/throttler`), szczególnie dla endpointu SDK; do tego `app.enableShutdownHooks()`.
 - [ ] **Powiadomienia:** wysyłane fire-and-forget, bez retry, tylko dla `prod`. FR-016 przewiduje włączanie per flaga lub globalnie; dziś działa tylko przełącznik globalny.
 
 ## P2 — Jakość, testy, utrzymanie
@@ -90,7 +90,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
   - test SDK z `FLAGS_DATA_FILE` wskazującym na katalog tymczasowy (dziś testy mogłyby nadpisać `data/state.json`).
 - [x] _(zrobione: `configureApp` w `src/app.setup.ts`)_ **E2E nie odwzorowuje produkcyjnej konfiguracji.** `setGlobalPrefix('api')` jest tylko w `main.ts`, więc w testach routy działają bez `/api`. Wydzielić `configureApp(app)` i wywoływać go w `main.ts` i w e2e.
 - [x] _(zrobione: Vitest + RTL, testy `businessLogic.ts`, `client.ts`, `store.tsx`; brak testów rollbacku, bo store go jeszcze nie ma)_ **Frontend nie ma testów.** Dodać Vitest + React Testing Library (`npm i -D vitest @testing-library/react jsdom`) i skrypt `test`. Zacząć od `store.tsx` (toggle, rollback, uprawnienia) i `client.ts` (fallback tylko przy błędzie sieci).
-- [ ] Usunąć szablonowe `AppController` i `AppService` („Hello World!”) albo zastąpić je endpointem health.
+- [x] _(zrobione: zastąpione przez `GET /api/health`)_ Usunąć szablonowe `AppController` i `AppService` („Hello World!”) albo zastąpić je endpointem health.
 
 ### Architektura i struktura kodu
 

@@ -52,6 +52,11 @@ services:
       SDK_TOKEN: ${SDK_TOKEN:-}
       NOTIFY_WEBHOOK_URL: ${NOTIFY_WEBHOOK_URL:-}
       NOTIFY_WEBHOOK_HOSTS: ${NOTIFY_WEBHOOK_HOSTS:-}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-}
+      RATE_LIMIT_SDK_PER_MINUTE: ${RATE_LIMIT_SDK_PER_MINUTE:-}
+      # Requests reach the API through nginx (web) on the private compose network: trust its X-Forwarded-For, so
+      # rate limits count each client, not nginx.
+      TRUST_PROXY: ${TRUST_PROXY:-uniquelocal}
     depends_on:
       migrate:
         condition: service_completed_successfully

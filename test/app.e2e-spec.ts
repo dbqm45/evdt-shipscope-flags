@@ -34,7 +34,7 @@ describe("API (e2e)", () => {
     await prisma.$disconnect();
   });
 
-  it("GET /api", () => request(app.getHttpServer()).get("/api").expect(200).expect("Hello World!"));
+  it("GET /api/health reports the database as reachable", () => request(app.getHttpServer()).get("/api/health").expect(200, { status: "ok", database: "ok" }));
 
   it("GET /api/flags returns the stored flags", async () => {
     const res = await request(app.getHttpServer()).get("/api/flags").expect(200);

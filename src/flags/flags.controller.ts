@@ -8,6 +8,7 @@ import {
   parseRegisterService,
   parseRotateCredential,
 } from "./flags.input.js";
+import { SdkRoute } from "../rate-limit.js";
 import { FlagsService, isEnvironment } from "./flags.service.js";
 import { identifySdkCaller } from "./sdk-auth.js";
 
@@ -104,6 +105,7 @@ export class FlagsController {
    * the same endpoint under its pre-v1 path.
    */
   @Get(["v1/sdk/flags", "sdk/flags"])
+  @SdkRoute()
   async sdkFlags(@Query("env") env: string | undefined, @Query("service") service: string | undefined, @Headers("authorization") auth: string | undefined) {
     const caller = await identifySdkCaller(auth, (tokenHash) => this.flags.serviceByToken(tokenHash));
     const environment = parseEnv(env);

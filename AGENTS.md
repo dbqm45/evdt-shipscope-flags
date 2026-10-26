@@ -16,6 +16,8 @@ scope: `@context/foundation/prd.md`; known gaps: `@docs/TODO.md`. Full depth liv
 
 ## Security
 
+- Every route is rate limited per client address (`src/rate-limit.ts`, 429 + Retry-After); behind a proxy the API
+  needs `TRUST_PROXY`. `GET /api/health` is exempt.
 - Secrets only through environment variables; the repo holds only `.env.example` and `frontend/.env.example`. `.env`
   files and `data/` are gitignored.
 - The management API has no authentication yet (`@docs/TODO.md`, P0): do not build features that assume it does.

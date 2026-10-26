@@ -45,7 +45,9 @@ Two packages, one version:
 
 | Path                                                | What                                                                                         |
 | --------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `src/main.ts`, `src/app.module.ts`                  | Nest bootstrap; global prefix `api`                                                          |
+| `src/main.ts`, `src/app.module.ts`, `src/app.setup.ts` | Nest bootstrap; global prefix `api`, `helmet`, `trust proxy` (`TRUST_PROXY`); `app.setup.ts` is shared with the e2e tests |
+| `src/health/health.controller.ts`                   | `GET /api/health`: 200 when the database answers, else 503 (Docker healthcheck)              |
+| `src/rate-limit.ts`                                 | rate limits per client address and route (`@nestjs/throttler`, `RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_SDK_PER_MINUTE`); `@SdkRoute()` marks the consumer route |
 | `src/flags/flags.controller.ts`                     | management routes (`/flags` incl. create/update/retire, `/flags/:key/environments/:env`, `/flags/:key/services/:id`, `/services` incl. register and `/services/:id/credential`, `/audit-log`, `/settings/notifications`) and the consumer route `GET /v1/sdk/flags` (also at `/sdk/flags`) |
 | `src/flags/flags.input.ts`                          | validation of management request bodies (400 with a readable reason, unknown fields rejected) |
 | `src/flags/webhook.ts`                              | webhook URL checks against SSRF (https, no private/local addresses, `NOTIFY_WEBHOOK_HOSTS`) and masking |
