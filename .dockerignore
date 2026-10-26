@@ -1,0 +1,14 @@
+# Keep the build context small and free of local state and secrets.
+.git
+.github
+.idea
+**/node_modules
+**/dist
+data
+**/*.tsbuildinfo
+.env
+.env.*
+!.env.example
+docs
+context
+coverage

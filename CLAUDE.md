@@ -32,6 +32,10 @@ Two packages, one version:
 - Dashboard: `cd frontend && npm ci && npm run dev` → `http://localhost:5173`; Vite proxies `/api` to port 3000.
 - Environment: copy `.env.example` to `.env` (the start scripts load it with `node --env-file-if-exists`) and
   `frontend/.env.example` to `frontend/.env`. Never commit a real `.env`.
+- Whole stack in Docker: `docker compose up --build -d` → dashboard on `http://localhost:8080` (nginx serves the
+  build and proxies `/api` to the API container), PostgreSQL on `127.0.0.1:5432`. `docker compose down -v` also
+  deletes the data volumes. The API gets `DATABASE_URL` but does not use PostgreSQL yet (still the JSON file, in the
+  `flags-data` volume).
 - Node: see `engines` in both `package.json` files (backend `^22.22.3 || ^24.15.0 || >=26.0.0`).
 
 ## Layout
@@ -47,6 +51,7 @@ Two packages, one version:
 | `frontend/src/state/store.tsx`                      | client state and actions (React context)                                                     |
 | `scripts/`                                          | tooling only: `sync-shared.mjs`, release scripts and their `node:test` tests                 |
 | `.github/workflows/`                                | `ci.yml` (PRs, and verify step of releases), `release.yml` (every push to `main`)            |
+| `Dockerfile`, `docker-compose.yml`, `docker/`       | images `api` (Nest, prod deps only, user `node`) and `web` (nginx); compose adds PostgreSQL; CI builds and smoke-tests them |
 
 ## Hard rules
 

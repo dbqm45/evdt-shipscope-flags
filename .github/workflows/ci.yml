@@ -85,6 +85,30 @@ jobs:
           tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" actionlint
           "$RUNNER_TEMP/actionlint" -color
 
+  docker:
+    name: Docker images (build and smoke test)
+    if: github.event.action != 'edited'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+      - run: docker compose build
+      # --wait returns once db, api and web report healthy (their healthchecks), or fails.
+      - run: docker compose up -d --wait
+      - name: Smoke test through nginx
+        run: |
+          curl -fsS -o /dev/null http://localhost:8080/
+          curl -fsS -o /dev/null http://localhost:8080/audit-log
+          curl -fsS http://localhost:8080/api/flags | jq -e 'length > 0' > /dev/null
+          curl -fsS "http://localhost:8080/api/sdk/flags?env=prod" | jq -e '.env == "prod"' > /dev/null
+      - name: Logs
+        if: failure()
+        run: docker compose logs --no-color
+      - if: always()
+        run: docker compose down -v
+
   frontend:
     name: Frontend (lint, test, typecheck, build)
     if: github.event.action != 'edited'

@@ -1,0 +1,59 @@
+# Local stack: PostgreSQL, the API and the dashboard.
+#   docker compose up --build -d     → dashboard on http://localhost:8080 (the API is behind it under /api)
+#   docker compose down              # keeps the data volumes; add -v to delete them
+# Values come from ./.env when it exists (see .env.example); the defaults below are for local use only.
+#
+# The API does not use PostgreSQL yet: it keeps its state in a JSON file in the flags-data volume. The database is
+# here for the planned move to PostgreSQL + Prisma (context/foundation/tech-stack.md, docs/TODO.md); the API already
+# receives DATABASE_URL for it.
+
+name: shipscope-flags
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-shipscope}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shipscope}
+      POSTGRES_DB: ${POSTGRES_DB:-shipscope_flags}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    # Published on localhost only, for local tools (psql, Prisma migrations run from the host).
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      target: api
+    environment:
+      SDK_TOKEN: ${SDK_TOKEN:-}
+      NOTIFY_WEBHOOK_URL: ${NOTIFY_WEBHOOK_URL:-}
+      DATABASE_URL: postgres://${POSTGRES_USER:-shipscope}:${POSTGRES_PASSWORD:-shipscope}@db:5432/${POSTGRES_DB:-shipscope_flags}
+    volumes:
+      - flags-data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      target: web
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pg-data:
+  flags-data:

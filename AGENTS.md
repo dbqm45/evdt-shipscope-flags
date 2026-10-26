@@ -23,6 +23,8 @@ scope: `@context/foundation/prd.md`; known gaps: `@docs/TODO.md`. Full depth liv
 ## Build, test, and development
 
 - API: `npm ci && npm run start:dev` (port 3000). Dashboard: `cd frontend && npm ci && npm run dev` (proxies `/api`).
+- Docker: `docker compose up --build -d` runs PostgreSQL, the API and the dashboard (`http://localhost:8080`). The API
+  does not use PostgreSQL yet.
 - Before committing: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:e2e`,
   `npm run test:scripts`, `npm run build`, and in `frontend/`: `npm run lint && npm test && npm run build`.
 

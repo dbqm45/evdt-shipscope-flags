@@ -118,7 +118,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 - [x] _(zrobione; `npm audit` blokuje tylko na zależnościach runtime, narzędzia dev są raportowane)_ Workflow GitHub Actions (`.github/workflows/ci.yml`): `npm ci` (oba pakiety) → lint → typecheck → test → build → `npm audit --audit-level=high`, plus kontrola, że `sync:shared` nie zostawia diffu. Sam build na czystym klonie wychwyciłby problem z `mock.ts`.
 - [x] _(zrobione: `.github/dependabot.yml` dla akcji i obu pakietów npm)_ Dependabot lub Renovate dla obu `package.json`.
 - [x] _(zrobione, zob. `RELEASING.md`)_ Automatyczne wersjonowanie: Conventional Commits, SemVer, `CHANGELOG.md`, tagi i GitHub Releases z workflow `Release`.
-- [ ] `Dockerfile` (multi-stage: build backendu i frontendu, serwowanie statycznego frontendu przez Nest lub osobny kontener) i `docker-compose.yml` z PostgreSQL. `tech-stack.md` zakłada deployment kontenerowy i ręczną promocję na produkcję.
+- [x] _(zrobione: obrazy `api` i `web` z nginx; PostgreSQL w compose czeka na migrację z pliku JSON)_ `Dockerfile` (multi-stage: build backendu i frontendu, serwowanie statycznego frontendu przez Nest lub osobny kontener) i `docker-compose.yml` z PostgreSQL. `tech-stack.md` zakłada deployment kontenerowy i ręczną promocję na produkcję.
 
 ### Dokumentacja
 
