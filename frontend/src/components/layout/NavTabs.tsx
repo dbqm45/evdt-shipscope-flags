@@ -16,10 +16,7 @@ export function NavTabs() {
           to={to}
           end={end}
           className={({ isActive }) =>
-            clsx(
-              "rounded-full px-5 py-2 text-sm font-semibold transition-colors",
-              isActive ? "bg-accent text-ink-950" : "text-mist-500 hover:text-mist-100",
-            )
+            clsx("rounded-full px-5 py-2 text-sm font-semibold transition-colors", isActive ? "bg-accent text-ink-950" : "text-mist-500 hover:text-mist-100")
           }
         >
           {label}

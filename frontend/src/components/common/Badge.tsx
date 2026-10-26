@@ -13,17 +13,7 @@ const TONE_CLASSES: Record<Tone, string> = {
   neutral: "border-ink-500 text-mist-300 bg-ink-800",
 };
 
-export function Badge({
-  tone = "neutral",
-  children,
-  className,
-  title,
-}: {
-  tone?: Tone;
-  children: ReactNode;
-  className?: string;
-  title?: string;
-}) {
+export function Badge({ tone = "neutral", children, className, title }: { tone?: Tone; children: ReactNode; className?: string; title?: string }) {
   return (
     <span
       title={title}

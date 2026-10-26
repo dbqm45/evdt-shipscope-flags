@@ -2,7 +2,7 @@
 
 @theme {
   --font-display: -apple-system, "Inter", "Segoe UI", sans-serif;
-  --font-mono: 'SFMono-Regular', 'JetBrains Mono', Consolas, monospace;
+  --font-mono: "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
   --font-sans: -apple-system, "Inter", "Segoe UI", sans-serif;
 
   /* Surfaces (dark, near-black) */

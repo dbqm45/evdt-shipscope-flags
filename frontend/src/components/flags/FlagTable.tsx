@@ -91,7 +91,9 @@ export function FlagTable({ flags, onSelect }: { flags: Flag[]; onSelect: (flagK
                     const s = flag.environments[e];
                     return (
                       <td key={e} className="px-4 py-3.5">
-                        <span className={clsx("text-shell inline-flex items-center gap-1.5 text-xs font-semibold", s.enabled ? "text-signal-on" : "text-mist-700")}>
+                        <span
+                          className={clsx("text-shell inline-flex items-center gap-1.5 text-xs font-semibold", s.enabled ? "text-signal-on" : "text-mist-700")}
+                        >
                           <span className={clsx("h-1.5 w-1.5 rounded-full", s.enabled ? "bg-signal-on" : "bg-signal-off")} />
                           {s.enabled ? "ON" : "OFF"}
                         </span>
@@ -126,7 +128,8 @@ export function FlagTable({ flags, onSelect }: { flags: Flag[]; onSelect: (flagK
                         </Meta>
                         <Meta label="Last change">
                           <p className="text-mist-300">
-                            {last.env} <span className={last.enabled ? "text-signal-on" : "text-mist-500"}>{last.enabled ? "enabled" : "disabled"}</span> by {last.updatedBy}
+                            {last.env} <span className={last.enabled ? "text-signal-on" : "text-mist-500"}>{last.enabled ? "enabled" : "disabled"}</span> by{" "}
+                            {last.updatedBy}
                           </p>
                           <p className="text-mist-500">{relativeTime(last.updatedAt)}</p>
                         </Meta>

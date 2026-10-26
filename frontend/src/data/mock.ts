@@ -187,16 +187,49 @@ export const flags: Flag[] = [
 ];
 
 const rawAuditLog: AuditLogEntry[] = [
-  { id: "a1", timestamp: hoursAgo(0.1), actor: "r.singh", action: "credential-rotated", serviceKey: "evsim-service-sim-adapter", note: "Rotation window closes in 24h — old credential still valid." },
+  {
+    id: "a1",
+    timestamp: hoursAgo(0.1),
+    actor: "r.singh",
+    action: "credential-rotated",
+    serviceKey: "evsim-service-sim-adapter",
+    note: "Rotation window closes in 24h — old credential still valid.",
+  },
   { id: "a2", timestamp: hoursAgo(9), actor: "j.novak", action: "env-enabled", flagKey: "b2cCustomersEnabled", environment: "test", from: "off", to: "on" },
-  { id: "a3", timestamp: hoursAgo(30), actor: "r.singh", action: "promotion-blocked", flagKey: "assetNuvoloIntegrationEnabled", environment: "prod", note: "Blocked — qa was not yet enabled at attempt time." },
+  {
+    id: "a3",
+    timestamp: hoursAgo(30),
+    actor: "r.singh",
+    action: "promotion-blocked",
+    flagKey: "assetNuvoloIntegrationEnabled",
+    environment: "prod",
+    note: "Blocked — qa was not yet enabled at attempt time.",
+  },
   { id: "a4", timestamp: daysAgo(10), actor: "r.singh", action: "env-enabled", flagKey: "chargerBaseEditEnabled", environment: "prod", from: "off", to: "on" },
-  { id: "a5", timestamp: daysAgo(10), actor: "r.singh", action: "env-enabled", flagKey: "assetNuvoloIntegrationEnabled", environment: "test", from: "off", to: "on" },
+  {
+    id: "a5",
+    timestamp: daysAgo(10),
+    actor: "r.singh",
+    action: "env-enabled",
+    flagKey: "assetNuvoloIntegrationEnabled",
+    environment: "test",
+    from: "off",
+    to: "on",
+  },
   { id: "a6", timestamp: daysAgo(12), actor: "m.chen", action: "credential-rotated", serviceKey: "evboweb-service-bff" },
   { id: "a7", timestamp: daysAgo(12), actor: "r.singh", action: "flag-created", flagKey: "assetNuvoloIntegrationEnabled" },
   { id: "a8", timestamp: daysAgo(20), actor: "j.novak", action: "flag-created", flagKey: "b2cCustomersEnabled" },
   { id: "a9", timestamp: daysAgo(25), actor: "r.singh", action: "flag-created", flagKey: "chargerBaseEditEnabled" },
-  { id: "a10", timestamp: daysAgo(60), actor: "m.chen", action: "env-enabled", flagKey: "availabilityActionsEnabled", environment: "prod", from: "off", to: "on" },
+  {
+    id: "a10",
+    timestamp: daysAgo(60),
+    actor: "m.chen",
+    action: "env-enabled",
+    flagKey: "availabilityActionsEnabled",
+    environment: "prod",
+    from: "off",
+    to: "on",
+  },
   { id: "a11", timestamp: daysAgo(64), actor: "r.singh", action: "service-registered", serviceKey: "evsim-service-sim-adapter" },
   { id: "a12", timestamp: daysAgo(80), actor: "m.chen", action: "env-enabled", flagKey: "allowEvseNameEdit", environment: "prod", from: "off", to: "on" },
   { id: "a13", timestamp: daysAgo(80), actor: "j.novak", action: "service-registered", serviceKey: "evnm-service-charger-infrastructure" },
@@ -206,9 +239,7 @@ const rawAuditLog: AuditLogEntry[] = [
   { id: "a17", timestamp: daysAgo(120), actor: "a.kowalska", action: "service-registered", serviceKey: "evam-service-host" },
 ];
 
-export const auditLog: AuditLogEntry[] = [...rawAuditLog].sort(
-  (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-);
+export const auditLog: AuditLogEntry[] = [...rawAuditLog].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
 export function serviceById(id: string): Service | undefined {
   return services.find((s) => s.id === id);

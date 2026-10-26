@@ -1,16 +1,6 @@
 import clsx from "clsx";
 
-export function Toggle({
-  checked,
-  disabled,
-  tone = "on",
-  onClick,
-}: {
-  checked: boolean;
-  disabled?: boolean;
-  tone?: "on" | "warn";
-  onClick: () => void;
-}) {
+export function Toggle({ checked, disabled, tone = "on", onClick }: { checked: boolean; disabled?: boolean; tone?: "on" | "warn"; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -21,11 +11,7 @@ export function Toggle({
       className={clsx(
         "relative h-5 w-9 shrink-0 rounded-full border transition-colors",
         disabled && "cursor-not-allowed opacity-40",
-        checked
-          ? tone === "warn"
-            ? "border-signal-warn/50 bg-signal-warn-dim"
-            : "border-signal-on/50 bg-signal-on-dim"
-          : "border-ink-500 bg-ink-700",
+        checked ? (tone === "warn" ? "border-signal-warn/50 bg-signal-warn-dim" : "border-signal-on/50 bg-signal-on-dim") : "border-ink-500 bg-ink-700",
       )}
     >
       <span

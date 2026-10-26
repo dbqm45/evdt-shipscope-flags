@@ -1,9 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
-import { canDisable, canEnable } from './shared/rules.js';
-import { auditLog as seedAudit, flags as seedFlags, services as seedServices } from './shared/seed.js';
-import { ENVIRONMENTS, type AuditLogEntry, type Environment, type Flag, type Service } from './shared/types.js';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+import { canDisable, canEnable } from "./shared/rules.js";
+import { auditLog as seedAudit, flags as seedFlags, services as seedServices } from "./shared/seed.js";
+import { ENVIRONMENTS, type AuditLogEntry, type Environment, type Flag, type Service } from "./shared/types.js";
 
 export interface NotificationSettings {
   enabled: boolean;
@@ -21,13 +21,13 @@ interface State {
 @Injectable()
 export class FlagsService {
   private readonly logger = new Logger(FlagsService.name);
-  private readonly file = process.env.FLAGS_DATA_FILE ?? 'data/state.json';
+  private readonly file = process.env.FLAGS_DATA_FILE ?? "data/state.json";
   private state: State = this.load();
 
   private load(): State {
     if (existsSync(this.file)) {
       try {
-        return JSON.parse(readFileSync(this.file, 'utf8')) as State;
+        return JSON.parse(readFileSync(this.file, "utf8")) as State;
       } catch (err) {
         this.logger.warn(`Could not read ${this.file} (${(err as Error).message}); starting from seed data.`);
       }
@@ -36,7 +36,7 @@ export class FlagsService {
       flags: structuredClone(seedFlags),
       services: structuredClone(seedServices),
       auditLog: structuredClone(seedAudit),
-      notifications: { enabled: false, webhookUrl: process.env.NOTIFY_WEBHOOK_URL ?? '' },
+      notifications: { enabled: false, webhookUrl: process.env.NOTIFY_WEBHOOK_URL ?? "" },
     };
   }
 
@@ -81,15 +81,22 @@ export class FlagsService {
 
     const check = enabled ? canEnable(flag, env, this.state.flags) : canDisable(flag, env, this.state.flags);
     if (!check.allowed) {
-      this.audit({ actor, action: 'promotion-blocked', flagKey, environment: env, note: check.reason });
+      this.audit({ actor, action: "promotion-blocked", flagKey, environment: env, note: check.reason });
       this.save();
       throw new ConflictException(check.reason);
     }
 
     flag.environments[env] = { enabled, updatedAt: new Date().toISOString(), updatedBy: actor };
-    this.audit({ actor, action: enabled ? 'env-enabled' : 'env-disabled', flagKey, environment: env, from: current ? 'on' : 'off', to: enabled ? 'on' : 'off' });
+    this.audit({
+      actor,
+      action: enabled ? "env-enabled" : "env-disabled",
+      flagKey,
+      environment: env,
+      from: current ? "on" : "off",
+      to: enabled ? "on" : "off",
+    });
     this.save();
-    if (env === 'prod') void this.notify(`:rotating_light: *${flagKey}* was turned *${enabled ? 'ON' : 'OFF'}* in *PROD* by ${actor}`);
+    if (env === "prod") void this.notify(`:rotating_light: *${flagKey}* was turned *${enabled ? "ON" : "OFF"}* in *PROD* by ${actor}`);
     return flag;
   }
 
@@ -100,7 +107,7 @@ export class FlagsService {
   setNotifications(input: Partial<NotificationSettings>): NotificationSettings {
     const next = { ...this.state.notifications, ...input };
     if (next.enabled && !/^https?:\/\//.test(next.webhookUrl)) {
-      throw new BadRequestException('A valid http(s) webhook URL is required to enable notifications.');
+      throw new BadRequestException("A valid http(s) webhook URL is required to enable notifications.");
     }
     this.state.notifications = next;
     this.save();
@@ -108,17 +115,17 @@ export class FlagsService {
   }
 
   async testNotification(): Promise<{ ok: boolean; error?: string }> {
-    return this.notify('Test message from ShipScope Flags', true);
+    return this.notify("Test message from ShipScope Flags", true);
   }
 
   private async notify(text: string, force = false): Promise<{ ok: boolean; error?: string }> {
     const { enabled, webhookUrl } = this.state.notifications;
-    if (!force && !enabled) return { ok: false, error: 'disabled' };
-    if (!webhookUrl) return { ok: false, error: 'no webhook URL' };
+    if (!force && !enabled) return { ok: false, error: "disabled" };
+    if (!webhookUrl) return { ok: false, error: "no webhook URL" };
     try {
       const res = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
         signal: AbortSignal.timeout(4000),
       });
@@ -130,7 +137,7 @@ export class FlagsService {
     }
   }
 
-  private audit(entry: Omit<AuditLogEntry, 'id' | 'timestamp'>): void {
+  private audit(entry: Omit<AuditLogEntry, "id" | "timestamp">): void {
     this.state.auditLog.unshift({ ...entry, id: `srv-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, timestamp: new Date().toISOString() });
   }
 }

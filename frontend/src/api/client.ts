@@ -50,7 +50,10 @@ export const api = {
     ),
 
   testNotification: () =>
-    request<{ ok: boolean; error?: string }>("/settings/notifications/test", { method: "POST" }, () => ({ ok: false, error: "The API is not running (demo data)." })),
+    request<{ ok: boolean; error?: string }>("/settings/notifications/test", { method: "POST" }, () => ({
+      ok: false,
+      error: "The API is not running (demo data).",
+    })),
 
   setEnvironmentState: (flagKey: string, environment: Environment, enabled: boolean, actor: string) =>
     request<{ ok: true }>(

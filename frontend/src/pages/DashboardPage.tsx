@@ -26,7 +26,6 @@ export function DashboardPage() {
   const [tagFilter, setTagFilter] = useState("all");
   const allTags = useMemo(() => [...new Set(flags.flatMap((f) => f.tags ?? []))].sort(), [flags]);
 
-
   const filtered = useMemo(() => {
     return flags.filter((f) => {
       if (typeFilter !== "all" && f.type !== typeFilter) return false;
@@ -66,17 +65,29 @@ export function DashboardPage() {
           />
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value as LifecycleStage | "all")} className="text-shell rounded-xl border border-ink-600 bg-ink-850 px-2.5 py-1.5 text-[11px] uppercase tracking-wide text-mist-300 outline-none">
+          <select
+            value={stageFilter}
+            onChange={(e) => setStageFilter(e.target.value as LifecycleStage | "all")}
+            className="text-shell rounded-xl border border-ink-600 bg-ink-850 px-2.5 py-1.5 text-[11px] uppercase tracking-wide text-mist-300 outline-none"
+          >
             <option value="all">All stages</option>
             {(Object.keys(LIFECYCLE_LABEL) as LifecycleStage[]).map((s) => (
-              <option key={s} value={s}>{LIFECYCLE_LABEL[s]}</option>
+              <option key={s} value={s}>
+                {LIFECYCLE_LABEL[s]}
+              </option>
             ))}
           </select>
           {allTags.length > 0 && (
-            <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} className="text-shell rounded-xl border border-ink-600 bg-ink-850 px-2.5 py-1.5 text-[11px] uppercase tracking-wide text-mist-300 outline-none">
+            <select
+              value={tagFilter}
+              onChange={(e) => setTagFilter(e.target.value)}
+              className="text-shell rounded-xl border border-ink-600 bg-ink-850 px-2.5 py-1.5 text-[11px] uppercase tracking-wide text-mist-300 outline-none"
+            >
               <option value="all">All tags</option>
               {allTags.map((t) => (
-                <option key={t} value={t}>#{t}</option>
+                <option key={t} value={t}>
+                  #{t}
+                </option>
               ))}
             </select>
           )}

@@ -21,7 +21,16 @@ interface StoreValue {
   updateBinding: (flagKey: string, serviceId: string, patch: Partial<FlagServiceBinding>) => ToggleResult;
   retireFlag: (flagKey: string) => ToggleResult;
   registerAuditEntry: (entry: Omit<AuditLogEntry, "id" | "timestamp">) => void;
-  createFlag: (input: { key: string; description: string; type: FlagType; serviceIds: string[]; dependsOn?: string; owner?: string; reviewBy?: string; tags?: string[] }) => ToggleResult;
+  createFlag: (input: {
+    key: string;
+    description: string;
+    type: FlagType;
+    serviceIds: string[];
+    dependsOn?: string;
+    owner?: string;
+    reviewBy?: string;
+    tags?: string[];
+  }) => ToggleResult;
   updateFlagMeta: (flagKey: string, patch: Pick<Partial<Flag>, "owner" | "reviewBy" | "tags" | "description">) => ToggleResult;
 }
 
@@ -118,9 +127,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const svc = services.find((s) => s.id === serviceId);
       const changed = Object.keys(patch).join(", ");
       setFlags((prev) =>
-        prev.map((f) =>
-          f.key !== flagKey ? f : { ...f, services: f.services.map((b) => (b.serviceId === serviceId ? { ...b, ...patch } : b)) },
-        ),
+        prev.map((f) => (f.key !== flagKey ? f : { ...f, services: f.services.map((b) => (b.serviceId === serviceId ? { ...b, ...patch } : b)) })),
       );
       registerAuditEntry({
         actor: CURRENT_USER_BY_ROLE[role],
@@ -167,7 +174,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         tags: tags?.length ? tags : undefined,
         createdAt: now,
         createdBy: CURRENT_USER_BY_ROLE[role],
-        environments: Object.fromEntries(ENVIRONMENTS.map((e) => [e, { enabled: false, updatedAt: now, updatedBy: CURRENT_USER_BY_ROLE[role] }])) as Flag["environments"],
+        environments: Object.fromEntries(
+          ENVIRONMENTS.map((e) => [e, { enabled: false, updatedAt: now, updatedBy: CURRENT_USER_BY_ROLE[role] }]),
+        ) as Flag["environments"],
         services: serviceIds.map((serviceId) => ({ serviceId, readMode: "runtime" as const, lastCheckInAt: now, driftSuspected: false })),
       };
 

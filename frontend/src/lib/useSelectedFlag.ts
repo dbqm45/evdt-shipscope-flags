@@ -5,7 +5,7 @@ export function useSelectedFlag() {
   const [params, setParams] = useSearchParams();
   const { flags } = useStore();
   const flagKey = params.get("flag");
-  const selectedFlag = flagKey ? flags.find((f) => f.key === flagKey) ?? null : null;
+  const selectedFlag = flagKey ? (flags.find((f) => f.key === flagKey) ?? null) : null;
 
   function select(key: string | null) {
     setParams((prev) => {

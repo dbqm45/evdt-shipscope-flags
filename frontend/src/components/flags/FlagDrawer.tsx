@@ -75,8 +75,8 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
             <div className="flex items-start gap-2 rounded-xl border border-signal-critical/30 bg-signal-critical-dim/20 px-3 py-2.5 text-xs text-mist-300">
               <IconAlertTriangle width={14} height={14} className="mt-0.5 shrink-0 text-signal-critical" />
               <span>
-                Fully on in every environment for {daysFullyOn(flag)} days — past the 30-day stale threshold. Consider
-                removing this release flag and cleaning up its guard code.
+                Fully on in every environment for {daysFullyOn(flag)} days — past the 30-day stale threshold. Consider removing this release flag and cleaning
+                up its guard code.
               </span>
             </div>
           )}
@@ -136,12 +136,7 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
                         <span className="text-shell text-sm font-medium text-mist-100">{ENV_LABEL[e]}</span>
                         {locked && <IconLock width={12} height={12} className="text-signal-warn/70" />}
                       </div>
-                      <Toggle
-                        checked={state.enabled}
-                        disabled={!editable || locked}
-                        tone={locked ? "warn" : "on"}
-                        onClick={() => handleToggle(e)}
-                      />
+                      <Toggle checked={state.enabled} disabled={!editable || locked} tone={locked ? "warn" : "on"} onClick={() => handleToggle(e)} />
                     </div>
                     <p className="text-shell mt-1.5 pl-[18px] text-[11px] text-mist-700">
                       last changed by {state.updatedBy} · {new Date(state.updatedAt).toLocaleDateString()}
@@ -166,16 +161,12 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
                 );
               })}
             </div>
-            {!editable && (
-              <p className="mt-2 text-[11px] text-mist-700">Viewers can see flag state but cannot change it.</p>
-            )}
+            {!editable && <p className="mt-2 text-[11px] text-mist-700">Viewers can see flag state but cannot change it.</p>}
           </section>
 
           <section>
             <div className="flex items-center justify-between">
-              <h3 className="text-shell text-[10px] font-semibold uppercase tracking-widest text-mist-700">
-                Assigned services
-              </h3>
+              <h3 className="text-shell text-[10px] font-semibold uppercase tracking-widest text-mist-700">Assigned services</h3>
               <span className="text-shell text-[11px] text-mist-700">
                 {migration.runtime}/{migration.total} on runtime reads
               </span>

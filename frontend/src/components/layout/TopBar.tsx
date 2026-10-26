@@ -27,8 +27,7 @@ export function TopBar({ onLogout }: { onLogout: () => void }) {
               <span className="font-light text-mist-500"> — Flags</span>
             </h1>
             <p className="mt-0.5 text-sm text-mist-500">
-              Flag registry: status, owner and change history — promotion order{" "}
-              <span className="text-shell text-[13px]">test → qa → prod</span>
+              Flag registry: status, owner and change history — promotion order <span className="text-shell text-[13px]">test → qa → prod</span>
             </p>
           </div>
         </div>

@@ -13,13 +13,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
 
   return (
     <div className="grain relative flex min-h-screen items-center justify-center overflow-hidden bg-ink-900">
-
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="relative z-10 w-full max-w-sm"
-      >
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="relative z-10 w-full max-w-sm">
         <div className="mb-8 text-center">
           <div className="flex items-center justify-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-logo-bg text-logo-fg">
@@ -57,11 +51,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
           </button>
 
           {showBreakGlass && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              className="mt-4 space-y-2.5 border-t border-ink-600 pt-4"
-            >
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-4 space-y-2.5 border-t border-ink-600 pt-4">
               <p className="text-[11px] text-signal-warn">For identity-provider outages only. This attempt is logged.</p>
               <input
                 type="text"
@@ -78,9 +68,7 @@ export function LoginPage({ onLogin }: { onLogin: () => void }) {
           )}
         </div>
 
-        <p className="text-shell mt-6 text-center text-[10px] text-mist-700">
-          5 pilot services · test → qa → prod
-        </p>
+        <p className="text-shell mt-6 text-center text-[10px] text-mist-700">5 pilot services · test → qa → prod</p>
       </motion.div>
     </div>
   );

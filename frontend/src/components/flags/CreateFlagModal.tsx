@@ -5,10 +5,18 @@ import { Modal } from "../common/Modal";
 import type { FlagType } from "../../types";
 
 export function parseTags(text: string): string[] {
-  return [...new Set(text.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean))];
+  return [
+    ...new Set(
+      text
+        .split(",")
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  ];
 }
 
-const INPUT = "text-shell mt-1.5 w-full rounded-xl border border-ink-500 bg-ink-900 px-3 py-2 text-sm text-mist-100 outline-none placeholder:text-mist-700 focus:border-accent/60 focus:ring-1 focus:ring-accent/30";
+const INPUT =
+  "text-shell mt-1.5 w-full rounded-xl border border-ink-500 bg-ink-900 px-3 py-2 text-sm text-mist-100 outline-none placeholder:text-mist-700 focus:border-accent/60 focus:ring-1 focus:ring-accent/30";
 const LABEL = "text-shell text-[10px] font-semibold uppercase tracking-widest text-mist-700";
 
 export function CreateFlagModal({ onClose, onCreated }: { onClose: () => void; onCreated: (flagKey: string) => void }) {
@@ -28,7 +36,16 @@ export function CreateFlagModal({ onClose, onCreated }: { onClose: () => void; o
   }
 
   function submit() {
-    const result = createFlag({ key: key.trim(), description: description.trim(), type, serviceIds, dependsOn, owner: owner.trim(), reviewBy: reviewBy || undefined, tags: parseTags(tagsText) });
+    const result = createFlag({
+      key: key.trim(),
+      description: description.trim(),
+      type,
+      serviceIds,
+      dependsOn,
+      owner: owner.trim(),
+      reviewBy: reviewBy || undefined,
+      tags: parseTags(tagsText),
+    });
     if (!result.ok) {
       setError(result.reason ?? "Could not create flag.");
       return;
@@ -77,9 +94,7 @@ export function CreateFlagModal({ onClose, onCreated }: { onClose: () => void; o
             ))}
           </div>
           {type === "release" && (
-            <p className="mt-1.5 text-[11px] text-mist-700">
-              Release flags left fully on for 30+ days are auto-flagged as candidates for removal.
-            </p>
+            <p className="mt-1.5 text-[11px] text-mist-700">Release flags left fully on for 30+ days are auto-flagged as candidates for removal.</p>
           )}
         </div>
 
@@ -122,12 +137,7 @@ export function CreateFlagModal({ onClose, onCreated }: { onClose: () => void; o
           <div className="mt-1.5 max-h-36 space-y-1 overflow-y-auto rounded-xl border border-ink-500 bg-ink-900 p-1.5">
             {services.map((s) => (
               <label key={s.id} className="flex cursor-pointer items-center gap-2.5 rounded px-2 py-1.5 hover:bg-ink-800">
-                <input
-                  type="checkbox"
-                  checked={serviceIds.includes(s.id)}
-                  onChange={() => toggleService(s.id)}
-                  className="h-3.5 w-3.5 accent-accent"
-                />
+                <input type="checkbox" checked={serviceIds.includes(s.id)} onChange={() => toggleService(s.id)} className="h-3.5 w-3.5 accent-accent" />
                 <span className="text-shell text-xs text-mist-300">{s.key}</span>
               </label>
             ))}

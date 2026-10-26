@@ -98,7 +98,6 @@ export function IconSun(props: IconProps) {
   );
 }
 
-
 export function IconCheck(props: IconProps) {
   return (
     <svg {...base} {...props}>
