@@ -33,6 +33,9 @@ export interface StoreValue {
   registerAuditEntry: (entry: Omit<AuditLogEntry, "id" | "timestamp">) => void;
   createFlag: (input: NewFlag) => Promise<ToggleResult>;
   updateFlagMeta: (flagKey: string, patch: FlagDetailsPatch) => Promise<ToggleResult>;
+  /** Days a release flag stays ON everywhere before it is a removal candidate (Settings; 30 until changed). */
+  staleThresholdDays: number;
+  setStaleThreshold: (days: number) => Promise<ToggleResult>;
   registerService: (key: string, name: string) => Promise<CredentialResult>;
   rotateCredential: (serviceId: string, revokePrevious: boolean) => Promise<CredentialResult>;
 }

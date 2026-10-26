@@ -4,9 +4,18 @@ import { PrismaService } from "../prisma/prisma.service.js";
 import { FLAG_INCLUDE, SERVICE_INCLUDE, toAuditEntry, toDbReadMode, toFlag, toService } from "./flag-mapper.js";
 import { encodeAuditCursor, type BindingPatch, type CreateFlagInput, type FlagPatch, type ParsedAuditQuery, type RegisterServiceInput } from "./flags.input.js";
 import { CREDENTIAL_GRACE_MS, hashToken, newServiceToken } from "./sdk-auth.js";
-import { canDisable, canEnable, canRetire } from "./shared/rules.js";
+import { canDisable, canEnable, canRetire, DEFAULT_STALE_THRESHOLD_DAYS } from "./shared/rules.js";
 import { checkWebhookUrl, maskWebhookUrl, type Lookup } from "./webhook.js";
-import { ENVIRONMENTS, type AuditLogEntry, type AuditLogPage, type Environment, type Flag, type NotificationSettings, type Service } from "./shared/types.js";
+import {
+  ENVIRONMENTS,
+  type AuditLogEntry,
+  type AuditLogPage,
+  type Environment,
+  type Flag,
+  type NotificationSettings,
+  type RuleSettings,
+  type Service,
+} from "./shared/types.js";
 
 /** A service and its new credential: the only time the credential is shown. */
 export interface IssuedCredential {
@@ -288,6 +297,22 @@ export class FlagsService {
 
   /** DNS lookup used to vet webhook hosts; tests replace it. */
   webhookLookup: Lookup | undefined;
+
+  async getRuleSettings(): Promise<RuleSettings> {
+    const row = await this.prisma.ruleSettings.findUnique({ where: { id: 1 } });
+    return { staleThresholdDays: row?.staleThresholdDays ?? DEFAULT_STALE_THRESHOLD_DAYS };
+  }
+
+  /** Stores the thresholds and notes the change in the audit log (nothing when unchanged). */
+  async setRuleSettings(input: RuleSettings, actor: string): Promise<RuleSettings> {
+    return this.prisma.$transaction(async (tx) => {
+      const before = (await tx.ruleSettings.findUnique({ where: { id: 1 } }))?.staleThresholdDays ?? DEFAULT_STALE_THRESHOLD_DAYS;
+      if (before === input.staleThresholdDays) return input;
+      await tx.ruleSettings.upsert({ where: { id: 1 }, create: { id: 1, ...input }, update: input });
+      await this.audit(tx, { actor, action: "settings-updated", note: `stale threshold ${before} → ${input.staleThresholdDays} days` });
+      return input;
+    });
+  }
 
   private async storedNotifications(): Promise<NotificationSettings> {
     const row = await this.prisma.notificationSettings.findUnique({ where: { id: 1 } });

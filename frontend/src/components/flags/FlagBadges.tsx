@@ -1,5 +1,6 @@
 import { Badge } from "../common/Badge";
 import { buildTimeIssues, daysFullyOn, driftRisks, isReviewOverdue, isStaleCandidate, LIFECYCLE_LABEL, lifecycleStage } from "../../lib/businessLogic";
+import { useStore } from "../../state/useStore";
 import type { Flag, Service } from "../../types";
 import { IconAlertTriangle } from "../icons";
 
@@ -8,7 +9,8 @@ export function TypeBadge({ type }: { type: Flag["type"] }) {
 }
 
 export function StaleBadge({ flag }: { flag: Flag }) {
-  if (!isStaleCandidate(flag)) return null;
+  const { staleThresholdDays } = useStore();
+  if (!isStaleCandidate(flag, staleThresholdDays)) return null;
   const days = daysFullyOn(flag);
   return (
     <Badge tone="critical" className="animate-pulse">
@@ -32,7 +34,8 @@ export function BuildTimeBadge({ flag }: { flag: Flag }) {
 const STAGE_TONE = { new: "neutral", testing: "info", live: "on", cleanup: "critical" } as const;
 
 export function LifecycleBadge({ flag }: { flag: Flag }) {
-  const stage = lifecycleStage(flag);
+  const { staleThresholdDays } = useStore();
+  const stage = lifecycleStage(flag, staleThresholdDays);
   return <Badge tone={STAGE_TONE[stage]}>{LIFECYCLE_LABEL[stage]}</Badge>;
 }
 

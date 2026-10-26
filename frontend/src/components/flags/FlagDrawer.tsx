@@ -19,11 +19,11 @@ function actionLabel(action: string): string {
 }
 
 export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void }) {
-  const { role, toggleEnvironment, flags, services, updateBinding, updateFlagMeta } = useStore();
+  const { role, toggleEnvironment, flags, services, staleThresholdDays, updateBinding, updateFlagMeta } = useStore();
   const [blockedNotice, setBlockedNotice] = useState<{ env: Environment; reason: string } | null>(null);
   const editable = canEditFlags(role);
   const migration = migrationProgress(flag);
-  const stale = isStaleCandidate(flag);
+  const stale = isStaleCandidate(flag, staleThresholdDays);
   // Stale and review dates have their own notices; this lists what may make services disagree.
   const risks = attentionItems(flag, services).filter((i) => i.weight >= 2);
 
@@ -91,8 +91,8 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
             <div className="flex items-start gap-2 rounded-xl border border-signal-critical/30 bg-signal-critical-dim/20 px-3 py-2.5 text-xs text-mist-300">
               <IconAlertTriangle width={14} height={14} className="mt-0.5 shrink-0 text-signal-critical" />
               <span>
-                Fully on in every environment for {daysFullyOn(flag)} days — past the 30-day stale threshold. Consider removing this release flag and cleaning
-                up its guard code.
+                Fully on in every environment for {daysFullyOn(flag)} days — past the {staleThresholdDays}-day stale threshold. Consider removing this release
+                flag and cleaning up its guard code.
               </span>
             </div>
           )}

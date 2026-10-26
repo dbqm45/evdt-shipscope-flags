@@ -13,7 +13,7 @@ moves it; `docs/TODO.md` holds the planned work in detail. Status: **done**, **p
 | FR-003 | Admin registers a service and gets a credential; lists services | done | `POST /api/services`, Services tab. Admin-only in the UI only, until FR-001. |
 | FR-004 | — | — | Not used in `prd.md`. |
 | FR-005 | Admin revokes/rotates a service credential | done | `POST /api/services/:id/credential`: 24 h grace, or immediate revoke. |
-| FR-006 | Create a flag typed `release` or `feature`; stale `release` flags flagged | partial | Done, but the stale threshold is fixed at 30 days; the PRD asks for a configurable one. |
+| FR-006 | Create a flag typed `release` or `feature`; stale `release` flags flagged | done | The stale threshold is set by an Admin in Settings (1–365 days, default 30; `GET/PUT /api/settings/rules`). |
 | FR-007 | Assign a flag to services | done | At creation (`POST /api/flags`); bindings editable per service. |
 | FR-008 | Set state per environment | done | `PATCH /api/flags/:key/environments/:env`, enforcing promotion order and dependencies on the server. |
 | FR-009 | Matrix view grouped by service | done | Flags tab → "By service": each service's flags, read mode and state per environment, with drift marks. |
@@ -30,7 +30,7 @@ moves it; `docs/TODO.md` holds the planned work in detail. Status: **done**, **p
 
 | Rule | Status | Where |
 | --- | --- | --- |
-| 1. Stale detection | done | `isStaleCandidate` (threshold fixed, see FR-006). |
+| 1. Stale detection | done | `isStaleCandidate` with the threshold from Settings. |
 | 2. Promotion order | partial | `canEnable` blocks enabling out of order; disabling a lower environment while higher ones are on is still allowed (decision pending: block or cascade). |
 | 3. Attention prioritization | done | `driftRisks` and `attentionItems`/`byAttention` from per-environment check-ins; default sort of the flag list. |
 

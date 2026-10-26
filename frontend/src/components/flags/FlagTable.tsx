@@ -33,7 +33,7 @@ function Meta({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function FlagTable({ flags, onSelect }: { flags: Flag[]; onSelect: (flagKey: string) => void }) {
-  const { services } = useStore();
+  const { services, staleThresholdDays } = useStore();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   function toggle(id: string) {
@@ -71,7 +71,7 @@ export function FlagTable({ flags, onSelect }: { flags: Flag[]; onSelect: (flagK
                   <td className="px-4 py-3.5">
                     <span className="text-shell block font-medium text-mist-100">{flag.key}</span>
                     {(driftRisks(flag, services).length > 0 ||
-                      isStaleCandidate(flag) ||
+                      isStaleCandidate(flag, staleThresholdDays) ||
                       buildTimeIssues(flag).some((i) => i.kind === "mismatch") ||
                       isReviewOverdue(flag)) && (
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">

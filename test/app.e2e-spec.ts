@@ -150,4 +150,13 @@ describe("API (e2e)", () => {
     await request(server).get("/api/audit-log?limit=1000").expect(400);
     await request(server).get("/api/audit-log?sort=asc").expect(400);
   });
+
+  it("GET and PUT /api/settings/rules read and change the stale threshold, 400 on a bad one", async () => {
+    const server = app.getHttpServer();
+    await request(server).get("/api/settings/rules").expect(200, { staleThresholdDays: 30 });
+    await request(server).put("/api/settings/rules").send({ staleThresholdDays: 21, actor: "e2e" }).expect(200, { staleThresholdDays: 21 });
+    await request(server).get("/api/settings/rules").expect(200, { staleThresholdDays: 21 });
+    await request(server).put("/api/settings/rules").send({ staleThresholdDays: 0 }).expect(400);
+    await request(server).get("/api/settings/notifications").expect(200);
+  });
 });

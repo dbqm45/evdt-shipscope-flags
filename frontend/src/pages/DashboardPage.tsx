@@ -18,7 +18,7 @@ const TYPE_FILTERS: Array<{ label: string; value: FlagType | "all" }> = [
 ];
 
 export function DashboardPage() {
-  const { flags, services, role } = useStore();
+  const { flags, services, role, staleThresholdDays } = useStore();
   const { selectedFlag, select } = useSelectedFlag();
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<FlagType | "all">("all");
@@ -29,18 +29,18 @@ export function DashboardPage() {
   const [view, setView] = useState<"flags" | "services">("flags");
   const allTags = useMemo(() => [...new Set(flags.flatMap((f) => f.tags ?? []))].sort(), [flags]);
 
-  const needAttention = useMemo(() => flags.filter((f) => attentionScore(f, services) > 0).length, [flags, services]);
+  const needAttention = useMemo(() => flags.filter((f) => attentionScore(f, services, staleThresholdDays) > 0).length, [flags, services, staleThresholdDays]);
 
   const filtered = useMemo(() => {
     const matching = flags.filter((f) => {
       if (typeFilter !== "all" && f.type !== typeFilter) return false;
-      if (stageFilter !== "all" && lifecycleStage(f) !== stageFilter) return false;
+      if (stageFilter !== "all" && lifecycleStage(f, staleThresholdDays) !== stageFilter) return false;
       if (tagFilter !== "all" && !(f.tags ?? []).includes(tagFilter)) return false;
       if (query && !f.key.toLowerCase().includes(query.toLowerCase()) && !f.description.toLowerCase().includes(query.toLowerCase())) return false;
       return true;
     });
-    return sort === "attention" ? byAttention(matching, services) : matching;
-  }, [flags, services, query, typeFilter, stageFilter, tagFilter, sort]);
+    return sort === "attention" ? byAttention(matching, services, staleThresholdDays) : matching;
+  }, [flags, services, query, typeFilter, stageFilter, tagFilter, sort, staleThresholdDays]);
 
   return (
     <div className="space-y-6">

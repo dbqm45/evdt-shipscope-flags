@@ -1,5 +1,14 @@
 import { BadRequestException } from "@nestjs/common";
-import { AUDIT_ACTIONS, ENVIRONMENTS, type AuditAction, type AuditLogQuery, type Environment, type FlagType, type ReadMode } from "./shared/types.js";
+import {
+  AUDIT_ACTIONS,
+  ENVIRONMENTS,
+  type AuditAction,
+  type AuditLogQuery,
+  type Environment,
+  type FlagType,
+  type ReadMode,
+  type RuleSettings,
+} from "./shared/types.js";
 
 // Parses and validates request bodies of the management API. Anything unexpected is a 400 with a reason the dashboard
 // can show as is; unknown fields are rejected rather than ignored, so a typo does not silently do nothing.
@@ -168,6 +177,16 @@ export function parseRotateCredential(input: unknown): { revokePrevious: boolean
   onlyFields(body, ["revokePrevious", "actor"]);
   if (body.revokePrevious !== undefined && typeof body.revokePrevious !== "boolean") throw bad('"revokePrevious" must be true or false.');
   return { revokePrevious: body.revokePrevious === true };
+}
+
+/** Body of PUT /settings/rules. */
+export function parseRuleSettings(input: unknown): RuleSettings {
+  const body = object(input);
+  onlyFields(body, ["staleThresholdDays", "actor"]);
+  const days = body.staleThresholdDays;
+  if (typeof days !== "number" || !Number.isInteger(days) || days < 1 || days > 365)
+    throw bad('"staleThresholdDays" must be a whole number of days from 1 to 365.');
+  return { staleThresholdDays: days };
 }
 
 export function parseNotificationSettings(input: unknown): { enabled?: boolean; webhookUrl?: string } {

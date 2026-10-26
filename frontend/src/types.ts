@@ -84,6 +84,7 @@ export const AUDIT_ACTIONS = [
   "flag-updated",
   "notification-failed",
   "audit-log-pruned",
+  "settings-updated",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -117,6 +118,12 @@ export interface AuditLogQuery {
   action?: AuditAction;
   actor?: string;
   q?: string;
+}
+
+/** Thresholds of the business rules an Admin can change (Settings). */
+export interface RuleSettings {
+  /** Days a release flag stays ON everywhere before it becomes a candidate for removal. */
+  staleThresholdDays: number;
 }
 
 export interface NotificationSettings {

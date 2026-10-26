@@ -4,6 +4,61 @@ import { useStore } from "../state/useStore";
 import { canEditFlags } from "../lib/permissions";
 import { Toggle } from "../components/common/Toggle";
 
+/** The stale threshold of rule 1 (PRD FR-006): Admins only; every change is in the audit log. */
+function StaleThresholdSection() {
+  const { role, staleThresholdDays, setStaleThreshold } = useStore();
+  // What the Admin typed; null shows the stored value.
+  const [draft, setDraft] = useState<string | null>(null);
+  const days = draft ?? String(staleThresholdDays);
+  const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const isAdmin = role === "admin";
+
+  async function save() {
+    setBusy(true);
+    const result = await setStaleThreshold(Number(days));
+    setBusy(false);
+    if (result.ok) setDraft(null);
+    setMessage(result.ok ? { tone: "ok", text: "Saved." } : { tone: "error", text: `Not saved: ${result.reason ?? "unknown error"}` });
+  }
+
+  return (
+    <section className="max-w-2xl space-y-4 rounded-3xl border border-ink-600 bg-ink-850 p-6">
+      <div>
+        <h2 className="text-sm font-semibold text-mist-100">Removal candidates</h2>
+        <p className="mt-1 text-xs text-mist-500">
+          A release flag that has been ON in every environment for longer than this is marked “candidate for removal” and listed under “to clean up”.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-2 text-xs text-mist-300">
+          After
+          <input
+            type="number"
+            min={1}
+            max={365}
+            value={days}
+            disabled={!isAdmin || busy}
+            onChange={(e) => setDraft(e.target.value)}
+            aria-label="Stale threshold in days"
+            className="text-shell w-20 rounded-xl border border-ink-500 bg-ink-900 px-3 py-2 text-sm text-mist-100 outline-none focus:border-accent/60 disabled:opacity-60"
+          />
+          days
+        </label>
+        <button
+          onClick={() => void save()}
+          disabled={!isAdmin || busy || days === String(staleThresholdDays)}
+          className="text-shell rounded-xl bg-accent px-3.5 py-2 text-xs font-semibold text-ink-950 transition-opacity hover:opacity-90 disabled:opacity-40"
+        >
+          Save
+        </button>
+        {message && <span className={message.tone === "ok" ? "text-xs text-signal-on" : "text-xs text-signal-critical"}>{message.text}</span>}
+      </div>
+      {!isAdmin && <p className="text-xs text-mist-500">Only Admins can change it.</p>}
+    </section>
+  );
+}
+
 export function SettingsPage() {
   const { role, demo } = useStore();
   const editable = canEditFlags(role);
@@ -71,6 +126,8 @@ export function SettingsPage() {
         <h1 className="text-xl font-semibold tracking-tight text-mist-100">Settings</h1>
         <p className="mt-1 text-sm text-mist-500">Get told the moment a flag changes in production.</p>
       </div>
+
+      <StaleThresholdSection />
 
       <section className="max-w-2xl space-y-4 rounded-3xl border border-ink-600 bg-ink-850 p-6">
         <div className="flex items-center justify-between gap-4">

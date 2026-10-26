@@ -21,6 +21,7 @@ vi.mock("../api/client", async (importOriginal) => {
       retireFlag: vi.fn(),
       registerService: vi.fn(),
       rotateCredential: vi.fn(),
+      saveRuleSettings: vi.fn(),
     },
   };
 });
@@ -35,6 +36,7 @@ function loadWith(demo: boolean) {
     flags,
     services: [makeService("svc-api", "orders-api"), makeService("svc-web", "shop-web")],
     auditLog: [],
+    rules: { staleThresholdDays: 45 },
     demo,
   });
 }
@@ -279,5 +281,25 @@ describe("store: services and credentials", () => {
     expect(await demo.result.current.registerService("billing-api", "")).toMatchObject({ ok: false, reason: expect.stringMatching(/demo data/) });
     expect(api.registerService).not.toHaveBeenCalled();
     expect(api.rotateCredential).not.toHaveBeenCalled();
+  });
+});
+
+describe("store: rule settings", () => {
+  it("loads the stale threshold and lets only an Admin change it through the API", async () => {
+    vi.mocked(api.saveRuleSettings).mockResolvedValue({ staleThresholdDays: 14 });
+    const { result } = await renderStore();
+    expect(result.current.staleThresholdDays).toBe(45);
+
+    expect(await result.current.setStaleThreshold(14)).toMatchObject({ ok: false, reason: "Only Admins can change the rules." });
+    act(() => result.current.setRole("admin"));
+    expect(await result.current.setStaleThreshold(0)).toMatchObject({ ok: false, reason: expect.stringMatching(/1 to 365/) });
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.setStaleThreshold(14);
+    });
+
+    expect(outcome).toEqual({ ok: true });
+    expect(api.saveRuleSettings).toHaveBeenCalledWith({ staleThresholdDays: 14 }, "a.kowalska");
+    expect(result.current.staleThresholdDays).toBe(14);
   });
 });

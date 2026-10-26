@@ -9,6 +9,7 @@ import {
   parseNotificationSettings,
   parseRegisterService,
   parseRotateCredential,
+  parseRuleSettings,
 } from "./flags.input.js";
 
 const reason = (fn: () => unknown) => {
@@ -133,5 +134,13 @@ describe("parseFlagPatch: notify", () => {
   it("takes notify as true or false only", () => {
     expect(parseFlagPatch({ notify: true })).toEqual({ notify: true });
     expect(reason(() => parseFlagPatch({ notify: "yes" }))).toMatch(/"notify" must be true or false/);
+  });
+});
+
+describe("parseRuleSettings", () => {
+  it("takes a stale threshold of 1 to 365 whole days", () => {
+    expect(parseRuleSettings({ staleThresholdDays: 45, actor: "a.kowalska" })).toEqual({ staleThresholdDays: 45 });
+    for (const bad of [0, 366, 1.5, "30", undefined]) expect(reason(() => parseRuleSettings({ staleThresholdDays: bad }))).toMatch(/1 to 365/);
+    expect(reason(() => parseRuleSettings({ staleThresholdDays: 30, retention: 1 }))).toBe("Unknown field: retention.");
   });
 });

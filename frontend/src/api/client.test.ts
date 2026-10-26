@@ -24,13 +24,20 @@ describe("api.load", () => {
       "/api/flags": () => jsonResponse([{ key: "from-api" }]),
       "/api/services": () => jsonResponse([]),
       "/api/audit-log?limit=50": () => jsonResponse({ entries: [] }),
+      "/api/settings/rules": () => jsonResponse({ staleThresholdDays: 45 }),
     });
-    await expect(api.load()).resolves.toEqual({ flags: [{ key: "from-api" }], services: [], auditLog: [], demo: false });
+    await expect(api.load()).resolves.toEqual({ flags: [{ key: "from-api" }], services: [], auditLog: [], rules: { staleThresholdDays: 45 }, demo: false });
   });
 
   it("falls back to the demo data when the API is unreachable", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
-    await expect(api.load()).resolves.toEqual({ flags: fixtureFlags, services: fixtureServices, auditLog: fixtureAudit, demo: true });
+    await expect(api.load()).resolves.toEqual({
+      flags: fixtureFlags,
+      services: fixtureServices,
+      auditLog: fixtureAudit,
+      rules: { staleThresholdDays: 30 },
+      demo: true,
+    });
   });
 
   it("falls back to the demo data when the dev proxy answers 502 (API not running)", async () => {
@@ -43,6 +50,7 @@ describe("api.load", () => {
       "/api/flags": () => jsonResponse({ message: "Internal server error" }, 500),
       "/api/services": () => jsonResponse([]),
       "/api/audit-log?limit=50": () => jsonResponse({ entries: [] }),
+      "/api/settings/rules": () => jsonResponse({ staleThresholdDays: 30 }),
     });
     await expect(api.load()).rejects.toEqual(new ApiError("Internal server error", 500));
   });

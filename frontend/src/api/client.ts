@@ -8,7 +8,19 @@
  *   an ApiError with the server's message, so the UI shows it instead of pretending the change was saved.
  */
 import { auditLog as mockAuditLog, flags as mockFlags, services as mockServices } from "../data/mock";
-import type { AuditLogEntry, AuditLogPage, AuditLogQuery, Environment, Flag, FlagServiceBinding, FlagType, NotificationSettings, Service } from "../types";
+import { DEFAULT_STALE_THRESHOLD_DAYS } from "../lib/businessLogic";
+import type {
+  AuditLogEntry,
+  AuditLogPage,
+  AuditLogQuery,
+  Environment,
+  Flag,
+  FlagServiceBinding,
+  FlagType,
+  NotificationSettings,
+  RuleSettings,
+  Service,
+} from "../types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 const REQUEST_TIMEOUT_MS = 2000;
@@ -95,6 +107,7 @@ export interface InitialData {
   flags: Flag[];
   services: Service[];
   auditLog: AuditLogEntry[];
+  rules: RuleSettings;
   /** True when the API could not be reached and the data is the built-in fixture set. */
   demo: boolean;
 }
@@ -103,12 +116,17 @@ export const api = {
   /** Everything the dashboard shows. Falls back to the fixture data (demo mode) only when the API cannot be reached. */
   async load(): Promise<InitialData> {
     try {
-      const [flags, services, audit] = await Promise.all([call<Flag[]>("/flags"), call<Service[]>("/services"), api.listAuditLog({ limit: RECENT_AUDIT })]);
-      return { flags, services, auditLog: audit.entries, demo: false };
+      const [flags, services, audit, rules] = await Promise.all([
+        call<Flag[]>("/flags"),
+        call<Service[]>("/services"),
+        api.listAuditLog({ limit: RECENT_AUDIT }),
+        api.getRuleSettings(),
+      ]);
+      return { flags, services, auditLog: audit.entries, rules, demo: false };
     } catch (err) {
       if (!(err instanceof ApiUnavailableError)) throw err;
       console.info(`[shipscope] The API is not reachable (${err.message}); showing demo data.`);
-      return { flags: mockFlags, services: mockServices, auditLog: mockAuditLog, demo: true };
+      return { flags: mockFlags, services: mockServices, auditLog: mockAuditLog, rules: { staleThresholdDays: DEFAULT_STALE_THRESHOLD_DAYS }, demo: true };
     }
   },
 
@@ -117,6 +135,10 @@ export const api = {
     const params = new URLSearchParams(Object.entries(query).flatMap(([k, v]) => (v === undefined || v === "" ? [] : [[k, String(v)]])));
     return call<AuditLogPage>(`/audit-log${params.size ? `?${params}` : ""}`);
   },
+
+  getRuleSettings: () => call<RuleSettings>("/settings/rules"),
+
+  saveRuleSettings: (rules: RuleSettings, actor: string) => call<RuleSettings>("/settings/rules", withBody("PUT", { ...rules, actor })),
 
   getNotifications: () => call<NotificationSettings>("/settings/notifications"),
 

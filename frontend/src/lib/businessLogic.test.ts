@@ -14,7 +14,7 @@ import {
   isStaleCandidate,
   lifecycleStage,
   migrationProgress,
-  STALE_THRESHOLD_DAYS,
+  DEFAULT_STALE_THRESHOLD_DAYS,
 } from "./businessLogic";
 
 const ALL = ["test", "qa", "prod"] as const;
@@ -30,17 +30,24 @@ afterEach(() => {
 
 describe("isStaleCandidate / daysFullyOn (rule 1)", () => {
   it("flags a release flag that has been ON everywhere for longer than the threshold", () => {
-    const flag = makeFlag({ key: "a", on: [...ALL], changedDaysAgo: STALE_THRESHOLD_DAYS + 1 });
+    const flag = makeFlag({ key: "a", on: [...ALL], changedDaysAgo: DEFAULT_STALE_THRESHOLD_DAYS + 1 });
     expect(isStaleCandidate(flag)).toBe(true);
-    expect(daysFullyOn(flag)).toBe(STALE_THRESHOLD_DAYS + 1);
+    expect(daysFullyOn(flag)).toBe(DEFAULT_STALE_THRESHOLD_DAYS + 1);
   });
 
   it("does not flag it before the threshold", () => {
-    expect(isStaleCandidate(makeFlag({ key: "a", on: [...ALL], changedDaysAgo: STALE_THRESHOLD_DAYS - 1 }))).toBe(false);
+    expect(isStaleCandidate(makeFlag({ key: "a", on: [...ALL], changedDaysAgo: DEFAULT_STALE_THRESHOLD_DAYS - 1 }))).toBe(false);
   });
 
   it("never flags a feature flag", () => {
     expect(isStaleCandidate(makeFlag({ key: "a", type: "feature", on: [...ALL], changedDaysAgo: 365 }))).toBe(false);
+  });
+
+  it("uses the threshold set in Settings", () => {
+    const flag = makeFlag({ key: "a", on: [...ALL], changedDaysAgo: 20 });
+    expect(isStaleCandidate(flag)).toBe(false);
+    expect(isStaleCandidate(flag, 14)).toBe(true);
+    expect(lifecycleStage(flag, 14)).toBe("cleanup");
   });
 
   it("does not flag a flag that is OFF in any environment", () => {
@@ -157,7 +164,7 @@ describe("lifecycleStage, isReviewOverdue, migrationProgress", () => {
     expect(lifecycleStage(makeFlag({ key: "a" }))).toBe("new");
     expect(lifecycleStage(makeFlag({ key: "a", on: ["test"] }))).toBe("testing");
     expect(lifecycleStage(makeFlag({ key: "a", on: [...ALL] }))).toBe("live");
-    expect(lifecycleStage(makeFlag({ key: "a", on: [...ALL], changedDaysAgo: STALE_THRESHOLD_DAYS + 1 }))).toBe("cleanup");
+    expect(lifecycleStage(makeFlag({ key: "a", on: [...ALL], changedDaysAgo: DEFAULT_STALE_THRESHOLD_DAYS + 1 }))).toBe("cleanup");
   });
 
   it("marks a review date in the past as overdue", () => {
@@ -228,7 +235,7 @@ describe("attentionItems and byAttention (rule 7)", () => {
     const drifting = makeFlag({ key: "drifting", changedDaysAgo: 1, services: [makeBinding("svc-api")] });
     const another = makeFlag({ key: "another", changedDaysAgo: 5 });
     // Overdue and a removal candidate: more housekeeping, but no drift.
-    const neglected = makeFlag({ key: "neglected", on: [...ALL], changedDaysAgo: STALE_THRESHOLD_DAYS + 5, reviewBy: daysBefore(1) });
+    const neglected = makeFlag({ key: "neglected", on: [...ALL], changedDaysAgo: DEFAULT_STALE_THRESHOLD_DAYS + 5, reviewBy: daysBefore(1) });
 
     expect(byAttention([quiet, overdue, another, neglected, drifting], services).map((f) => f.key)).toEqual([
       "drifting",

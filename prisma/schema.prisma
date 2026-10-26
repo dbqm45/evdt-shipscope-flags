@@ -129,3 +129,9 @@ model NotificationSettings {
   enabled    Boolean
   webhookUrl String
 }
+
+/// One row (id = 1): thresholds of the business rules an Admin can change. Missing = the defaults.
+model RuleSettings {
+  id                 Int @id @default(1)
+  staleThresholdDays Int
+}

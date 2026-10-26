@@ -44,7 +44,7 @@ Różnica ma znaczenie praktyczne: aplikacja wskazuje jako „kandydata do usuni
 - **new** – wyłączona wszędzie,
 - **in testing** – włączona na teście lub QA, ale wyłączona na produkcji,
 - **live** – włączona na produkcji,
-- **to clean up** – flaga wydaniowa włączona wszędzie dłużej niż 30 dni; należy ją usunąć.
+- **to clean up** – flaga wydaniowa włączona wszędzie dłużej niż próg z ustawień (domyślnie 30 dni); należy ją usunąć.
 
 ## 4. Jak działa flaga – przykład
 
@@ -77,7 +77,7 @@ Usługi bez frontendu po prostu nie mają zależności i nie podlegają tej regu
 
 ### 5.3. Kandydat do usunięcia
 
-Flaga wydaniowa, która jest włączona we wszystkich środowiskach dłużej niż 30 dni, zostaje oznaczona jako „candidate for removal” (kandydat do usunięcia). Oznacza to, że jest prawdopodobnie zbędna i zalega w kodzie. To wyłącznie podpowiedź, a nie polecenie usunięcia.
+Flaga wydaniowa, która jest włączona we wszystkich środowiskach dłużej niż 30 dni, zostaje oznaczona jako „candidate for removal” (kandydat do usunięcia). Oznacza to, że jest prawdopodobnie zbędna i zalega w kodzie. To wyłącznie podpowiedź, a nie polecenie usunięcia. Próg 30 dni Admin może zmienić w zakładce „Settings” (sekcja „Removal candidates”); każda zmiana trafia do dziennika zmian.
 
 ### 5.4. Wartość z kodu a wartość z serwera
 

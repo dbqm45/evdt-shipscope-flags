@@ -175,6 +175,17 @@ describe("FlagsService (PostgreSQL)", () => {
     }
   });
 
+  it("keeps the stale threshold at 30 days until an Admin changes it, and logs each change", async () => {
+    expect(await flags.getRuleSettings()).toEqual({ staleThresholdDays: 30 });
+
+    expect(await flags.setRuleSettings({ staleThresholdDays: 14 }, "a.kowalska")).toEqual({ staleThresholdDays: 14 });
+    expect(await flags.getRuleSettings()).toEqual({ staleThresholdDays: 14 });
+    expect((await auditEntries())[0]).toMatchObject({ action: "settings-updated", actor: "a.kowalska", note: "stale threshold 30 → 14 days" });
+
+    await flags.setRuleSettings({ staleThresholdDays: 14 }, "a.kowalska");
+    expect((await auditEntries()).filter((e) => e.action === "settings-updated")).toHaveLength(1);
+  });
+
   describe("per-flag notifications and retries", () => {
     const WEBHOOK = "https://hooks.example.test/services/T0/B0/secret1234";
     const promote = async (flagKey: string) => {

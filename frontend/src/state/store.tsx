@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, failureReason, RECENT_AUDIT, type IssuedCredential } from "../api/client";
-import { canDisable, canEnable, canRetire } from "../lib/businessLogic";
+import { canDisable, canEnable, canRetire, DEFAULT_STALE_THRESHOLD_DAYS } from "../lib/businessLogic";
 import { canEditFlags } from "../lib/permissions";
 import { ENVIRONMENTS, type AuditLogEntry, type Flag, type Role, type Service } from "../types";
 import { StoreContext, type CredentialResult, type StoreValue, type ToggleResult } from "./useStore";
@@ -17,6 +17,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [flags, setFlags] = useState<Flag[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [staleThresholdDays, setStaleThresholdDays] = useState(DEFAULT_STALE_THRESHOLD_DAYS);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [role, setRole] = useState<Role>("editor");
 
@@ -28,6 +29,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (cancelled) return;
         setFlags(data.flags);
         setServices(data.services);
+        setStaleThresholdDays(data.rules.staleThresholdDays);
         setAuditLog(data.auditLog);
         setDemo(data.demo);
       })
@@ -229,6 +231,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const rotateCredential: StoreValue["rotateCredential"] = (serviceId, revokePrevious) =>
       issueCredential(() => api.rotateCredential(serviceId, revokePrevious, actor));
 
+    const setStaleThreshold: StoreValue["setStaleThreshold"] = async (days) => {
+      if (role !== "admin") return { ok: false, reason: "Only Admins can change the rules." };
+      if (!Number.isInteger(days) || days < 1 || days > 365) return { ok: false, reason: "Enter a whole number of days from 1 to 365." };
+      if (!demo)
+        return viaApi(
+          () => api.saveRuleSettings({ staleThresholdDays: days }, actor),
+          (saved) => setStaleThresholdDays(saved.staleThresholdDays),
+        );
+      registerAuditEntry({ actor, action: "settings-updated", note: `stale threshold ${staleThresholdDays} → ${days} days` });
+      setStaleThresholdDays(days);
+      return { ok: true };
+    };
+
     return {
       loading,
       demo,
@@ -247,8 +262,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       createFlag,
       registerService,
       rotateCredential,
+      staleThresholdDays,
+      setStaleThreshold,
     };
-  }, [loading, demo, loadError, flags, services, auditLog, role]);
+  }, [loading, demo, loadError, flags, services, auditLog, role, staleThresholdDays]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

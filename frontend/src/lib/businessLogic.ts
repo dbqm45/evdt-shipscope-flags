@@ -1,7 +1,7 @@
 import { ENVIRONMENTS, type Environment, type Flag, type LifecycleStage, type PromotionCheck, type Service } from "../types";
 
-/** Release flags ON in every environment for longer than this are candidates for removal. */
-export const STALE_THRESHOLD_DAYS = 30;
+/** Release flags ON in every environment for longer than this are candidates for removal, unless an Admin set another threshold (Settings). */
+export const DEFAULT_STALE_THRESHOLD_DAYS = 30;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -17,16 +17,16 @@ function daysSince(iso: string, now = Date.now()): number {
 
 /**
  * Rule 1 — Stale detection (classification).
- * A release flag ON in every environment for longer than STALE_THRESHOLD_DAYS is a
+ * A release flag ON in every environment for longer than `thresholdDays` (Settings, default 30) is a
  * "candidate for removal". The clock starts at the most recent of the three env
  * updatedAt timestamps (the moment the flag became "fully on").
  */
-export function isStaleCandidate(flag: Flag, now = Date.now()): boolean {
+export function isStaleCandidate(flag: Flag, thresholdDays = DEFAULT_STALE_THRESHOLD_DAYS, now = Date.now()): boolean {
   if (flag.type !== "release") return false;
   const allOn = ENVIRONMENTS.every((env) => flag.environments[env].enabled);
   if (!allOn) return false;
   const fullyOnSince = Math.max(...ENVIRONMENTS.map((env) => new Date(flag.environments[env].updatedAt).getTime()));
-  return daysSince(new Date(fullyOnSince).toISOString(), now) > STALE_THRESHOLD_DAYS;
+  return daysSince(new Date(fullyOnSince).toISOString(), now) > thresholdDays;
 }
 
 export function daysFullyOn(flag: Flag, now = Date.now()): number | null {
@@ -166,7 +166,7 @@ export interface AttentionItem {
  * Everything about a flag a human should look at, most likely to cause inconsistency first: drift (3), a build-time
  * constant that only hides behind the runtime value today (2), then an overdue review or a removal candidate (1).
  */
-export function attentionItems(flag: Flag, services: Service[], now = Date.now()): AttentionItem[] {
+export function attentionItems(flag: Flag, services: Service[], staleThresholdDays = DEFAULT_STALE_THRESHOLD_DAYS, now = Date.now()): AttentionItem[] {
   const name = (id: string) => services.find((s) => s.id === id)?.key ?? id;
   const onOff = (value: boolean) => (value ? "ON" : "OFF");
   const items: AttentionItem[] = driftRisks(flag, services, now).map((risk) => ({
@@ -185,21 +185,23 @@ export function attentionItems(flag: Flag, services: Service[], now = Date.now()
     });
   }
   if (isReviewOverdue(flag, now)) items.push({ weight: 1, reason: "The review date has passed." });
-  if (isStaleCandidate(flag, now)) items.push({ weight: 1, reason: `Candidate for removal: ON everywhere for ${daysFullyOn(flag, now)} days.` });
+  if (isStaleCandidate(flag, staleThresholdDays, now))
+    items.push({ weight: 1, reason: `Candidate for removal: ON everywhere for ${daysFullyOn(flag, now)} days.` });
   return items.sort((a, b) => b.weight - a.weight);
 }
 
 /** Sum of the weights; 0 = nothing to look at. */
-export const attentionScore = (flag: Flag, services: Service[], now = Date.now()) => attentionItems(flag, services, now).reduce((sum, i) => sum + i.weight, 0);
+export const attentionScore = (flag: Flag, services: Service[], staleThresholdDays = DEFAULT_STALE_THRESHOLD_DAYS, now = Date.now()) =>
+  attentionItems(flag, services, staleThresholdDays, now).reduce((sum, i) => sum + i.weight, 0);
 
 /**
  * Flags that need attention first: by their heaviest item (drift before housekeeping, however much of it), then by the
  * sum of the weights; the original order (newest first) breaks ties.
  */
-export function byAttention(flags: Flag[], services: Service[], now = Date.now()): Flag[] {
+export function byAttention(flags: Flag[], services: Service[], staleThresholdDays = DEFAULT_STALE_THRESHOLD_DAYS, now = Date.now()): Flag[] {
   const rank = new Map(
     flags.map((f) => {
-      const items = attentionItems(f, services, now);
+      const items = attentionItems(f, services, staleThresholdDays, now);
       return [f.key, [items[0]?.weight ?? 0, items.reduce((sum, i) => sum + i.weight, 0)]] as const;
     }),
   );
@@ -251,10 +253,10 @@ export function canRetire(flag: Flag, allFlags: Flag[], serviceName: (id: string
 /**
  * Lifecycle stage, derived from state:
  * new (off everywhere) -> testing (on in test/qa, off in prod) -> live (on in prod)
- * -> cleanup (release flag on everywhere for over 30 days: remove it).
+ * -> cleanup (release flag on everywhere for longer than the stale threshold: remove it).
  */
-export function lifecycleStage(flag: Flag): LifecycleStage {
-  if (isStaleCandidate(flag)) return "cleanup";
+export function lifecycleStage(flag: Flag, staleThresholdDays = DEFAULT_STALE_THRESHOLD_DAYS): LifecycleStage {
+  if (isStaleCandidate(flag, staleThresholdDays)) return "cleanup";
   if (flag.environments.prod.enabled) return "live";
   if (ENVIRONMENTS.some((e) => flag.environments[e].enabled)) return "testing";
   return "new";
