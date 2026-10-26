@@ -8,8 +8,8 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 
 | Obszar | Stan |
 | --- | --- |
-| Build backendu (`npm run build`) | ❌ nie przechodzi na świeżym klonie (`prebuild` → `sync:shared` nie znajduje `frontend/src/data/mock.ts`) |
-| Build frontendu (`npm run build`) | ❌ `TS2307: Cannot find module '../data/mock'` |
+| Build backendu (`npm run build`) | ✅ (naprawione — wcześniej `sync:shared` nie znajdował `frontend/src/data/mock.ts`) |
+| Build frontendu (`npm run build`) | ✅ (naprawione — wcześniej `TS2307: Cannot find module '../data/mock'`) |
 | Testy backendu (`vitest`, unit + e2e) | ✅ przechodzą, ale testują wyłącznie szablonowe „Hello World!” |
 | Testy frontendu | ❌ brak test runnera |
 | Typecheck backendu (`strict: true`) | ✅ |
@@ -24,7 +24,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 
 ## P0 — Blokery i bezpieczeństwo
 
-- [ ] **`frontend/src/data/mock.ts` nie jest w repozytorium.** Reguła `data/` w głównym `.gitignore` (przeznaczona dla `data/state.json`) ignoruje też `frontend/src/data/`. Na świeżym klonie nie budują się ani frontend (3 importy z `../data/mock`), ani backend (`prebuild` uruchamia `scripts/sync-shared.mjs`, który czyta ten plik).
+- [x] **`frontend/src/data/mock.ts` nie jest w repozytorium.** _(Naprawione: reguła zmieniona na `/data/`, plik odtworzony z `src/flags/shared/seed.ts`; oba buildy przechodzą.)_ Reguła `data/` w głównym `.gitignore` (przeznaczona dla `data/state.json`) ignoruje też `frontend/src/data/`. Na świeżym klonie nie budują się ani frontend (3 importy z `../data/mock`), ani backend (`prebuild` uruchamia `scripts/sync-shared.mjs`, który czyta ten plik).
   - Fix: zmienić regułę na `/data/` (zakotwiczoną w katalogu głównym), dodać `frontend/src/data/mock.ts` do repozytorium i sprawdzić build od zera (`git clone` → `npm ci` → `npm run build` w obu pakietach).
 - [ ] **Management API nie ma uwierzytelniania ani autoryzacji.** `PATCH /api/flags/:key/environments/:env`, `PUT /api/settings/notifications` i `POST /api/settings/notifications/test` może wywołać każdy, kto ma dostęp sieciowy. Role Viewer/Editor/Admin istnieją tylko w przełączniku w UI (`RoleSwitcher`).
   - Fix: guard NestJS (Passport + OIDC zgodnie z `tech-stack.md`) oraz `RolesGuard` z dekoratorem `@Roles()` na każdym endpoincie zmieniającym stan.
