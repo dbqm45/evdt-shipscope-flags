@@ -39,7 +39,8 @@ describe("API (e2e)", () => {
   it("PATCH /api/flags/:key/environments/:env changes the state, and 409 when the rules block it", async () => {
     const flag = seedState().flags.find((f) => f.environments.test.enabled && !f.environments.qa.enabled && !f.dependsOn)!;
     await request(app.getHttpServer()).patch(`/api/flags/${flag.key}/environments/prod`).send({ enabled: true }).expect(409);
-    await request(app.getHttpServer()).patch(`/api/flags/${flag.key}/environments/qa`).send({ enabled: true, actor: "e2e" }).expect(200);
+    const patched = await request(app.getHttpServer()).patch(`/api/flags/${flag.key}/environments/qa`).send({ enabled: true, actor: "e2e" }).expect(200);
+    expect(patched.body).toMatchObject({ ok: true, flag: { key: flag.key, environments: { qa: { enabled: true, updatedBy: "e2e" } } } });
 
     const sdk = await request(app.getHttpServer()).get("/api/sdk/flags?env=qa").expect(200);
     expect(sdk.body).toMatchObject({ env: "qa", flags: { [flag.key]: true } });

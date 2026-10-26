@@ -22,8 +22,9 @@ Two packages, one version:
   through Prisma 7 (`prisma/schema.prisma`, `DATABASE_URL`); demo data is loaded only on request (`npm run db:seed`).
   There is **no authentication** on the management API yet (see `docs/TODO.md`, P0).
 - **Dashboard** — React 19 + Vite 8 + Tailwind 4 in `frontend/` (own `package.json`). `frontend/src/api/client.ts`
-  calls the API and falls back to the fixture data in `frontend/src/data/mock.ts` whenever a request fails, so the UI
-  also runs without the API. Many UI actions (create flag, edit bindings or metadata, retire) only change browser
+  calls the API; only when the API cannot be reached (network error, timeout, 502/503/504) does the dashboard switch to
+  the fixture data in `frontend/src/data/mock.ts` (demo mode, with a banner). An error answer (409 from the rules, 400,
+  500) is shown to the user, never treated as success. Many UI actions (create flag, edit bindings or metadata, retire) only change browser
   state; only environment toggles and notification settings reach the API.
 
 ## Run it locally

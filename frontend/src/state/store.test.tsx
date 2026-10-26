@@ -1,33 +1,37 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "../api/client";
+import { api, ApiError, ApiUnavailableError } from "../api/client";
 import { makeBinding, makeFlag, makeService } from "../test/factories";
-import type { Flag } from "../types";
+import type { AuditLogEntry, Flag } from "../types";
 import { StoreProvider, useStore } from "./store";
 
-vi.mock("../api/client", () => ({
-  api: {
-    listFlags: vi.fn(),
-    listServices: vi.fn(),
-    listAuditLog: vi.fn(),
-    setEnvironmentState: vi.fn(),
-  },
-}));
+vi.mock("../api/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../api/client")>();
+  return { ...actual, api: { load: vi.fn(), listAuditLog: vi.fn(), setEnvironmentState: vi.fn() } };
+});
 
 const wrapper = ({ children }: { children: ReactNode }) => <StoreProvider>{children}</StoreProvider>;
 
 let flags: Flag[];
+const serverAudit: AuditLogEntry[] = [{ id: "srv-1", timestamp: "2026-10-26T10:00:00.000Z", actor: "m.chen", action: "env-enabled", flagKey: "backend" }];
+
+function loadWith(demo: boolean) {
+  vi.mocked(api.load).mockResolvedValue({
+    flags,
+    services: [makeService("svc-api", "orders-api"), makeService("svc-web", "shop-web")],
+    auditLog: [],
+    demo,
+  });
+}
 
 beforeEach(() => {
   flags = [
     makeFlag({ key: "backend", on: ["test"], services: [makeBinding("svc-api")] }),
     makeFlag({ key: "frontend", dependsOn: "backend", services: [makeBinding("svc-web")] }),
   ];
-  vi.mocked(api.listFlags).mockResolvedValue(flags);
-  vi.mocked(api.listServices).mockResolvedValue([makeService("svc-api", "orders-api"), makeService("svc-web", "shop-web")]);
-  vi.mocked(api.listAuditLog).mockResolvedValue([]);
-  vi.mocked(api.setEnvironmentState).mockResolvedValue({ ok: true });
+  loadWith(false);
+  vi.mocked(api.listAuditLog).mockResolvedValue(serverAudit);
 });
 
 async function renderStore() {
@@ -36,48 +40,97 @@ async function renderStore() {
   return hook;
 }
 
-describe("store", () => {
-  it("loads flags, services and the audit log from the API", async () => {
+async function toggle(result: { current: ReturnType<typeof useStore> }, flagKey: string, env: "test" | "qa" | "prod") {
+  let outcome: { ok: boolean; reason?: string } | undefined;
+  await act(async () => {
+    outcome = await result.current.toggleEnvironment(flagKey, env);
+  });
+  return outcome!;
+}
+
+describe("store with the API", () => {
+  it("loads flags, services and the audit log, not in demo mode", async () => {
     const { result } = await renderStore();
     expect(result.current.flags.map((f) => f.key)).toEqual(["backend", "frontend"]);
     expect(result.current.services).toHaveLength(2);
+    expect(result.current.demo).toBe(false);
   });
 
-  it("toggles an environment, records it in the audit log and sends it to the API", async () => {
+  it("shows the API's error when the initial load fails, instead of demo data", async () => {
+    vi.mocked(api.load).mockRejectedValue(new ApiError("Internal server error", 500));
+    const { result } = await renderStore();
+    expect(result.current.loadError).toBe("Internal server error");
+    expect(result.current.flags).toEqual([]);
+  });
+
+  it("toggles through the API, shows the flag the server stored and its audit log", async () => {
+    const stored = {
+      ...flags[0],
+      environments: { ...flags[0].environments, qa: { enabled: true, updatedAt: "2026-10-26T10:00:00.000Z", updatedBy: "m.chen" } },
+    };
+    vi.mocked(api.setEnvironmentState).mockResolvedValue({ ok: true, flag: stored });
     const { result } = await renderStore();
 
-    let outcome;
-    act(() => {
-      outcome = result.current.toggleEnvironment("backend", "qa");
-    });
+    expect(await toggle(result, "backend", "qa")).toEqual({ ok: true });
 
-    expect(outcome).toEqual({ ok: true });
-    const backend = result.current.flags.find((f) => f.key === "backend")!;
-    expect(backend.environments.qa).toMatchObject({ enabled: true, updatedBy: "m.chen" });
-    expect(result.current.auditLog[0]).toMatchObject({ action: "env-enabled", flagKey: "backend", environment: "qa", from: "off", to: "on" });
     expect(api.setEnvironmentState).toHaveBeenCalledWith("backend", "qa", true, "m.chen");
+    expect(result.current.flags.find((f) => f.key === "backend")).toEqual(stored);
+    await waitFor(() => expect(result.current.auditLog).toEqual(serverAudit));
   });
 
-  it("blocks an out-of-order toggle, logs the attempt and does not call the API", async () => {
+  it("shows the server's reason and keeps the state when the API refuses the change", async () => {
+    vi.mocked(api.setEnvironmentState).mockRejectedValue(new ApiError("Enable in qa first — flags promote test → qa → prod in order.", 409));
     const { result } = await renderStore();
 
-    let outcome: { ok: boolean; reason?: string } | undefined;
-    act(() => {
-      outcome = result.current.toggleEnvironment("backend", "prod");
-    });
+    expect(await toggle(result, "backend", "prod")).toEqual({ ok: false, reason: "Enable in qa first — flags promote test → qa → prod in order." });
 
-    expect(outcome?.ok).toBe(false);
-    expect(outcome?.reason).toMatch(/Enable in qa first/);
     expect(result.current.flags.find((f) => f.key === "backend")!.environments.prod.enabled).toBe(false);
-    expect(result.current.auditLog[0]).toMatchObject({ action: "promotion-blocked", flagKey: "backend", environment: "prod" });
+    // The server logged the blocked attempt; the store shows its log.
+    await waitFor(() => expect(api.listAuditLog).toHaveBeenCalled());
+  });
+
+  it("changes nothing when the API cannot be reached during a change", async () => {
+    vi.mocked(api.setEnvironmentState).mockRejectedValue(new ApiUnavailableError("Failed to fetch"));
+    const { result } = await renderStore();
+
+    const outcome = await toggle(result, "backend", "qa");
+
+    expect(outcome).toEqual({ ok: false, reason: "The API is not reachable — nothing was changed." });
+    expect(result.current.flags.find((f) => f.key === "backend")!.environments.qa.enabled).toBe(false);
+  });
+});
+
+describe("store in demo mode", () => {
+  beforeEach(() => loadWith(true));
+
+  it("toggles locally and records the change in the local audit log, without calling the API", async () => {
+    const { result } = await renderStore();
+    expect(result.current.demo).toBe(true);
+
+    expect(await toggle(result, "backend", "qa")).toEqual({ ok: true });
+
+    expect(result.current.flags.find((f) => f.key === "backend")!.environments.qa).toMatchObject({ enabled: true, updatedBy: "m.chen" });
+    expect(result.current.auditLog[0]).toMatchObject({ action: "env-enabled", flagKey: "backend", environment: "qa", from: "off", to: "on" });
     expect(api.setEnvironmentState).not.toHaveBeenCalled();
   });
 
+  it("blocks an out-of-order toggle with the local rules and logs the attempt", async () => {
+    const { result } = await renderStore();
+
+    const outcome = await toggle(result, "backend", "prod");
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.reason).toMatch(/Enable in qa first/);
+    expect(result.current.auditLog[0]).toMatchObject({ action: "promotion-blocked", flagKey: "backend", environment: "prod" });
+  });
+});
+
+describe("store permissions and local actions", () => {
   it("lets a viewer change nothing", async () => {
     const { result } = await renderStore();
     act(() => result.current.setRole("viewer"));
 
-    expect(result.current.toggleEnvironment("backend", "qa")).toMatchObject({ ok: false });
+    expect(await toggle(result, "backend", "qa")).toMatchObject({ ok: false });
     expect(result.current.createFlag({ key: "x", description: "", type: "feature", serviceIds: [] })).toMatchObject({ ok: false });
     expect(result.current.retireFlag("frontend")).toMatchObject({ ok: false });
     expect(api.setEnvironmentState).not.toHaveBeenCalled();

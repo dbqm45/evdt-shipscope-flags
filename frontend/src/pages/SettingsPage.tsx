@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import { api, failureReason } from "../api/client";
 import { useStore } from "../state/store";
 import { canEditFlags } from "../lib/permissions";
 import { Toggle } from "../components/common/Toggle";
 
 export function SettingsPage() {
-  const { role } = useStore();
+  const { role, demo } = useStore();
   const editable = canEditFlags(role);
   const [enabled, setEnabled] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState("");
@@ -13,30 +13,56 @@ export function SettingsPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api.getNotifications().then((s) => {
-      setEnabled(s.enabled);
-      setWebhookUrl(s.webhookUrl);
-    });
-  }, []);
+    if (demo) return;
+    api
+      .getNotifications()
+      .then((s) => {
+        setEnabled(s.enabled);
+        setWebhookUrl(s.webhookUrl);
+      })
+      .catch((err: unknown) => setMessage({ tone: "error", text: `Could not load the settings: ${failureReason(err)}` }));
+  }, [demo]);
 
-  async function save(nextEnabled = enabled) {
+  /** `previous` is restored when the server refuses (the toggle flips `enabled` before saving). */
+  async function save(nextEnabled = enabled, previous = enabled) {
     if (nextEnabled && !/^https?:\/\//.test(webhookUrl.trim())) {
+      setEnabled(previous);
       setMessage({ tone: "error", text: "Enter a valid http(s) webhook URL first." });
       return;
     }
+    if (demo) {
+      setEnabled(nextEnabled);
+      setMessage({ tone: "ok", text: "Kept in this browser only — the API is not running (demo data)." });
+      return;
+    }
     setBusy(true);
-    const saved = await api.saveNotifications({ enabled: nextEnabled, webhookUrl: webhookUrl.trim() });
-    setEnabled(saved.enabled);
-    setWebhookUrl(saved.webhookUrl);
-    setBusy(false);
-    setMessage({ tone: "ok", text: "Saved." });
+    try {
+      const saved = await api.saveNotifications({ enabled: nextEnabled, webhookUrl: webhookUrl.trim() });
+      setEnabled(saved.enabled);
+      setWebhookUrl(saved.webhookUrl);
+      setMessage({ tone: "ok", text: "Saved." });
+    } catch (err) {
+      setEnabled(previous);
+      setMessage({ tone: "error", text: `Not saved: ${failureReason(err)}` });
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function sendTest() {
+    if (demo) {
+      setMessage({ tone: "error", text: "Could not send: the API is not running (demo data)." });
+      return;
+    }
     setBusy(true);
-    const result = await api.testNotification();
-    setBusy(false);
-    setMessage(result.ok ? { tone: "ok", text: "Test message sent." } : { tone: "error", text: `Could not send: ${result.error ?? "unknown error"}` });
+    try {
+      const result = await api.testNotification();
+      setMessage(result.ok ? { tone: "ok", text: "Test message sent." } : { tone: "error", text: `Could not send: ${result.error ?? "unknown error"}` });
+    } catch (err) {
+      setMessage({ tone: "error", text: `Could not send: ${failureReason(err)}` });
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -61,7 +87,7 @@ export function SettingsPage() {
             onClick={() => {
               const next = !enabled;
               setEnabled(next);
-              void save(next);
+              void save(next, enabled);
             }}
           />
         </div>

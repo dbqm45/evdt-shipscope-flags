@@ -30,8 +30,8 @@ export class FlagsController {
   @Patch("flags/:key/environments/:env")
   async setEnvironment(@Param("key") key: string, @Param("env") env: string, @Body() body: { enabled?: boolean; actor?: string }) {
     if (typeof body?.enabled !== "boolean") throw new BadRequestException('Body must contain boolean "enabled".');
-    await this.flags.setEnvironment(key, parseEnv(env), body.enabled, body.actor ?? "api");
-    return { ok: true };
+    const flag = await this.flags.setEnvironment(key, parseEnv(env), body.enabled, body.actor ?? "api");
+    return { ok: true, flag };
   }
 
   @Get("settings/notifications")

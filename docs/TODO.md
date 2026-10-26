@@ -36,18 +36,18 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 - [ ] **SDK API jest domyślnie publiczne i ma jeden współdzielony token.** Bez ustawionej zmiennej `SDK_TOKEN` endpoint `GET /api/sdk/flags` działa bez autoryzacji. PRD (FR-003, FR-005, FR-011) wymaga osobnego poświadczenia dla każdego serwisu, rotacji z okresem przejściowym i dostępu wyłącznie do flag przypisanych do serwisu. Dziś parametr `?service=` jest tylko filtrem, który podaje sam klient.
   - Fix: tryb fail-closed (bez skonfigurowanych poświadczeń endpoint zwraca 401), poświadczenia per serwis przechowywane jako hash, serwis wyznaczany na podstawie poświadczenia, a nie parametru zapytania. Porównanie tokenu przez `crypto.timingSafeEqual`.
 - [ ] **Logowanie jest atrapą.** `LoginPage` ustawia `authenticated = true` po 650 ms. Pole break-glass niczego nie sprawdza, a komunikat „This attempt is logged” jest nieprawdziwy. Do czasu wdrożenia SSO (FR-001, FR-002) usunąć ten komunikat i wyraźnie oznaczyć tryb demo.
-- [ ] **Audyt zależności.** Uruchomić lokalnie `npm audit` w katalogu głównym i w `frontend/`. Zgodnie z logiem bootstrapu `npm audit fix` (bez `--force`) powinien usunąć `tmp` i `undici` (HIGH, przechodnie przez `@nestjs/mau` / `inquirer`). Rozważyć usunięcie `@nestjs/mau` z `devDependencies`, jeśli nie jest używany.
+- [x] _(zrobione: `npm audit` w CI blokuje podatności HIGH w zależnościach runtime; poprawione w 0.1.0 i 0.2.0)_ **Audyt zależności.** Uruchomić lokalnie `npm audit` w katalogu głównym i w `frontend/`. Zgodnie z logiem bootstrapu `npm audit fix` (bez `--force`) powinien usunąć `tmp` i `undici` (HIGH, przechodnie przez `@nestjs/mau` / `inquirer`). Rozważyć usunięcie `@nestjs/mau` z `devDependencies`, jeśli nie jest używany.
 
 ## P1 — Poprawność i zgodność z PRD
 
 ### Niespójność stanu frontend ↔ backend
 
-- [ ] **Odrzucenia z API są połykane.** `request()` w `frontend/src/api/client.ts` przy *każdym* błędzie (także `409 Conflict` z reguł promocji i `400`) zwraca fallback. `setEnvironmentState` zwraca wtedy `{ ok: true }`, a store aktualizuje stan optymistycznie i nie robi rollbacku, więc UI pokazuje stan, którego serwer nie zapisał.
+- [x] _(zrobione: tryb demo tylko przy braku połączenia, błędy API pokazywane w UI, stan z odpowiedzi serwera)_ **Odrzucenia z API są połykane.** `request()` w `frontend/src/api/client.ts` przy *każdym* błędzie (także `409 Conflict` z reguł promocji i `400`) zwraca fallback. `setEnvironmentState` zwraca wtedy `{ ok: true }`, a store aktualizuje stan optymistycznie i nie robi rollbacku, więc UI pokazuje stan, którego serwer nie zapisał.
   - Fix: fallback do danych demo tylko przy braku połączenia (błąd sieci lub timeout). Odpowiedzi 4xx/5xx propagować do UI, a przy błędzie wycofać zmianę optymistyczną albo czekać na odpowiedź serwera.
 - [ ] **Większość operacji działa tylko lokalnie w przeglądarce.** Tworzenie flagi, przypisanie serwisów, edycja bindingu (read mode, build-time values, `removedFromCode`), edycja metadanych (owner, tags, reviewBy) i „Retire flag” nie mają endpointów w API i znikają po odświeżeniu. Wpisy audit logu z tych akcji też istnieją tylko lokalnie.
   - Fix: dodać `POST /flags`, `PATCH /flags/:key`, `PATCH /flags/:key/services/:serviceId`, `DELETE /flags/:key` (z walidacją `canRetire` po stronie serwera) i audytować je na serwerze.
 - [ ] **Audit log z UI i z serwera się rozjeżdża.** Store dopisuje lokalne wpisy (`local-…`), a serwer swoje (`srv-…`), bez ponownego pobrania. Po wdrożeniu powyższego punktu dane audytu powinny pochodzić wyłącznie z serwera.
-- [ ] **`flagKey` nie jest kodowany w URL** (`client.ts`: `` `/flags/${flagKey}/...` ``). Użyć `encodeURIComponent`.
+- [x] _(zrobione)_ **`flagKey` nie jest kodowany w URL** (`client.ts`: `` `/flags/${flagKey}/...` ``). Użyć `encodeURIComponent`.
 
 ### Reguły biznesowe
 
@@ -99,7 +99,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 - [ ] `NotificationSettings` jest zdefiniowany dwa razy (`flags.service.ts` i `shared/types.ts`). Używać typu współdzielonego.
 - [ ] `FlagsController` łączy Management API i Consumer (SDK) API. Rozdzielić na `FlagsController`, `SettingsController` i `SdkController` (różne guardy i różni konsumenci).
 - [ ] `store.tsx`: cała logika w jednym `useMemo` (~200 linii) z mieszaniem stanu i wywołań API. Po przeniesieniu operacji na serwer rozważyć TanStack Query (cache, invalidacja, stany błędów).
-- [ ] Frontend nie pokazuje stanu błędu ani informacji o trybie demo. Po fallbacku do danych mock użytkownik nie wie, że pracuje na danych przykładowych; wystarczy baner „offline / demo data”.
+- [x] _(zrobione: baner trybu demo i błędu ładowania)_ Frontend nie pokazuje stanu błędu ani informacji o trybie demo. Po fallbacku do danych mock użytkownik nie wie, że pracuje na danych przykładowych; wystarczy baner „offline / demo data”.
 - [ ] Sesja nie przetrwa odświeżenia strony (`authenticated` w `useState`), a `currentUser` jest mapowany z roli (`CURRENT_USER_BY_ROLE`). Po wdrożeniu SSO pobierać użytkownika z `/api/me`.
 
 ### Konfiguracja i higiena repozytorium

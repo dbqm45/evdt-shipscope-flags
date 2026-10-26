@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { api } from "../api/client";
+import { api, failureReason } from "../api/client";
 import { canDisable, canEnable, canRetire } from "../lib/businessLogic";
 import { canEditFlags } from "../lib/permissions";
 import { ENVIRONMENTS, type AuditLogEntry, type Environment, type Flag, type FlagServiceBinding, type FlagType, type Role, type Service } from "../types";
@@ -11,13 +11,17 @@ interface ToggleResult {
 
 interface StoreValue {
   loading: boolean;
+  /** The API could not be reached: the data is the built-in demo set and changes stay in this browser. */
+  demo: boolean;
+  /** The API answered the initial load with an error; nothing is shown. */
+  loadError: string | null;
   flags: Flag[];
   services: Service[];
   auditLog: AuditLogEntry[];
   role: Role;
   setRole: (role: Role) => void;
   currentUser: string;
-  toggleEnvironment: (flagKey: string, environment: Environment) => ToggleResult;
+  toggleEnvironment: (flagKey: string, environment: Environment) => Promise<ToggleResult>;
   updateBinding: (flagKey: string, serviceId: string, patch: Partial<FlagServiceBinding>) => ToggleResult;
   retireFlag: (flagKey: string) => ToggleResult;
   registerAuditEntry: (entry: Omit<AuditLogEntry, "id" | "timestamp">) => void;
@@ -44,6 +48,8 @@ const CURRENT_USER_BY_ROLE: Record<Role, string> = {
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
+  const [demo, setDemo] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [flags, setFlags] = useState<Flag[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
@@ -51,13 +57,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([api.listFlags(), api.listServices(), api.listAuditLog()]).then(([f, s, a]) => {
-      if (cancelled) return;
-      setFlags(f);
-      setServices(s);
-      setAuditLog(a);
-      setLoading(false);
-    });
+    api
+      .load()
+      .then((data) => {
+        if (cancelled) return;
+        setFlags(data.flags);
+        setServices(data.services);
+        setAuditLog(data.auditLog);
+        setDemo(data.demo);
+      })
+      .catch((err: unknown) => !cancelled && setLoadError(failureReason(err)))
+      .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
     };
@@ -68,7 +78,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setAuditLog((prev) => [{ ...entry, id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, timestamp: new Date().toISOString() }, ...prev]);
     };
 
-    const toggleEnvironment: StoreValue["toggleEnvironment"] = (flagKey, environment) => {
+    /** The server's audit log is the record once a change went to the API, blocked attempts included. */
+    const refreshAuditLog = () =>
+      api
+        .listAuditLog()
+        .then(setAuditLog)
+        .catch(() => {});
+
+    const toggleEnvironment: StoreValue["toggleEnvironment"] = async (flagKey, environment) => {
       if (role === "viewer") return { ok: false, reason: "Viewers cannot change flag state." };
 
       const flag = flags.find((f) => f.key === flagKey);
@@ -76,6 +93,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       const currentlyEnabled = flag.environments[environment].enabled;
       const nextEnabled = !currentlyEnabled;
+
+      if (!demo) {
+        // The server applies the rules and records the change; show what it stored, or why it refused.
+        try {
+          const { flag: stored } = await api.setEnvironmentState(flagKey, environment, nextEnabled, CURRENT_USER_BY_ROLE[role]);
+          setFlags((prev) => prev.map((f) => (f.key === flagKey ? stored : f)));
+          return { ok: true };
+        } catch (err) {
+          return { ok: false, reason: failureReason(err) };
+        } finally {
+          void refreshAuditLog();
+        }
+      }
 
       {
         const check = nextEnabled ? canEnable(flag, environment, flags) : canDisable(flag, environment, flags);
@@ -117,8 +147,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         from: currentlyEnabled ? "on" : "off",
         to: nextEnabled ? "on" : "off",
       });
-
-      void api.setEnvironmentState(flagKey, environment, nextEnabled, CURRENT_USER_BY_ROLE[role]);
       return { ok: true };
     };
 
@@ -191,6 +219,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     return {
       loading,
+      demo,
+      loadError,
       flags,
       services,
       auditLog,
@@ -204,7 +234,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       registerAuditEntry,
       createFlag,
     };
-  }, [loading, flags, services, auditLog, role]);
+  }, [loading, demo, loadError, flags, services, auditLog, role]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

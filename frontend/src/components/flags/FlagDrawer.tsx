@@ -26,9 +26,13 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
 
   const history = auditLog.filter((e) => e.flagKey === flag.key).slice(0, 8);
 
-  function handleToggle(env: Environment) {
+  const [pendingEnv, setPendingEnv] = useState<Environment | null>(null);
+
+  async function handleToggle(env: Environment) {
     setBlockedNotice(null);
-    const result = toggleEnvironment(flag.key, env);
+    setPendingEnv(env);
+    const result = await toggleEnvironment(flag.key, env);
+    setPendingEnv(null);
     if (!result.ok && result.reason) {
       setBlockedNotice({ env, reason: result.reason });
     }
@@ -136,7 +140,12 @@ export function FlagDrawer({ flag, onClose }: { flag: Flag; onClose: () => void 
                         <span className="text-shell text-sm font-medium text-mist-100">{ENV_LABEL[e]}</span>
                         {locked && <IconLock width={12} height={12} className="text-signal-warn/70" />}
                       </div>
-                      <Toggle checked={state.enabled} disabled={!editable || locked} tone={locked ? "warn" : "on"} onClick={() => handleToggle(e)} />
+                      <Toggle
+                        checked={state.enabled}
+                        disabled={!editable || locked || pendingEnv !== null}
+                        tone={locked ? "warn" : "on"}
+                        onClick={() => void handleToggle(e)}
+                      />
                     </div>
                     <p className="text-shell mt-1.5 pl-[18px] text-[11px] text-mist-700">
                       last changed by {state.updatedBy} · {new Date(state.updatedAt).toLocaleDateString()}
