@@ -1,0 +1,138 @@
+name: Release
+
+# Every push to main that calls for a new version (feat, fix, perf or a breaking change since the last tag vX.Y.Z)
+# ends in a release, without any manual step (RELEASING.md). Same flow as dbqm45/evdt-service-shipscope:
+#   1. prepare: `node scripts/release.mjs --ci` computes the version from Conventional Commits, sets it in both
+#      package.json files and lockfiles and adds the CHANGELOG.md entry; the job commits that as
+#      "chore(release): X.Y.Z" to main. A version already set by hand (a "chore(release)" commit, or the first
+#      0.1.0) is released as is.
+#   2. verify: the whole CI workflow (ci.yml) on that exact commit. It runs on every push, released or not: it is the
+#      only test run on main.
+#   3. publish: the annotated git tag vX.Y.Z on that commit, only if verify passed, and a GitHub Release with its
+#      CHANGELOG.md entry.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Runs queue instead of overlapping, so two pushes never compute the same version.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+      new: ${{ steps.read.outputs.new }}
+      sha: ${{ steps.read.outputs.sha }}
+      skip: ${{ steps.bump.outputs.skip }}
+    steps:
+      # Full history and tags for the version; no token left in .git/config.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Bump the version from the commits since the last tag
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if ! git rev-parse -q --verify "refs/tags/v$version" > /dev/null; then
+            echo "package.json has $version without a tag (set by a chore(release) commit) — releasing it as is"
+            exit 0
+          fi
+          node scripts/release.mjs --ci
+          [ -z "$(git status --porcelain)" ] && exit 0
+          version=$(node -p "require('./package.json').version")
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -qam "chore(release): $version"
+          # A push with GITHUB_TOKEN starts no new workflow run, so this commit does not release itself again.
+          # If main moved on meanwhile, the push is rejected and the queued run for the newer commit releases both.
+          if ! git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/main"; then
+            echo "::warning::main moved on during the release; the next run on main releases these commits"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - id: read
+        run: |
+          version=$(node -p "require('./package.json').version")
+          node -e "process.exit(/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(process.argv[1]) ? 0 : 1)" "$version" \
+            || { echo "::error::package.json version '$version' is not X.Y.Z"; exit 1; }
+          frontend=$(node -p "require('./frontend/package.json').version")
+          [ "$frontend" = "$version" ] || { echo "::error::frontend/package.json has $frontend, package.json has $version"; exit 1; }
+          if git rev-parse -q --verify "refs/tags/v$version" > /dev/null; then new=false; else new=true; fi
+          # A new version needs its CHANGELOG.md entry (the release notes) before anything is tagged.
+          if [ "$new" = true ]; then node scripts/release-notes.mjs "$version" > /dev/null; fi
+          {
+            echo "version=$version"
+            echo "new=$new"
+            echo "sha=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
+          echo "Version $version, new release: $new, commit $(git rev-parse --short HEAD)"
+
+  # A version is only tagged on a commit whose CI passes. Also the test run of every push to main.
+  verify:
+    needs: prepare
+    if: needs.prepare.outputs.skip != 'true'
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.prepare.outputs.sha }}
+
+  # A released version is never moved or re-used (SemVer rule 3): the tag is created once, on the commit whose CI
+  # passed. Then the GitHub Release of that version, with its CHANGELOG.md entry as notes. A release that is missing
+  # (e.g. a run failed after tagging) is created by a manual run (Run workflow); an existing one is left as is.
+  publish:
+    needs: [prepare, verify]
+    if: needs.verify.result == 'success' && (needs.prepare.outputs.new == 'true' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Create tag v${{ needs.prepare.outputs.version }}
+        if: needs.prepare.outputs.new == 'true'
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          SHA: ${{ needs.prepare.outputs.sha }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -a "v$VERSION" -m "Release $VERSION" "$SHA"
+          git push origin "refs/tags/v$VERSION"
+      - name: Create GitHub Release v${{ needs.prepare.outputs.version }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            echo "Release v$VERSION already exists"
+            exit 0
+          fi
+          if ! git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" > /dev/null; then
+            echo "No tag v$VERSION — nothing to release"
+            exit 0
+          fi
+          node scripts/release-notes.mjs "$VERSION" > notes.md
+          # --verify-tag: never let gh create the tag itself; it must be the one made by the step above.
+          gh release create "v$VERSION" --verify-tag --title "v$VERSION" --notes-file notes.md

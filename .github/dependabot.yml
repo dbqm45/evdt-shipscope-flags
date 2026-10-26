@@ -1,0 +1,44 @@
+# Keeps the actions in .github/workflows/ and the npm dependencies of both packages up to date, once a month,
+# grouped into one PR per ecosystem and directory. The actions are pinned to a commit SHA with the version in a
+# comment: Dependabot reads that comment and bumps SHA and comment together.
+# Commit prefixes follow Conventional Commits (the CI checks PR titles, RELEASING.md): runtime dependency updates are
+# "fix(deps)" and so produce a patch release; dev tooling and actions ("build(deps-dev)", "ci(deps)") release nothing.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+      include: scope
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      backend:
+        patterns: ["*"]
+    commit-message:
+      prefix: fix
+      prefix-development: build
+      include: scope
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: monthly
+    groups:
+      frontend:
+        patterns: ["*"]
+    commit-message:
+      prefix: fix
+      prefix-development: build
+      include: scope
+    open-pull-requests-limit: 2
