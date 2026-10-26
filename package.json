@@ -39,32 +39,31 @@
     "hooks:install": "git config core.hooksPath .githooks"
   },
   "dependencies": {
-    "@nestjs/common": "^12.0.1",
-    "@nestjs/core": "^12.0.1",
-    "@nestjs/platform-express": "^12.0.1",
+    "@nestjs/common": "^12.2.0",
+    "@nestjs/core": "^12.2.0",
+    "@nestjs/platform-express": "^12.2.0",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
-    "@nestjs/cli": "^12.0.0",
+    "@nestjs/cli": "^12.0.10",
     "@nestjs/mau": "^0.2.6",
-    "@nestjs/schematics": "^12.0.0",
-    "@nestjs/testing": "^12.0.1",
+    "@nestjs/schematics": "^12.0.10",
+    "@nestjs/testing": "^12.2.0",
     "@types/express": "^5.0.0",
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.6.5",
     "@types/supertest": "^7.0.0",
-    "@vitest/coverage-v8": "^4.1.2",
-    "oxlint": "^1.58.0",
+    "@vitest/coverage-v8": "^5.0.5",
+    "oxlint": "^1.89.0",
     "oxlint-tsgolint": "^7.0.2001",
-    "prettier": "^3.4.2",
+    "prettier": "^3.9.10",
     "prisma": "^7.10.1",
     "source-map-support": "^0.5.21",
-    "supertest": "^7.0.0",
+    "supertest": "^7.3.1",
     "typescript": "^6.0.2",
-    "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^4.1.2"
+    "vitest": "^5.0.5"
   },
   "overrides": {
     "multer": "^2.5.0"
