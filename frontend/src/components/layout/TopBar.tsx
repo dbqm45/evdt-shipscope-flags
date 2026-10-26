@@ -1,4 +1,4 @@
-import { useStore } from "../../state/store";
+import { useStore } from "../../state/useStore";
 import { isStaleCandidate } from "../../lib/businessLogic";
 import { RoleSwitcher } from "../common/RoleSwitcher";
 import { ThemeToggle } from "../common/ThemeToggle";

@@ -1,19 +1,9 @@
 import { useState } from "react";
 import clsx from "clsx";
-import { useStore } from "../../state/store";
+import { useStore } from "../../state/useStore";
+import { parseTags } from "../../lib/tags";
 import { Modal } from "../common/Modal";
 import type { FlagType } from "../../types";
-
-export function parseTags(text: string): string[] {
-  return [
-    ...new Set(
-      text
-        .split(",")
-        .map((t) => t.trim().toLowerCase())
-        .filter(Boolean),
-    ),
-  ];
-}
 
 const INPUT =
   "text-shell mt-1.5 w-full rounded-xl border border-ink-500 bg-ink-900 px-3 py-2 text-sm text-mist-100 outline-none placeholder:text-mist-700 focus:border-accent/60 focus:ring-1 focus:ring-accent/30";

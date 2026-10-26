@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useStore } from "../../state/store";
+import { useStore } from "../../state/useStore";
 import { canRetire } from "../../lib/businessLogic";
 import { canEditFlags } from "../../lib/permissions";
 import type { Flag } from "../../types";

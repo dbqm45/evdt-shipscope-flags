@@ -1,5 +1,5 @@
 import { Outlet } from "react-router-dom";
-import { useStore } from "../../state/store";
+import { useStore } from "../../state/useStore";
 import { TopBar } from "./TopBar";
 
 function DataNotice() {

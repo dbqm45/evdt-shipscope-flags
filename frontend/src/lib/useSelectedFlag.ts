@@ -1,5 +1,5 @@
 import { useSearchParams } from "react-router-dom";
-import { useStore } from "../state/store";
+import { useStore } from "../state/useStore";
 
 export function useSelectedFlag() {
   const [params, setParams] = useSearchParams();

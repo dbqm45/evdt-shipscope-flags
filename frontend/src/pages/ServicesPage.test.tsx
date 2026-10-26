@@ -1,11 +1,11 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useStore } from "../state/store";
+import { useStore } from "../state/useStore";
 import { makeBinding, makeFlag, makeService } from "../test/factories";
 import type { Role } from "../types";
 import { ServicesPage } from "./ServicesPage";
 
-vi.mock("../state/store", () => ({ useStore: vi.fn() }));
+vi.mock("../state/useStore", () => ({ useStore: vi.fn() }));
 
 const rotateCredential = vi.fn();
 const registerService = vi.fn();

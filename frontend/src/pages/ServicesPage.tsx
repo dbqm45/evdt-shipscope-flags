@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useStore } from "../state/store";
+import { useStore } from "../state/useStore";
 import { Badge } from "../components/common/Badge";
 import type { Service } from "../types";
 

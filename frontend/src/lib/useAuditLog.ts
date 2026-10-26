@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, failureReason } from "../api/client";
-import { useStore } from "../state/store";
+import { useStore } from "../state/useStore";
 import type { AuditLogEntry, AuditLogQuery } from "../types";
 import { matchesAuditQuery } from "./auditFilter";
 

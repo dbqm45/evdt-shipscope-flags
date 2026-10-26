@@ -1,11 +1,11 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
-import { useStore } from "../state/store";
+import { useStore } from "../state/useStore";
 import type { AuditLogEntry } from "../types";
 import { AuditLogPage } from "./AuditLogPage";
 
-vi.mock("../state/store", () => ({ useStore: vi.fn() }));
+vi.mock("../state/useStore", () => ({ useStore: vi.fn() }));
 vi.mock("../api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api/client")>();
   return { ...actual, api: { listAuditLog: vi.fn() } };

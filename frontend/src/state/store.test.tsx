@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError, ApiUnavailableError } from "../api/client";
 import { makeBinding, makeFlag, makeService } from "../test/factories";
 import type { AuditLogEntry, Flag } from "../types";
-import { StoreProvider, useStore } from "./store";
+import { StoreProvider } from "./store";
+import { useStore } from "./useStore";
 
 vi.mock("../api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api/client")>();

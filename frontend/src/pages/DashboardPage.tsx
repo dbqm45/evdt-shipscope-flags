@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import clsx from "clsx";
-import { useStore } from "../state/store";
+import { useStore } from "../state/useStore";
 import { canEditFlags } from "../lib/permissions";
 import { FlagTable } from "../components/flags/FlagTable";
 import { FlagDrawer } from "../components/flags/FlagDrawer";

@@ -4,7 +4,7 @@ import { ENVIRONMENTS, type Environment, type Flag } from "../../types";
 import { BuildTimeBadge, DriftBadge, LifecycleBadge, ReviewBadge, StaleBadge, TypeBadge } from "./FlagBadges";
 import { IconChevronRight } from "../icons";
 import { buildTimeIssues, driftRisks, isReviewOverdue, isStaleCandidate } from "../../lib/businessLogic";
-import { useStore } from "../../state/store";
+import { useStore } from "../../state/useStore";
 
 function relativeTime(iso: string): string {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24));

@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
-import { useStore } from "../../state/store";
+import { useStore } from "../../state/useStore";
 import { attentionItems, canEnable, daysFullyOn, isStaleCandidate, migrationProgress } from "../../lib/businessLogic";
 import { canEditFlags } from "../../lib/permissions";
 import { useAuditLog } from "../../lib/useAuditLog";
@@ -9,7 +9,7 @@ import { ENV_LABEL } from "../../lib/labels";
 import { StatusDot } from "../common/StatusDot";
 import { Toggle } from "../common/Toggle";
 import { LifecycleBadge, ReviewBadge, TypeBadge } from "./FlagBadges";
-import { parseTags } from "./CreateFlagModal";
+import { parseTags } from "../../lib/tags";
 import { BindingCard } from "./BindingCard";
 import { RetireFlagPanel } from "./RetireFlagPanel";
 import { IconAlertTriangle, IconLock, IconX } from "../icons";

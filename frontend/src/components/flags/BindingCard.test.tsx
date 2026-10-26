@@ -1,10 +1,10 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useStore } from "../../state/store";
+import { useStore } from "../../state/useStore";
 import { makeBinding, makeFlag, makeService } from "../../test/factories";
 import { BindingCard } from "./BindingCard";
 
-vi.mock("../../state/store", () => ({ useStore: vi.fn() }));
+vi.mock("../../state/useStore", () => ({ useStore: vi.fn() }));
 
 afterEach(cleanup);
 

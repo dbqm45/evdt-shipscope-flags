@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { ENVIRONMENTS, type Environment, type Flag, type FlagServiceBinding, type ReadMode } from "../../types";
 import { driftRisks } from "../../lib/businessLogic";
 import { serviceLabel } from "../../lib/labels";
-import { useStore } from "../../state/store";
+import { useStore } from "../../state/useStore";
 import { Badge } from "../common/Badge";
 import { IconAlertTriangle } from "../icons";
 

@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useStore } from "../../state/store";
+import { useStore } from "../../state/useStore";
 import { ROLE_LABEL } from "../../lib/permissions";
 import type { Role } from "../../types";
 
