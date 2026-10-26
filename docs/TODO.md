@@ -125,6 +125,6 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 - [ ] `README.md` i `README.pl.md` są oba po polsku i już się różnią (inne przykłady, sekcja o owner/tags/review tylko w `.pl.md`). Zostawić jedno źródło prawdy albo zrobić z `README.md` wersję angielską.
 - [ ] README (§8–9) opisuje uruchomienie tylko frontendu i twierdzi, że zmiany „nie są zapisywane trwale”. Nie wspomina backendu (`npm run start:dev` w katalogu głównym, proxy `/api` w Vite), pliku `data/state.json`, endpointu SDK ani zmiennych środowiskowych. Do zaktualizowania.
 - [ ] Opisać kontrakt Consumer API dla zespołów serwisów: format odpowiedzi, uwierzytelnianie, zalecany interwał odpytywania ≤ 60 s (FR-013), zachowanie przy błędzie (cache).
-- [ ] Brak `CLAUDE.md` / `AGENTS.md` z instrukcjami dla agentów: komendy build/test/lint, zasada „nie edytuj `src/flags/shared/*` ręcznie, uruchom `npm run sync:shared`”, struktura monorepo.
+- [x] _(zrobione: `CLAUDE.md`)_ Brak `CLAUDE.md` / `AGENTS.md` z instrukcjami dla agentów: komendy build/test/lint, zasada „nie edytuj `src/flags/shared/*` ręcznie, uruchom `npm run sync:shared`”, struktura monorepo.
 - [ ] `context/foundation/` zawiera dwa warianty PRD (`prd.md` i `shape-notes.md` z innym nazewnictwem: Okta, Slack, „poll”). Oznaczyć, który jest aktualny, i wpisać stan implementacji względem FR (np. tabela FR → status).
 - [ ] `tech-stack.md` deklaruje PostgreSQL + Prisma + Passport/OIDC, a kod tego nie używa. Zaktualizować dokument albo dodać ADR opisujący, że plik JSON to rozwiązanie tymczasowe.
