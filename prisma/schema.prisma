@@ -135,3 +135,26 @@ model RuleSettings {
   id                 Int @id @default(1)
   staleThresholdDays Int
 }
+
+enum UserRole {
+  viewer
+  editor
+  admin
+}
+
+/// A dashboard user signed in through OIDC (src/auth). The browser holds a random token in an HttpOnly cookie; only
+/// its SHA-256 is stored, as the id. The role is taken from the identity provider at sign-in.
+model Session {
+  id        String   @id
+  /// Who the audit log names: preferred_username, else email, else the subject.
+  username  String
+  name      String
+  email     String?
+  role      UserRole
+  /// The ID token, sent back to the identity provider on sign-out (id_token_hint).
+  idToken   String?
+  createdAt DateTime @db.Timestamptz(3)
+  expiresAt DateTime @db.Timestamptz(3)
+
+  @@index([expiresAt])
+}

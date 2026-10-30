@@ -1,7 +1,6 @@
 import { BadRequestException } from "@nestjs/common";
 import {
   encodeAuditCursor,
-  parseActor,
   parseAuditQuery,
   parseBindingPatch,
   parseCreateFlag,
@@ -60,8 +59,10 @@ describe("parseCreateFlag", () => {
 
 describe("parseFlagPatch and parseBindingPatch", () => {
   it("maps empty values to null (clear) and rejects an empty or unknown patch", () => {
-    expect(parseFlagPatch({ owner: "", reviewBy: null, actor: "m.chen" })).toEqual({ owner: null, reviewBy: null });
-    expect(reason(() => parseFlagPatch({ actor: "m.chen" }))).toMatch(/Nothing to change/);
+    expect(parseFlagPatch({ owner: "", reviewBy: null })).toEqual({ owner: null, reviewBy: null });
+    expect(reason(() => parseFlagPatch({}))).toMatch(/Nothing to change/);
+    // The author of a change comes from the session, never from the body.
+    expect(reason(() => parseFlagPatch({ owner: "x", actor: "m.chen" }))).toBe("Unknown field: actor.");
     expect(reason(() => parseFlagPatch({ key: "renamed" }))).toBe("Unknown field: key.");
   });
 
@@ -73,12 +74,6 @@ describe("parseFlagPatch and parseBindingPatch", () => {
     expect(reason(() => parseBindingPatch({ readMode: "sometimes" }))).toMatch(/"readMode" must be one of/);
     expect(reason(() => parseBindingPatch({ buildTimeValues: { staging: true } }))).toBe("Unknown field: staging.");
     expect(reason(() => parseBindingPatch({ buildTimeValues: { qa: "yes" } }))).toMatch(/true or false/);
-  });
-
-  it("takes the actor from the body, defaulting to api", () => {
-    expect(parseActor({ actor: "m.chen" })).toBe("m.chen");
-    expect(parseActor({})).toBe("api");
-    expect(parseActor(undefined)).toBe("api");
   });
 });
 
@@ -93,7 +88,7 @@ describe("parseNotificationSettings", () => {
 
 describe("service registration and credential rotation", () => {
   it("takes a service key and an optional name, which defaults to the key", () => {
-    expect(parseRegisterService({ key: " billing-api ", actor: "a.kowalska" })).toEqual({ key: "billing-api", name: "billing-api" });
+    expect(parseRegisterService({ key: " billing-api " })).toEqual({ key: "billing-api", name: "billing-api" });
     expect(parseRegisterService({ key: "billing-api", name: "Billing API" })).toEqual({ key: "billing-api", name: "Billing API" });
     expect(reason(() => parseRegisterService({ key: "billing api" }))).toMatch(/^Service key is required/);
     expect(reason(() => parseRegisterService({ key: "x", token: "mine" }))).toBe("Unknown field: token.");
@@ -102,7 +97,7 @@ describe("service registration and credential rotation", () => {
   it("revokes the previous credential only when asked to", () => {
     expect(parseRotateCredential({})).toEqual({ revokePrevious: false });
     expect(parseRotateCredential(undefined)).toEqual({ revokePrevious: false });
-    expect(parseRotateCredential({ revokePrevious: true, actor: "a.kowalska" })).toEqual({ revokePrevious: true });
+    expect(parseRotateCredential({ revokePrevious: true })).toEqual({ revokePrevious: true });
     expect(reason(() => parseRotateCredential({ revokePrevious: "yes" }))).toMatch(/true or false/);
   });
 });
@@ -139,7 +134,7 @@ describe("parseFlagPatch: notify", () => {
 
 describe("parseRuleSettings", () => {
   it("takes a stale threshold of 1 to 365 whole days", () => {
-    expect(parseRuleSettings({ staleThresholdDays: 45, actor: "a.kowalska" })).toEqual({ staleThresholdDays: 45 });
+    expect(parseRuleSettings({ staleThresholdDays: 45 })).toEqual({ staleThresholdDays: 45 });
     for (const bad of [0, 366, 1.5, "30", undefined]) expect(reason(() => parseRuleSettings({ staleThresholdDays: bad }))).toMatch(/1 to 365/);
     expect(reason(() => parseRuleSettings({ staleThresholdDays: 30, retention: 1 }))).toBe("Unknown field: retention.");
   });

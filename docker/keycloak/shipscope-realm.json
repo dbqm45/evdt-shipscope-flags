@@ -1,0 +1,82 @@
+{
+  "realm": "shipscope",
+  "displayName": "ShipScope Flags (local test)",
+  "enabled": true,
+  "sslRequired": "none",
+  "loginWithEmailAllowed": true,
+  "roles": {
+    "realm": [
+      { "name": "shipscope-admin", "description": "ShipScope Flags: Admin" },
+      { "name": "shipscope-editor", "description": "ShipScope Flags: Editor" },
+      { "name": "shipscope-viewer", "description": "ShipScope Flags: Viewer" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "shipscope-flags",
+      "name": "ShipScope Flags",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "shipscope-dev-secret",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:8080/api/auth/callback", "http://localhost:5173/api/auth/callback"],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:8080/##http://localhost:5173/"
+      },
+      "protocolMappers": [
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "multivalued": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "a.kowalska",
+      "email": "a.kowalska@example.com",
+      "emailVerified": true,
+      "firstName": "Anna",
+      "lastName": "Kowalska",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "shipscope", "temporary": false }],
+      "realmRoles": ["shipscope-admin"]
+    },
+    {
+      "username": "m.chen",
+      "email": "m.chen@example.com",
+      "emailVerified": true,
+      "firstName": "Mei",
+      "lastName": "Chen",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "shipscope", "temporary": false }],
+      "realmRoles": ["shipscope-editor"]
+    },
+    {
+      "username": "j.novak",
+      "email": "j.novak@example.com",
+      "emailVerified": true,
+      "firstName": "Jan",
+      "lastName": "Novak",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "shipscope", "temporary": false }],
+      "realmRoles": ["shipscope-viewer"]
+    }
+  ]
+}

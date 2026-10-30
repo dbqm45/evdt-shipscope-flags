@@ -89,7 +89,7 @@ describe("store with the API", () => {
 
     expect(await toggle(result, "backend", "qa")).toEqual({ ok: true });
 
-    expect(api.setEnvironmentState).toHaveBeenCalledWith("backend", "qa", true, "m.chen");
+    expect(api.setEnvironmentState).toHaveBeenCalledWith("backend", "qa", true);
     expect(result.current.flags.find((f) => f.key === "backend")).toEqual(stored);
     await waitFor(() => expect(result.current.auditLog).toEqual(serverAudit));
   });
@@ -153,7 +153,7 @@ describe("store: flag management with the API", () => {
     });
 
     expect(outcome).toEqual({ ok: true });
-    expect(api.createFlag).toHaveBeenCalledWith({ key: "new-search", description: "d", type: "release", serviceIds: ["svc-web"] }, "m.chen");
+    expect(api.createFlag).toHaveBeenCalledWith({ key: "new-search", description: "d", type: "release", serviceIds: ["svc-web"] });
     expect(result.current.flags[0]).toEqual(created);
     await waitFor(() => expect(result.current.auditLog).toEqual(serverAudit));
   });
@@ -183,7 +183,20 @@ describe("store: flag management with the API", () => {
     });
 
     expect(result.current.flags).toEqual([edited]);
-    expect(api.updateFlag).toHaveBeenCalledWith("backend", { owner: "a.kowalska" }, "m.chen");
+    expect(api.updateFlag).toHaveBeenCalledWith("backend", { owner: "a.kowalska" });
+  });
+});
+
+describe("store: the signed-in user", () => {
+  it("takes the role from the user, which cannot be switched, and names them as the author", async () => {
+    const user = { username: "j.novak", name: "Jan Novak", role: "viewer" as const };
+    const hook = renderHook(() => useStore(), { wrapper: ({ children }: { children: ReactNode }) => <StoreProvider user={user}>{children}</StoreProvider> });
+    await waitFor(() => expect(hook.result.current.loading).toBe(false));
+
+    act(() => hook.result.current.setRole("admin"));
+    expect(hook.result.current).toMatchObject({ role: "viewer", user, currentUser: "j.novak" });
+    expect(await toggle(hook.result, "backend", "qa")).toMatchObject({ ok: false });
+    expect(api.setEnvironmentState).not.toHaveBeenCalled();
   });
 });
 
@@ -247,7 +260,7 @@ describe("store: services and credentials", () => {
     });
 
     expect(outcome).toEqual({ ok: true, token: "ssf_secret" });
-    expect(api.registerService).toHaveBeenCalledWith("billing-api", "", "a.kowalska");
+    expect(api.registerService).toHaveBeenCalledWith("billing-api", "");
     expect(result.current.services.map((s) => s.key)).toEqual(["orders-api", "shop-web", "billing-api"]);
     await waitFor(() => expect(result.current.auditLog).toEqual(serverAudit));
   });
@@ -264,7 +277,7 @@ describe("store: services and credentials", () => {
     });
 
     expect(outcome).toEqual({ ok: true, token: "ssf_new" });
-    expect(api.rotateCredential).toHaveBeenCalledWith("svc-api", false, "a.kowalska");
+    expect(api.rotateCredential).toHaveBeenCalledWith("svc-api", false);
     expect(result.current.services[0]).toEqual(rotated);
   });
 
@@ -299,7 +312,7 @@ describe("store: rule settings", () => {
     });
 
     expect(outcome).toEqual({ ok: true });
-    expect(api.saveRuleSettings).toHaveBeenCalledWith({ staleThresholdDays: 14 }, "a.kowalska");
+    expect(api.saveRuleSettings).toHaveBeenCalledWith({ staleThresholdDays: 14 });
     expect(result.current.staleThresholdDays).toBe(14);
   });
 });

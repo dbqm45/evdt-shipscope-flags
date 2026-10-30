@@ -14,6 +14,15 @@ export type ReadMode = "build-time" | "runtime" | "both";
 
 export type Role = "viewer" | "editor" | "admin";
 
+/** The signed-in dashboard user (GET /api/me); the role comes from the identity provider. */
+export interface SignedInUser {
+  /** The name the audit log records for this user's changes. */
+  username: string;
+  name: string;
+  email?: string;
+  role: Role;
+}
+
 export interface EnvironmentState {
   enabled: boolean;
   updatedAt: string;

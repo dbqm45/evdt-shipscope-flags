@@ -1,4 +1,5 @@
 import { Controller, ForbiddenException, Get, Headers, Query } from "@nestjs/common";
+import { Public } from "../auth/auth.guard.js";
 import { SdkRoute } from "../rate-limit.js";
 import { parseEnvironment } from "./flags.input.js";
 import { FlagsService } from "./flags.service.js";
@@ -17,6 +18,7 @@ export class SdkController {
    */
   @Get(["v1/sdk/flags", "sdk/flags"])
   @SdkRoute()
+  @Public()
   async flagsFor(@Query("env") env: string | undefined, @Query("service") service: string | undefined, @Headers("authorization") auth: string | undefined) {
     const caller = await identifySdkCaller(auth, (tokenHash) => this.flags.serviceByToken(tokenHash));
     const environment = parseEnvironment(env);

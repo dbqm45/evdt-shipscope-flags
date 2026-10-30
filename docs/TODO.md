@@ -18,7 +18,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 | Audyt zależności | ⚠️ `npm audit` nie dał wyniku w tym środowisku (brak dostępu do rejestru). Log bootstrapu odnotował 2 HIGH (`tmp`, `undici`) — oba przechodnie, w narzędziach Nest CLI |
 | CI/CD | ✅ GitHub Actions: `.github/workflows/ci.yml` (format, sync, lint, typecheck, testy, build, audyt) |
 | Persystencja | ✅ PostgreSQL + Prisma 7 (migracje w `prisma/migrations/`, testy na prawdziwej bazie) |
-| Uwierzytelnianie i autoryzacja | ❌ tylko symulacja w UI; API nie ma żadnej kontroli dostępu |
+| Uwierzytelnianie i autoryzacja | ✅ logowanie OIDC (dowolny dostawca, Keycloak do testów), sesje po stronie serwera, role sprawdzane przez API; ❌ brak dostępu awaryjnego (break-glass) |
 
 ---
 
@@ -26,9 +26,9 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 
 - [x] **`frontend/src/data/mock.ts` nie jest w repozytorium.** _(Naprawione: reguła zmieniona na `/data/`, plik odtworzony z `src/flags/shared/seed.ts`; oba buildy przechodzą.)_ Reguła `data/` w głównym `.gitignore` (przeznaczona dla `data/state.json`) ignoruje też `frontend/src/data/`. Na świeżym klonie nie budują się ani frontend (3 importy z `../data/mock`), ani backend (`prebuild` uruchamia `scripts/sync-shared.mjs`, który czyta ten plik).
   - Fix: zmienić regułę na `/data/` (zakotwiczoną w katalogu głównym), dodać `frontend/src/data/mock.ts` do repozytorium i sprawdzić build od zera (`git clone` → `npm ci` → `npm run build` w obu pakietach).
-- [ ] **Management API nie ma uwierzytelniania ani autoryzacji.** `PATCH /api/flags/:key/environments/:env`, `PUT /api/settings/notifications` i `POST /api/settings/notifications/test` może wywołać każdy, kto ma dostęp sieciowy. Role Viewer/Editor/Admin istnieją tylko w przełączniku w UI (`RoleSwitcher`).
+- [x] _(zrobione: logowanie OIDC — kod z PKCE prowadzony przez API, sesja w tabeli `Session` i ciasteczku HttpOnly; globalny `AuthGuard` z `@RequireRole()`, nagłówek `X-Requested-With` przeciw CSRF; `src/auth/`. Użyto `openid-client` zamiast Passport — mniej warstw dla jednego przepływu)_ **Management API nie ma uwierzytelniania ani autoryzacji.** `PATCH /api/flags/:key/environments/:env`, `PUT /api/settings/notifications` i `POST /api/settings/notifications/test` może wywołać każdy, kto ma dostęp sieciowy. Role Viewer/Editor/Admin istnieją tylko w przełączniku w UI (`RoleSwitcher`).
   - Fix: guard NestJS (Passport + OIDC zgodnie z `tech-stack.md`) oraz `RolesGuard` z dekoratorem `@Roles()` na każdym endpoincie zmieniającym stan.
-- [ ] **Autor zmiany w audit logu pochodzi z body żądania.** `actor` w `PATCH .../environments/:env` przysyła klient (`body.actor ?? 'api'`), więc audit log (FR-014) można dowolnie sfałszować.
+- [x] _(zrobione: autor zawsze z sesji (`@Actor()`); pole `actor` w treści żądania jest odrzucane jako nieznane)_ **Autor zmiany w audit logu pochodzi z body żądania.** `actor` w `PATCH .../environments/:env` przysyła klient (`body.actor ?? 'api'`), więc audit log (FR-014) można dowolnie sfałszować.
   - Fix: brać tożsamość z uwierzytelnionej sesji lub tokenu, a pole z body ignorować.
 - [x] _(zrobione: tylko https, bez adresów prywatnych/lokalnych, sprawdzane przy zapisie i przed każdą wysyłką, bez przekierowań; `NOTIFY_WEBHOOK_HOSTS`. Ograniczenie do roli Admin czeka na uwierzytelnianie)_ **SSRF przez webhook powiadomień.** `PUT /settings/notifications` przyjmuje dowolny URL `http(s)://`, a `POST /settings/notifications/test` wysyła na niego żądanie z serwera. W połączeniu z brakiem auth pozwala to odpytywać sieć wewnętrzną (np. metadata endpoint chmury).
   - Fix: ograniczyć dostęp do roli Admin, walidować hosta (allowlista, np. `hooks.slack.com`, albo blokada adresów prywatnych i link-local) i nie zwracać treści odpowiedzi.
@@ -60,12 +60,13 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 
 ### Brakujące funkcje MVP z PRD
 
-- [ ] FR-001/002: SSO (OIDC) + break-glass (sekret w vaulcie, audyt użycia).
+- [ ] **Dostęp awaryjny (FR-002, break-glass).** Gdy dostawca tożsamości jest niedostępny, nikt nie zaloguje się do dashboardu (serwisy dalej czytają flagi). Propozycja: jedno konto Admina z hasłem w sejfie haseł (np. skrót hasła w zmiennej środowiskowej), osobna ścieżka logowania, każde użycie w dzienniku zmian i powiadomieniu. Czeka na decyzję, gdzie trzymać sekret.
+- [ ] _(częściowo: FR-001 zrobione — logowanie OIDC z rolą z dostawcy tożsamości, Keycloak w docker compose do testów. Brakuje FR-002, dostępu awaryjnego)_ FR-001/002: SSO (OIDC) + break-glass (sekret w vaulcie, audyt użycia).
 - [x] _(zrobione: zakładka „Services”, `POST /services`, `POST /services/:id/credential`)_ FR-003/005: rejestracja serwisów, wydawanie poświadczeń, rotacja z oknem przejściowym (24 h). W UI i API nie ma zarządzania serwisami.
 - [x] _(zrobione: kontrakt w `docs/sdk-api.md` i referencyjny klient dla Node.js w `sdk/client.ts` — pamięć podręczna w pamięci i na dysku, wartości domyślne z kodu, limit czasu, `Retry-After`. Klientów dla innych języków brak; to, czy pilotowe serwisy go użyją, zostaje do sprawdzenia — PRD, Open Question #2)_ FR-012: klient lub SDK z lokalnym cache i fallbackiem przy niedostępności API (gwarancja „nigdy single point of failure”). Na razie istnieje tylko endpoint; trzeba przynajmniej udokumentować kontrakt i dostarczyć referencyjnego klienta.
 - [x] _(zrobione: `GET /api/v1/sdk/flags`, kontrakt w `docs/sdk-api.md` i specyfikacja OpenAPI 3.1 w `docs/sdk-api.openapi.json`, pisana ręcznie zamiast `@nestjs/swagger` i sprawdzana z prawdziwymi odpowiedziami w `test/sdk-openapi.e2e-spec.ts`)_ FR-011: zamrozić i udokumentować kontrakt `GET /api/sdk/flags` (wersjonowanie, np. `/api/v1/sdk/flags`; OpenAPI przez `@nestjs/swagger`). PRD wskazuje go jako najważniejsze wymaganie do zablokowania.
 - [x] _(zrobione: `GET /audit-log` zwraca strony po 50 wpisów — kursor `before`, filtry — a retencja to 2 lata: `AUDIT_RETENTION_DAYS`, domyślnie 730, 0 = bez limitu; API raz na dobę usuwa starsze wpisy i zapisuje `audit-log-pruned`)_ FR-014: polityka retencji audit logu (Open Question #1). Teraz `GET /audit-log` zwraca całą historię bez paginacji.
-- [ ] _(częściowo: rejestracja serwisów i poświadczenia tylko dla Admina — na razie w UI, bo API nie ma uwierzytelniania)_ Rola Admin nie różni się od Editor (README §7). Po dodaniu zarządzania serwisami i ustawień przypisać je do roli Admin.
+- [x] _(zrobione: API wymaga roli Admin do rejestracji serwisów, wymiany poświadczeń, progu „stale” i powiadomień pojedynczej flagi; Editor zmienia flagi i ustawienia powiadomień)_ Rola Admin nie różni się od Editor (README §7). Po dodaniu zarządzania serwisami i ustawień przypisać je do roli Admin.
 
 ### Backend — persystencja i odporność
 
@@ -100,7 +101,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 - [x] _(zrobione: `FlagsController`, `ServicesController`, `AuditLogController`, `SettingsController`, `SdkController`)_ `FlagsController` łączy Management API i Consumer (SDK) API. Rozdzielić na `FlagsController`, `SettingsController` i `SdkController` (różne guardy i różni konsumenci).
 - [ ] `store.tsx`: cała logika w jednym `useMemo` (~200 linii) z mieszaniem stanu i wywołań API. Po przeniesieniu operacji na serwer rozważyć TanStack Query (cache, invalidacja, stany błędów).
 - [x] _(zrobione: baner trybu demo i błędu ładowania)_ Frontend nie pokazuje stanu błędu ani informacji o trybie demo. Po fallbacku do danych mock użytkownik nie wie, że pracuje na danych przykładowych; wystarczy baner „offline / demo data”.
-- [ ] Sesja nie przetrwa odświeżenia strony (`authenticated` w `useState`), a `currentUser` jest mapowany z roli (`CURRENT_USER_BY_ROLE`). Po wdrożeniu SSO pobierać użytkownika z `/api/me`.
+- [x] _(zrobione: dashboard pyta `GET /api/me`; sesja jest po stronie serwera i przetrwa odświeżenie. Użytkownicy demo według roli zostali tylko dla trybu demonstracyjnego)_ Sesja nie przetrwa odświeżenia strony (`authenticated` w `useState`), a `currentUser` jest mapowany z roli (`CURRENT_USER_BY_ROLE`). Po wdrożeniu SSO pobierać użytkownika z `/api/me`.
 
 ### Konfiguracja i higiena repozytorium
 

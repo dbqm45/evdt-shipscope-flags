@@ -15,6 +15,6 @@ export function testPrisma(): PrismaClient {
 
 export async function resetDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE "AuditLogEntry", "FlagServiceBinding", "FlagEnvironment", "Flag", "Service", "NotificationSettings", "RuleSettings" RESTART IDENTITY CASCADE',
+    'TRUNCATE "AuditLogEntry", "FlagServiceBinding", "FlagEnvironment", "Flag", "Service", "NotificationSettings", "RuleSettings", "Session" RESTART IDENTITY CASCADE',
   );
 }

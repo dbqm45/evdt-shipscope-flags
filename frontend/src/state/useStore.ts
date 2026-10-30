@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import type { BindingPatch, FlagDetailsPatch, NewFlag } from "../api/client";
-import type { AuditLogEntry, Environment, Flag, Role, Service } from "../types";
+import type { AuditLogEntry, Environment, Flag, Role, Service, SignedInUser } from "../types";
 
 // The store's shape and the hook to read it; StoreProvider (store.tsx) fills it.
 
@@ -24,8 +24,13 @@ export interface StoreValue {
   services: Service[];
   /** The latest audit entries (all of them in demo mode); refreshed after every change made through the API. */
   auditLog: AuditLogEntry[];
+  /** The signed-in user's role, or the role picked in demo mode. */
   role: Role;
+  /** Demo mode only: with a signed-in user the role comes from the identity provider. */
   setRole: (role: Role) => void;
+  /** The signed-in user; null in demo mode. */
+  user: SignedInUser | null;
+  /** Who the dashboard names as the author of a change (the signed-in user, or the demo user of the role). */
   currentUser: string;
   toggleEnvironment: (flagKey: string, environment: Environment) => Promise<ToggleResult>;
   updateBinding: (flagKey: string, serviceId: string, patch: BindingPatch) => Promise<ToggleResult>;

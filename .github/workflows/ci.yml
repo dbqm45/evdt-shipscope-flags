@@ -117,7 +117,7 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
       - run: docker compose build
-      # --wait returns once db, api and web report healthy (their healthchecks), or fails.
+      # --wait returns once db, api, web and keycloak report healthy (their healthchecks), or fails.
       - run: docker compose up -d --wait
       - name: Smoke test through nginx
         run: |
@@ -126,9 +126,18 @@ jobs:
           # The dashboard carries its security headers (docker/security-headers.conf).
           curl -fsSI http://localhost:8080/ | grep -qi "^content-security-policy: default-src 'self'"
           curl -fsS http://localhost:8080/api/health | jq -e '.status == "ok"' > /dev/null
-          curl -fsS http://localhost:8080/api/flags | jq -e 'length > 0' > /dev/null
+          # The management API needs a session.
+          [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/flags)" = 401 ]
+          # Sign in as the browser would, through the local Keycloak's login form (docker/keycloak/shipscope-realm.json).
+          jar=$(mktemp)
+          page=$(curl -fsSL -c "$jar" -b "$jar" http://localhost:8080/api/auth/login)
+          action=$(printf '%s' "$page" | grep -o 'id="kc-form-login"[^>]*action="[^"]*"' | sed 's/.*action="//; s/"$//; s/&amp;/\&/g')
+          curl -fsSL -c "$jar" -b "$jar" -o /dev/null -d username=a.kowalska -d password=shipscope "$action"
+          curl -fsS -b "$jar" http://localhost:8080/api/me | jq -e '.username == "a.kowalska" and .role == "admin"' > /dev/null
+          curl -fsS -b "$jar" http://localhost:8080/api/flags | jq -e 'length > 0' > /dev/null
           # A registered service reads its flags with its own credential; without one the consumer endpoint refuses.
-          token=$(curl -fsS -H "Content-Type: application/json" -d '{"key":"smoke-test"}' http://localhost:8080/api/services | jq -er .token)
+          token=$(curl -fsS -b "$jar" -H "X-Requested-With: shipscope" -H "Content-Type: application/json" -d '{"key":"smoke-test"}' \
+            http://localhost:8080/api/services | jq -er .token)
           curl -fsS -H "Authorization: Bearer $token" "http://localhost:8080/api/v1/sdk/flags?env=prod" | jq -e '.env == "prod" and .flags == {}' > /dev/null
           [ "$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8080/api/v1/sdk/flags?env=prod")" = 401 ]
       - name: Logs

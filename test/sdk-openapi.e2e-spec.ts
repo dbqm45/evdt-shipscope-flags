@@ -6,6 +6,7 @@ import type { App } from "supertest/types.js";
 import { AppModule } from "./../src/app.module.js";
 import { configureApp } from "./../src/app.setup.js";
 import type { PrismaClient } from "./../src/generated/prisma/client.js";
+import { as, signIn } from "./auth.js";
 import { resetDatabase, testPrisma } from "./db.js";
 
 // The consumer contract in docs/sdk-api.openapi.json, checked against what the API really answers. The checker below
@@ -80,14 +81,14 @@ describe("consumer API against its OpenAPI spec (e2e)", () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = configureApp(moduleRef.createNestApplication());
     await app.init();
-    const server = app.getHttpServer();
-    token = ((await request(server).post("/api/services").send({ key: "checkout" }).expect(201)).body as { token: string }).token;
-    await request(server).post("/api/services").send({ key: "billing" }).expect(201);
-    await request(server)
+    const admin = as(app, await signIn(prisma, "admin"));
+    token = ((await admin.post("/api/services").send({ key: "checkout" }).expect(201)).body as { token: string }).token;
+    await admin.post("/api/services").send({ key: "billing" }).expect(201);
+    await admin
       .post("/api/flags")
       .send({ key: "newCheckout", type: "release", serviceIds: ["svc-checkout"] })
       .expect(201);
-    await request(server).patch("/api/flags/newCheckout/environments/test").send({ enabled: true }).expect(200);
+    await admin.patch("/api/flags/newCheckout/environments/test").send({ enabled: true }).expect(200);
   });
 
   afterAll(async () => {

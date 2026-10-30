@@ -5,6 +5,7 @@ import type { App } from "supertest/types.js";
 import { AppModule } from "./../src/app.module.js";
 import { configureApp } from "./../src/app.setup.js";
 import type { PrismaClient } from "./../src/generated/prisma/client.js";
+import { signIn } from "./auth.js";
 import { resetDatabase, testPrisma } from "./db.js";
 
 describe("health, security headers and rate limits (e2e)", () => {
@@ -48,7 +49,8 @@ describe("health, security headers and rate limits (e2e)", () => {
   });
 
   it("limits the management API with its own limit", async () => {
-    const list = () => request(app.getHttpServer()).get("/api/flags").set("X-Forwarded-For", "198.51.100.7");
+    const cookie = await signIn(prisma, "viewer");
+    const list = () => request(app.getHttpServer()).get("/api/flags").set("Cookie", cookie).set("X-Forwarded-For", "198.51.100.7");
     for (let i = 0; i < 5; i++) await list().expect(200);
     await list().expect(429);
   });

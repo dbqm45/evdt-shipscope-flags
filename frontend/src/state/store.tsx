@@ -2,16 +2,18 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, failureReason, RECENT_AUDIT, type IssuedCredential } from "../api/client";
 import { canDisable, canEnable, canRetire, DEFAULT_STALE_THRESHOLD_DAYS } from "../lib/businessLogic";
 import { canEditFlags } from "../lib/permissions";
-import { ENVIRONMENTS, type AuditLogEntry, type Flag, type Role, type Service } from "../types";
+import { ENVIRONMENTS, type AuditLogEntry, type Flag, type Role, type Service, type SignedInUser } from "../types";
 import { StoreContext, type CredentialResult, type StoreValue, type ToggleResult } from "./useStore";
 
-const CURRENT_USER_BY_ROLE: Record<Role, string> = {
+/** Demo users, one per role: without the API (demo mode) there is no sign-in and the role is picked in the top bar. */
+const DEMO_USER_BY_ROLE: Record<Role, string> = {
   viewer: "j.novak",
   editor: "m.chen",
   admin: "a.kowalska",
 };
 
-export function StoreProvider({ children }: { children: ReactNode }) {
+/** `user` is the signed-in user; without one (demo mode) the role can be switched freely. */
+export function StoreProvider({ user = null, children }: { user?: SignedInUser | null; children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [demo, setDemo] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -19,7 +21,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [services, setServices] = useState<Service[]>([]);
   const [staleThresholdDays, setStaleThresholdDays] = useState(DEFAULT_STALE_THRESHOLD_DAYS);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
-  const [role, setRole] = useState<Role>("editor");
+  const [demoRole, setDemoRole] = useState<Role>("editor");
+  const role = user?.role ?? demoRole;
 
   useEffect(() => {
     let cancelled = false;
@@ -64,7 +67,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     };
     const replaceFlag = (stored: Flag) => setFlags((prev) => prev.map((f) => (f.key === stored.key ? stored : f)));
-    const actor = CURRENT_USER_BY_ROLE[role];
+    // Only for the changes demo mode records in the browser: the API takes the author from the session.
+    const actor = user?.username ?? DEMO_USER_BY_ROLE[role];
 
     const toggleEnvironment: StoreValue["toggleEnvironment"] = async (flagKey, environment) => {
       if (role === "viewer") return { ok: false, reason: "Viewers cannot change flag state." };
@@ -78,7 +82,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!demo) {
         // The server applies the rules and records the change; show what it stored, or why it refused.
         try {
-          const { flag: stored } = await api.setEnvironmentState(flagKey, environment, nextEnabled, CURRENT_USER_BY_ROLE[role]);
+          const { flag: stored } = await api.setEnvironmentState(flagKey, environment, nextEnabled);
           setFlags((prev) => prev.map((f) => (f.key === flagKey ? stored : f)));
           return { ok: true };
         } catch (err) {
@@ -92,7 +96,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const check = nextEnabled ? canEnable(flag, environment, flags) : canDisable(flag, environment, flags);
         if (!check.allowed) {
           registerAuditEntry({
-            actor: CURRENT_USER_BY_ROLE[role],
+            actor,
             action: "promotion-blocked",
             flagKey,
             environment,
@@ -113,7 +117,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   [environment]: {
                     enabled: nextEnabled,
                     updatedAt: new Date().toISOString(),
-                    updatedBy: CURRENT_USER_BY_ROLE[role],
+                    updatedBy: actor,
                   },
                 },
               },
@@ -121,7 +125,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       );
 
       registerAuditEntry({
-        actor: CURRENT_USER_BY_ROLE[role],
+        actor,
         action: nextEnabled ? "env-enabled" : "env-disabled",
         flagKey,
         environment,
@@ -133,14 +137,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const updateBinding: StoreValue["updateBinding"] = async (flagKey, serviceId, patch) => {
       if (!canEditFlags(role)) return { ok: false, reason: "Only Editors and Admins can change how a service reads a flag." };
-      if (!demo) return viaApi(() => api.updateBinding(flagKey, serviceId, patch, actor), replaceFlag);
+      if (!demo) return viaApi(() => api.updateBinding(flagKey, serviceId, patch), replaceFlag);
       const svc = services.find((s) => s.id === serviceId);
       const changed = Object.keys(patch).join(", ");
       setFlags((prev) =>
         prev.map((f) => (f.key !== flagKey ? f : { ...f, services: f.services.map((b) => (b.serviceId === serviceId ? { ...b, ...patch } : b)) })),
       );
       registerAuditEntry({
-        actor: CURRENT_USER_BY_ROLE[role],
+        actor,
         action: "binding-updated",
         flagKey,
         serviceKey: svc?.key,
@@ -153,7 +157,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!canEditFlags(role)) return { ok: false, reason: "Only Editors and Admins can retire flags." };
       if (!demo)
         return viaApi(
-          () => api.retireFlag(flagKey, actor),
+          () => api.retireFlag(flagKey),
           () => setFlags((prev) => prev.filter((f) => f.key !== flagKey)),
         );
       const flag = flags.find((f) => f.key === flagKey);
@@ -161,15 +165,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const check = canRetire(flag, flags, (id) => services.find((s) => s.id === id)?.key ?? id);
       if (!check.allowed) return { ok: false, reason: check.blockers[0] };
       setFlags((prev) => prev.filter((f) => f.key !== flagKey));
-      registerAuditEntry({ actor: CURRENT_USER_BY_ROLE[role], action: "flag-retired", flagKey });
+      registerAuditEntry({ actor, action: "flag-retired", flagKey });
       return { ok: true };
     };
 
     const updateFlagMeta: StoreValue["updateFlagMeta"] = async (flagKey, patch) => {
       if (!canEditFlags(role)) return { ok: false, reason: "Only Editors and Admins can edit flag details." };
-      if (!demo) return viaApi(() => api.updateFlag(flagKey, patch, actor), replaceFlag);
+      if (!demo) return viaApi(() => api.updateFlag(flagKey, patch), replaceFlag);
       setFlags((prev) => prev.map((f) => (f.key === flagKey ? { ...f, ...patch } : f)));
-      registerAuditEntry({ actor: CURRENT_USER_BY_ROLE[role], action: "flag-updated", flagKey, note: `updated ${Object.keys(patch).join(", ")}` });
+      registerAuditEntry({ actor, action: "flag-updated", flagKey, note: `updated ${Object.keys(patch).join(", ")}` });
       return { ok: true };
     };
 
@@ -179,7 +183,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!key.trim()) return { ok: false, reason: "Flag key is required." };
       if (!demo)
         return viaApi(
-          () => api.createFlag(input, actor),
+          () => api.createFlag(input),
           (created) => setFlags((prev) => [created, ...prev]),
         );
       if (flags.some((f) => f.key === key)) return { ok: false, reason: "A flag with this key already exists." };
@@ -191,22 +195,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         description,
         type,
         dependsOn: dependsOn || undefined,
-        owner: owner || CURRENT_USER_BY_ROLE[role],
+        owner: owner || actor,
         reviewBy: reviewBy || undefined,
         tags: tags?.length ? tags : undefined,
         createdAt: now,
-        createdBy: CURRENT_USER_BY_ROLE[role],
-        environments: Object.fromEntries(
-          ENVIRONMENTS.map((e) => [e, { enabled: false, updatedAt: now, updatedBy: CURRENT_USER_BY_ROLE[role] }]),
-        ) as Flag["environments"],
+        createdBy: actor,
+        environments: Object.fromEntries(ENVIRONMENTS.map((e) => [e, { enabled: false, updatedAt: now, updatedBy: actor }])) as Flag["environments"],
         services: serviceIds.map((serviceId) => ({ serviceId, readMode: "runtime" as const })),
       };
 
       setFlags((prev) => [newFlag, ...prev]);
-      registerAuditEntry({ actor: CURRENT_USER_BY_ROLE[role], action: "flag-created", flagKey: key });
+      registerAuditEntry({ actor, action: "flag-created", flagKey: key });
       serviceIds.forEach((serviceId) => {
         const svc = services.find((s) => s.id === serviceId);
-        if (svc) registerAuditEntry({ actor: CURRENT_USER_BY_ROLE[role], action: "service-assigned", flagKey: key, serviceKey: svc.key });
+        if (svc) registerAuditEntry({ actor, action: "service-assigned", flagKey: key, serviceKey: svc.key });
       });
       return { ok: true };
     };
@@ -226,17 +228,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
     const registerService: StoreValue["registerService"] = (key, name) => {
       if (!key.trim()) return Promise.resolve({ ok: false, reason: "Service key is required." });
-      return issueCredential(() => api.registerService(key.trim(), name.trim(), actor));
+      return issueCredential(() => api.registerService(key.trim(), name.trim()));
     };
     const rotateCredential: StoreValue["rotateCredential"] = (serviceId, revokePrevious) =>
-      issueCredential(() => api.rotateCredential(serviceId, revokePrevious, actor));
+      issueCredential(() => api.rotateCredential(serviceId, revokePrevious));
 
     const setStaleThreshold: StoreValue["setStaleThreshold"] = async (days) => {
       if (role !== "admin") return { ok: false, reason: "Only Admins can change the rules." };
       if (!Number.isInteger(days) || days < 1 || days > 365) return { ok: false, reason: "Enter a whole number of days from 1 to 365." };
       if (!demo)
         return viaApi(
-          () => api.saveRuleSettings({ staleThresholdDays: days }, actor),
+          () => api.saveRuleSettings({ staleThresholdDays: days }),
           (saved) => setStaleThresholdDays(saved.staleThresholdDays),
         );
       registerAuditEntry({ actor, action: "settings-updated", note: `stale threshold ${staleThresholdDays} → ${days} days` });
@@ -252,8 +254,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       services,
       auditLog,
       role,
-      setRole,
-      currentUser: CURRENT_USER_BY_ROLE[role],
+      setRole: (next) => {
+        if (!user) setDemoRole(next);
+      },
+      user,
+      currentUser: actor,
       toggleEnvironment,
       updateBinding,
       retireFlag,
@@ -265,7 +270,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       staleThresholdDays,
       setStaleThreshold,
     };
-  }, [loading, demo, loadError, flags, services, auditLog, role, staleThresholdDays]);
+  }, [loading, demo, loadError, flags, services, auditLog, role, user, staleThresholdDays]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

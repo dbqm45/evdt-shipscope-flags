@@ -1,11 +1,11 @@
 import { INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
-import request from "supertest";
 import type { App } from "supertest/types.js";
 import { FlagClient, type FlagClientError } from "../sdk/client.js";
 import { AppModule } from "./../src/app.module.js";
 import { configureApp } from "./../src/app.setup.js";
 import type { PrismaClient } from "./../src/generated/prisma/client.js";
+import { as, signIn } from "./auth.js";
 import { resetDatabase, testPrisma } from "./db.js";
 
 describe("reference SDK client against the API (e2e)", () => {
@@ -26,13 +26,13 @@ describe("reference SDK client against the API (e2e)", () => {
   });
 
   it("reads the service's flags with its credential and keeps serving them once the API is gone", async () => {
-    const server = app.getHttpServer();
-    const { token } = (await request(server).post("/api/services").send({ key: "checkout" }).expect(201)).body as { token: string };
-    await request(server)
+    const admin = as(app, await signIn(prisma, "admin"));
+    const { token } = (await admin.post("/api/services").send({ key: "checkout" }).expect(201)).body as { token: string };
+    await admin
       .post("/api/flags")
       .send({ key: "newCheckout", type: "release", serviceIds: ["svc-checkout"] })
       .expect(201);
-    await request(server).patch("/api/flags/newCheckout/environments/test").send({ enabled: true }).expect(200);
+    await admin.patch("/api/flags/newCheckout/environments/test").send({ enabled: true }).expect(200);
 
     const errors: FlagClientError[] = [];
     const flags = await FlagClient.start({
@@ -45,7 +45,7 @@ describe("reference SDK client against the API (e2e)", () => {
     flags.stop();
     expect(flags.state).toMatchObject({ source: "server", flags: { newCheckout: true } });
     expect(flags.isEnabled("fromCode")).toBe(true);
-    const services = (await request(server).get("/api/services").expect(200)).body as Array<{ key: string; checkIns: Record<string, string> }>;
+    const services = (await admin.get("/api/services").expect(200)).body as Array<{ key: string; checkIns: Record<string, string> }>;
     expect(services.find((s) => s.key === "checkout")!.checkIns).toHaveProperty("test");
 
     const stranger = await FlagClient.start({ baseUrl: await app.getUrl(), env: "test", credential: "ssf_wrong", onError: (e) => errors.push(e) });

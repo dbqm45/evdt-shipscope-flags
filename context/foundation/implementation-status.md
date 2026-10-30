@@ -8,8 +8,8 @@ moves it; `docs/TODO.md` holds the planned work in detail. Status: **done**, **p
 
 | FR | Requirement (short) | Status | Where / what is missing |
 | --- | --- | --- | --- |
-| FR-001 | Log in via SSO (organization's identity provider) | open | Login screen is a placeholder; waits for the choice of identity provider (OIDC per `tech-stack.md`). |
-| FR-002 | Break-glass login for an Admin | open | Waits for FR-001 and a decision on where the credential lives. |
+| FR-001 | Log in via SSO (organization's identity provider) | done | Any OIDC provider (`src/auth/`, `APP_URL`/`OIDC_*`): code flow with PKCE run by the API, server-side sessions, role from the provider's claims. Keycloak in docker compose for local tests; the organisation's provider is configured, not coded. |
+| FR-002 | Break-glass login for an Admin | open | Waits for a decision on where the credential lives (FR-001 is done). |
 | FR-003 | Admin registers a service and gets a credential; lists services | done | `POST /api/services`, Services tab. Admin-only in the UI only, until FR-001. |
 | FR-004 | — | — | Not used in `prd.md`. |
 | FR-005 | Admin revokes/rotates a service credential | done | `POST /api/services/:id/credential`: 24 h grace, or immediate revoke. |
@@ -17,7 +17,7 @@ moves it; `docs/TODO.md` holds the planned work in detail. Status: **done**, **p
 | FR-007 | Assign a flag to services | done | At creation (`POST /api/flags`); bindings editable per service. |
 | FR-008 | Set state per environment | done | `PATCH /api/flags/:key/environments/:env`, enforcing promotion order and dependencies on the server. |
 | FR-009 | Matrix view grouped by service | done | Flags tab → "By service": each service's flags, read mode and state per environment, with drift marks. |
-| FR-010 | Viewer sees but cannot change | partial | Enforced in the UI only; the API has no authentication yet (FR-001). |
+| FR-010 | Viewer sees but cannot change | done | Enforced by the API (`AuthGuard`, `@RequireRole()`) and mirrored in the UI. |
 | FR-011 | Service reads its assigned flags with its own credential | done | `GET /api/v1/sdk/flags`, contract in `docs/sdk-api.md`, OpenAPI 3.1 spec in `docs/sdk-api.openapi.json` (checked against real answers by `test/sdk-openapi.e2e-spec.ts`). |
 | FR-012 | Client caches last-known state, works when the service is down | done | Reference client `sdk/client.ts` (memory + disk cache, defaults). Whether the 5 pilot services adopt it is Open Question 2. |
 | FR-013 | Change reaches services within 60 s | done | Clients poll at most every 60 s (`docs/sdk-api.md`, `sdk/client.ts`); the dashboard flags a service that has not read a change. |

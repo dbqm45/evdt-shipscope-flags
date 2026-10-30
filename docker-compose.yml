@@ -1,5 +1,7 @@
-# Local stack: PostgreSQL, the migrations, the API and the dashboard.
+# Local stack: PostgreSQL, the migrations, the API, the dashboard and Keycloak as a test identity provider.
 #   docker compose up --build -d     → dashboard on http://localhost:8080 (the API is behind it under /api)
+#                                      sign in as a.kowalska (Admin), m.chen (Editor) or j.novak (Viewer), password "shipscope"
+#   docker compose up -d keycloak    # only the identity provider, for `npm run start:dev` (http://localhost:8180)
 #   docker compose up -d db          # only the database, for `npm run start:dev` and the backend tests
 #   docker compose down              # keeps the data volume; add -v to delete it
 # Values come from ./.env when it exists (see .env.example); the defaults below are for local use only.
@@ -58,6 +60,19 @@ services:
       # Requests reach the API through nginx (web) on the private compose network: trust its X-Forwarded-For, so
       # rate limits count each client, not nginx.
       TRUST_PROXY: ${TRUST_PROXY:-uniquelocal}
+      # Sign-in through the local Keycloak below. The browser reaches it at localhost:8180, the API at keycloak:8080;
+      # Keycloak names localhost:8180 as the issuer either way (KC_HOSTNAME). Replace all of these for a real provider.
+      APP_URL: http://localhost:${WEB_PORT:-8080}
+      OIDC_ISSUER: ${OIDC_ISSUER:-http://localhost:${KEYCLOAK_PORT:-8180}/realms/shipscope}
+      OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-http://keycloak:8080/realms/shipscope/.well-known/openid-configuration}
+      OIDC_ALLOW_HTTP: ${OIDC_ALLOW_HTTP:-true}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-shipscope-flags}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-shipscope-dev-secret}
+      OIDC_ROLES_CLAIM: ${OIDC_ROLES_CLAIM:-}
+      OIDC_ADMIN_ROLES: ${OIDC_ADMIN_ROLES:-}
+      OIDC_EDITOR_ROLES: ${OIDC_EDITOR_ROLES:-}
+      OIDC_VIEWER_ROLES: ${OIDC_VIEWER_ROLES:-}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -72,6 +87,36 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    restart: unless-stopped
+
+  # Test identity provider (development mode, data kept in the container only): realm "shipscope" from
+  # docker/keycloak/shipscope-realm.json with the client and three users, one per role. Never expose it as is.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-8180}
+      # The API reaches Keycloak at keycloak:8080: token and key endpoints then name that address, the issuer stays.
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HEALTH_ENABLED: "true"
+      # Admin console at http://localhost:8180/admin (realm "master").
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./docker/keycloak:/opt/keycloak/data/import:ro
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-8180}:8080"
+    healthcheck:
+      # The image has no curl: ask the management port for readiness over bash's /dev/tcp.
+      test:
+        [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q UP <&3",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
     restart: unless-stopped
 
 volumes:

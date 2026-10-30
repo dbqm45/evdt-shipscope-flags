@@ -136,13 +136,15 @@ Lista flag jest domyślnie ułożona według tego, co wymaga uwagi („Needs att
 
 ## 7. Role użytkowników
 
-W prawym górnym rogu widoczny jest przełącznik roli. Do czasu wdrożenia logowania (punkt 9) służy on do pokazania, jak aplikacja wygląda dla poszczególnych osób; uprawnienia ról sprawdza na razie tylko interfejs.
+Do aplikacji loguje się kontem firmowym przez dostawcę tożsamości (logowanie jednokrotne, SSO, w standardzie OpenID Connect, np. Keycloak, Entra ID, Okta czy Google). Rolę nadaje dostawca tożsamości: serwer odczytuje ją przy logowaniu z listy ról lub grup użytkownika (domyślnie `shipscope-admin` oznacza Admina, `shipscope-editor` Editora, a każdy inny zalogowany użytkownik jest Viewerem). Uprawnienia sprawdza serwer, więc nie da się ich obejść wywołaniem API, a autorem zmiany w dzienniku jest zawsze zalogowana osoba. W prawym górnym rogu widać imię i nazwisko zalogowanej osoby oraz jej rolę.
+
+W trybie demonstracyjnym (bez serwera) logowania nie ma, a rolę wybiera się przełącznikiem w prawym górnym rogu, żeby zobaczyć, jak aplikacja wygląda dla poszczególnych osób.
 
 | Rola | Uprawnienia |
 | --- | --- |
 | Viewer | Wyłącznie podgląd flag i ich stanu. Nie może niczego zmieniać. |
-| Editor | Może tworzyć flagi, zmieniać ich stan, zmieniać sposób odczytu przez serwisy i usuwać flagi. |
-| Admin | Uprawnienia jak Editor. Dodatkowo rejestruje serwisy i wydaje lub wymienia ich poświadczenia (zakładka „Services”). |
+| Editor | Może tworzyć flagi, zmieniać ich stan i szczegóły, zmieniać sposób odczytu przez serwisy, usuwać flagi i zmieniać ustawienia powiadomień. |
+| Admin | Uprawnienia jak Editor. Dodatkowo rejestruje serwisy i wydaje lub wymienia ich poświadczenia (zakładka „Services”), zmienia próg „candidate for removal” i włącza powiadomienia dla pojedynczej flagi. |
 
 ## 8. Uruchomienie aplikacji
 
@@ -160,7 +162,7 @@ npm run dev -w frontend
 ```bash
 # terminal 1 – baza danych i serwer, w katalogu głównym projektu (wymaga Dockera)
 cp .env.example .env      # tylko przy pierwszym uruchomieniu
-docker compose up -d db   # PostgreSQL
+docker compose up -d db keycloak   # PostgreSQL i testowy dostawca logowania (Keycloak)
 npm install               # tylko przy pierwszym uruchomieniu
 npm run db:deploy         # tworzy tabele (migracje)
 npm run build && npm run db:seed   # opcjonalnie: dane przykładowe, tylko do pustej bazy
@@ -170,14 +172,14 @@ npm run start:dev         # nasłuchuje na porcie 3000
 npm run dev -w frontend   # zapytania /api są automatycznie kierowane do serwera
 ```
 
-**Całość w Dockerze (baza, migracje z danymi przykładowymi, serwer i interfejs):**
+**Całość w Dockerze (baza, migracje z danymi przykładowymi, serwer, interfejs i Keycloak):**
 
 ```bash
 docker compose up --build -d   # interfejs pod http://localhost:8080
 docker compose down            # zatrzymanie; z opcją -v usuwa też bazę
 ```
 
-Bez Dockera, po uruchomieniu w terminalu pojawi się adres interfejsu, zwykle `http://localhost:5173`. Po jego otwarciu należy wybrać przycisk „Open the dashboard”. Logowania jeszcze nie ma, więc ekran niczego nie sprawdza i mówi o tym wprost (punkt 9).
+Bez Dockera, po uruchomieniu w terminalu pojawi się adres interfejsu, zwykle `http://localhost:5173`. Po jego otwarciu należy wybrać „Sign in with SSO”. Lokalny Keycloak ma trzech użytkowników testowych, po jednym na rolę, wszystkich z hasłem `shipscope`: `a.kowalska` (Admin), `m.chen` (Editor) i `j.novak` (Viewer). Konsola administracyjna Keycloaka jest pod `http://localhost:8180/admin` (użytkownik `admin`, hasło `admin`). Ten Keycloak służy wyłącznie do testów; przy wdrożeniu zmienne `OIDC_*` i `APP_URL` wskazują firmowego dostawcę tożsamości (opis w `.env.example`). Gdy serwer nie działa, ekran logowania proponuje tryb demonstracyjny („Open the demo”).
 
 Wersję produkcyjną interfejsu buduje się poleceniem `npm run build` w katalogu `frontend`, a serwer poleceniem `npm run build` w katalogu głównym.
 
@@ -201,13 +203,12 @@ Adres `GET /api/health` pozwala sprawdzić, czy serwer działa i ma połączenie
 ## 9. Ograniczenia obecnej wersji
 
 - Bez uruchomionego serwera aplikacja korzysta z **danych przykładowych** (plik `packages/shared/src/seed.ts`), a zmiany znikają po odświeżeniu strony. Z serwerem zapisywane są wszystkie zmiany: stan flag na środowiskach, tworzenie, edycja szczegółów i sposobu odczytu, usuwanie flag, ustawienia powiadomień i dziennik zmian. Gdy serwer odrzuci zmianę (np. z powodu zasad z punktu 5), aplikacja pokazuje powód i nie zmienia stanu.
-- Serwer nie ma jeszcze uwierzytelniania użytkowników (uwierzytelniane są tylko serwisy odczytujące flagi); nie należy wystawiać go poza zaufaną sieć.
 - Typy, zasady z punktu 5 i dane przykładowe są we wspólnym pakiecie `packages/shared`, z którego korzystają i interfejs, i serwer. Interfejs czyta jego źródła wprost; serwer korzysta z wersji skompilowanej, którą `npm install` i polecenia `npm run build`/`npm test` budują same. Przy pracy nad serwerem z `npm run start:dev` zmiany w pakiecie kompiluje na bieżąco `npm run dev -w @shipscope/shared`.
-- Role (Viewer, Editor, Admin) wybiera się przełącznikiem w interfejsie, a autora zmiany w dzienniku podaje interfejs. Serwer nie sprawdza jeszcze, kto wywołuje API zarządzania.
 - Poświadczeń serwisów nie da się wydać w trybie demonstracyjnym, bo wydaje je serwer.
 - **Usunięcie flagi** („Retire flag”) usuwa ją z ShipScope Flags, także z odpowiedzi `GET /api/v1/sdk/flags`. Usunięcie odwołań w kodzie serwisów pozostaje po stronie zespołu.
 - **Wartości z kodu** (build-time) są wprowadzane ręcznie, ponieważ aplikacja nie ma wglądu w kod serwisów. Wymagają one aktualizacji przy zmianach w kodzie.
-- Logowania jednokrotnego (SSO) i dostępu awaryjnego (break-glass) jeszcze nie ma: ekran startowy niczego nie sprawdza i informuje o tym. Każdy, kto otworzy aplikację, może jej używać i wybrać dowolną rolę.
+- Nie ma jeszcze **dostępu awaryjnego** (break-glass): gdy dostawca tożsamości jest niedostępny, nikt nie zaloguje się do aplikacji. Serwisy nadal odczytują flagi, bo korzystają z własnych poświadczeń.
+- Rola jest odczytywana przy logowaniu. Zmiana roli u dostawcy tożsamości zaczyna działać po ponownym zalogowaniu, najpóźniej po wygaśnięciu sesji (domyślnie 12 godzin, zmienna `SESSION_TTL_HOURS`).
 
 ## 10. Słowniczek
 

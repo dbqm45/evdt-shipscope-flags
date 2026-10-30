@@ -18,7 +18,10 @@ scope: `@context/foundation/prd.md`; known gaps: `@docs/TODO.md`. Full depth liv
   needs `TRUST_PROXY`. `GET /api/health` is exempt.
 - Secrets only through environment variables; the repo holds only `.env.example` and `frontend/.env.example`. `.env`
   files and `data/` are gitignored.
-- The management API has no authentication yet (`@docs/TODO.md`, P0): do not build features that assume it does.
+- The management API needs a signed-in user (OIDC sign-in in `src/auth/`, global `AuthGuard`): new routes are
+  protected by default; mark a route `@Public()` only when it authenticates its callers itself. A change needs
+  `@RequireRole()` (default Admin) and the header `X-Requested-With: shipscope`; its author comes from the session
+  (`@Actor()`), never from the body.
 - `GET /api/v1/sdk/flags` needs a service credential (or the deprecated shared `SDK_TOKEN`), 401 otherwise. Service
   credentials are shown once; only their SHA-256 digests are stored and they never appear in responses. Webhook URLs
   go through `checkWebhookUrl` (`src/flags/webhook.ts`) before every request and are only ever returned masked.
@@ -27,8 +30,9 @@ scope: `@context/foundation/prd.md`; known gaps: `@docs/TODO.md`. Full depth liv
 
 - One `npm ci` in the root installs every workspace. API: `npm run start:dev` (port 3000). Dashboard:
   `npm run dev -w frontend` (proxies `/api`).
-- Docker: `docker compose up --build -d` runs PostgreSQL, the migrations (with demo data), the API and the dashboard
-  (`http://localhost:8080`); `docker compose up -d db` starts only the database.
+- Docker: `docker compose up --build -d` runs PostgreSQL, the migrations (with demo data), the API, the dashboard
+  (`http://localhost:8080`) and Keycloak as a test sign-in provider (users `a.kowalska`/`m.chen`/`j.novak`, password
+  `shipscope`); `docker compose up -d db keycloak` starts only those two, for `npm run start:dev`.
 - Database: schema in `prisma/schema.prisma`; every change ships with a migration (`npm run db:migrate -- --name …`).
   Backend tests need `TEST_DATABASE_URL` (see `.env.example`) and truncate that database.
 - Before committing: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:e2e`,

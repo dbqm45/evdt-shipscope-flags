@@ -98,15 +98,9 @@ export function parseEnvironmentChange(input: unknown): boolean {
   return enabled;
 }
 
-/** Who made the change. Taken from the body until the API has authentication (docs/TODO.md, P0). */
-export function parseActor(body: unknown): string {
-  const actor = body && typeof body === "object" ? (body as Record<string, unknown>).actor : undefined;
-  return actor === undefined ? "api" : text(actor, "actor", 100) || "api";
-}
-
 export function parseCreateFlag(input: unknown): CreateFlagInput {
   const body = object(input);
-  onlyFields(body, ["key", "description", "type", "serviceIds", "dependsOn", "owner", "reviewBy", "tags", "actor"]);
+  onlyFields(body, ["key", "description", "type", "serviceIds", "dependsOn", "owner", "reviewBy", "tags"]);
   const key = typeof body.key === "string" ? body.key.trim() : "";
   if (!FLAG_KEY.test(key)) throw bad("Flag key is required: 1–100 letters, digits, dots, dashes or underscores.");
   const type = body.type;
@@ -127,7 +121,7 @@ export function parseCreateFlag(input: unknown): CreateFlagInput {
 
 export function parseFlagPatch(input: unknown): FlagPatch {
   const body = object(input);
-  onlyFields(body, ["description", "owner", "reviewBy", "tags", "notify", "actor"]);
+  onlyFields(body, ["description", "owner", "reviewBy", "tags", "notify"]);
   const patch: FlagPatch = {};
   if (body.description !== undefined) patch.description = text(body.description, "description");
   if (body.owner !== undefined) patch.owner = body.owner === null ? null : text(body.owner, "owner") || null;
@@ -143,7 +137,7 @@ export function parseFlagPatch(input: unknown): FlagPatch {
 
 export function parseBindingPatch(input: unknown): BindingPatch {
   const body = object(input);
-  onlyFields(body, ["readMode", "buildTimeValues", "removedFromCode", "actor"]);
+  onlyFields(body, ["readMode", "buildTimeValues", "removedFromCode"]);
   const patch: BindingPatch = {};
   if (body.readMode !== undefined) {
     if (!READ_MODES.includes(body.readMode as ReadMode)) throw bad(`"readMode" must be one of: ${READ_MODES.join(", ")}.`);
@@ -165,7 +159,7 @@ export function parseBindingPatch(input: unknown): BindingPatch {
 
 export function parseRegisterService(input: unknown): RegisterServiceInput {
   const body = object(input);
-  onlyFields(body, ["key", "name", "actor"]);
+  onlyFields(body, ["key", "name"]);
   const key = typeof body.key === "string" ? body.key.trim() : "";
   if (!FLAG_KEY.test(key)) throw bad("Service key is required: 1–100 letters, digits, dots, dashes or underscores.");
   return { key, name: (body.name === undefined ? "" : text(body.name, "name", 100)) || key };
@@ -174,7 +168,7 @@ export function parseRegisterService(input: unknown): RegisterServiceInput {
 /** `revokePrevious`: end the replaced credential at once instead of after the grace period. */
 export function parseRotateCredential(input: unknown): { revokePrevious: boolean } {
   const body = input === undefined ? {} : object(input);
-  onlyFields(body, ["revokePrevious", "actor"]);
+  onlyFields(body, ["revokePrevious"]);
   if (body.revokePrevious !== undefined && typeof body.revokePrevious !== "boolean") throw bad('"revokePrevious" must be true or false.');
   return { revokePrevious: body.revokePrevious === true };
 }
@@ -182,7 +176,7 @@ export function parseRotateCredential(input: unknown): { revokePrevious: boolean
 /** Body of PUT /settings/rules. */
 export function parseRuleSettings(input: unknown): RuleSettings {
   const body = object(input);
-  onlyFields(body, ["staleThresholdDays", "actor"]);
+  onlyFields(body, ["staleThresholdDays"]);
   const days = body.staleThresholdDays;
   if (typeof days !== "number" || !Number.isInteger(days) || days < 1 || days > 365)
     throw bad('"staleThresholdDays" must be a whole number of days from 1 to 365.');

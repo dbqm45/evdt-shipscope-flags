@@ -30,13 +30,15 @@ TypeScript + NestJS + PostgreSQL (via Prisma) + Passport.js with an OIDC strateg
 
 `bootstrapper_confidence: best-effort` — this recommendation was reasoned directly rather than looked up in a bundled starter registry (the registry file was not available in this environment), so it has not been verified end-to-end the way a registry-backed pick normally would be. Treat the first setup steps with a bit more scrutiny than a `verified` pick would need.
 
-## Status (version 0.6)
+## Status (version 0.7)
 
 - **In place:** TypeScript, NestJS, PostgreSQL through Prisma (with migrations checked in CI), Docker images and
-  compose, GitHub Actions with automatic releases.
-- **Not yet:** Passport.js with OIDC (FR-001/002); the management API has no authentication. Services already
-  authenticate with their own credentials (FR-003/005/011).
-- **Differs from the plan:** the stale and attention rules run when the dashboard renders (shared code in
+  compose, GitHub Actions with automatic releases, OIDC sign-in for users (FR-001) with server-side sessions and roles
+  enforced by the API; services authenticate with their own credentials (FR-003/005/011).
+- **Not yet:** break-glass access (FR-002).
+- **Differs from the plan:** sign-in uses `openid-client` in a small Nest module (`src/auth/`) instead of Passport.js:
+  one flow (authorization code with PKCE) needs no strategy layer. Any OIDC provider works; Keycloak runs in docker
+  compose for local tests. The stale and attention rules run when the dashboard renders (shared code in
   `packages/shared/src/rules.ts`), not as background jobs; nothing needs scheduling so far. Deployment is still
   manual: every push to `main` releases a version, but no environment deploys it automatically.
 

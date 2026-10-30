@@ -6,7 +6,7 @@ the history is in git and `CHANGELOG.md`. Related documents:
 - `README.md` (Polish) — what the app does for users: flags, environments, rules, roles.
 - `context/foundation/prd.md` — product requirements (FR-001…FR-017), and `implementation-status.md` — where each
   stands (keep it in step when a change moves one); `context/foundation/tech-stack.md` — the intended stack
-  (NestJS + PostgreSQL/Prisma + OIDC; OIDC is not built yet).
+  (NestJS + PostgreSQL/Prisma + OIDC).
 - `docs/TODO.md` (Polish) — known gaps and planned fixes, by priority. Check it before "fixing" something that looks
   wrong: it may be a known, deliberately deferred gap.
 - `RELEASING.md` (Polish) — versions, Conventional Commits, the release workflow.
@@ -21,10 +21,13 @@ Three npm workspaces, one version and one `package-lock.json` (`npm ci` in the r
 
 - **API** — NestJS 12 in `src/` (root `package.json`), served under `/api`. State lives in PostgreSQL
   through Prisma 7 (`prisma/schema.prisma`, `DATABASE_URL`); demo data is loaded only on request (`npm run db:seed`).
-  There is **no authentication** on the management API yet (see `docs/TODO.md`, P0).
+  Users sign in through any OpenID Connect provider (`src/auth/`, settings `APP_URL` and `OIDC_*`): the API runs the
+  code flow with PKCE and keeps a server-side session (`Session` table, HttpOnly cookie `ssf_session`); the role
+  (viewer/editor/admin) comes from the provider's claims at sign-in. Break-glass access is not built yet.
 - **Dashboard** — React 19 + Vite 8 + Tailwind 4 in `frontend/` (own `package.json`). `frontend/src/api/client.ts`
   calls the API; only when the API cannot be reached (network error, timeout, 502/503/504) does the dashboard switch to
-  the demo data from `@shipscope/shared/seed` (demo mode, with a banner). An error answer (409 from the rules, 400,
+  the demo data from `@shipscope/shared/seed` (demo mode, with a banner, no sign-in, role picked in the top bar). It
+  asks `GET /api/me` who is signed in and shows the sign-in page on a 401. An error answer (409 from the rules, 400,
   500) is shown to the user, never treated as success. With the API every change (toggles, create, details, service
   bindings, retire, settings) waits for the server and shows what it stored; in demo mode changes stay in the browser.
 - **Shared package** — `@shipscope/shared` in `packages/shared/`: the domain types (`types`), the business rules
@@ -34,6 +37,9 @@ Three npm workspaces, one version and one `package-lock.json` (`npm ci` in the r
 
 ## Run it locally
 
+- Sign-in: `docker compose up -d keycloak` (test provider on `http://localhost:8180`, realm from
+  `docker/keycloak/shipscope-realm.json`; users `a.kowalska`/`m.chen`/`j.novak` = admin/editor/viewer, password
+  `shipscope`); `.env.example` points the API at it.
 - Database: `docker compose up -d db` (PostgreSQL on `127.0.0.1:5432`, plus the test database), then
   `npm run db:deploy` (migrations) and, after `npm run build`, `npm run db:seed` (demo data into an empty database).
 - Install: `npm ci` in the repository root, once for all workspaces (never in `frontend/`).
@@ -53,6 +59,7 @@ Three npm workspaces, one version and one `package-lock.json` (`npm ci` in the r
 | Path                                                | What                                                                                         |
 | --------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `src/main.ts`, `src/app.module.ts`, `src/app.setup.ts` | Nest bootstrap; global prefix `api`, `helmet`, `trust proxy` (`TRUST_PROXY`); `app.setup.ts` is shared with the e2e tests |
+| `src/auth/`                                         | sign-in: `auth-config.ts` (settings, roles from claims), `oidc.ts` (openid-client), `sessions.ts` (sessions, cookies), `auth.guard.ts` (global guard, `@Public()`, `@RequireRole()`, `@Actor()`), `auth.controller.ts` (`/auth/login`, `/auth/callback`, `/auth/logout`, `/me`) |
 | `src/health/health.controller.ts`                   | `GET /api/health`: 200 when the database answers, else 503 (Docker healthcheck)              |
 | `src/rate-limit.ts`                                 | rate limits per client address and route (`@nestjs/throttler`, `RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_SDK_PER_MINUTE`); `@SdkRoute()` marks the consumer route |
 | `src/flags/*.controller.ts`                        | routes: `flags` (create/update/retire, `/:key/environments/:env`, `/:key/services/:id`), `services` (register, `/:id/credential`), `audit-log` (pages with a `before` cursor and filters), `settings` (`/settings/notifications`, `/settings/rules`), `sdk` (the consumer route `GET /v1/sdk/flags`, also at `/sdk/flags`) |
@@ -87,6 +94,10 @@ Three npm workspaces, one version and one `package-lock.json` (`npm ci` in the r
   `{ env, flags: { key: bool } }` is what services integrate against (PRD FR-011), documented in `docs/sdk-api.md`
   and `docs/sdk-api.openapi.json` (an e2e test checks real answers against it). Keep both in step; a breaking change needs a new version path and a
   `!` commit (see Commits).
+- **Every route needs a signed-in user** (`AuthGuard`, global) unless it is `@Public()`: only health, the consumer
+  route and the sign-in routes are. Reading needs any role; a change needs `@RequireRole()` (default Admin) and the
+  header `X-Requested-With: shipscope` (CSRF). The author of a change comes from the session (`@Actor()`), never from
+  the request body. Keep the dashboard's role checks (`lib/permissions.ts`, the store) in step with the server's.
 - **Service credentials are shown once and never stored**: only `hashToken(...)` digests go to the database, and
   `toService` exposes neither. A rotation keeps the previous credential for `CREDENTIAL_GRACE_MS` (24 h).
 - **Every schema change ships with its migration**: edit `prisma/schema.prisma`, run
@@ -128,6 +139,8 @@ first, which also type-checks the tests). `npm run format` fixes formatting; `.e
   `node:test` + `node:assert/strict`.
 - Database tests use only `TEST_DATABASE_URL` (never `DATABASE_URL`: they truncate every table). `test/global-setup.ts`
   applies the migrations to it; `test/db.ts` gives `testPrisma()` and `resetDatabase()`. Test files run one at a time.
+  E2e tests sign in with `signIn(prisma, role)` and call the API through `as(app, cookie)` (`test/auth.ts`);
+  `test/auth.e2e-spec.ts` runs the real sign-in against a fake provider in the test process.
 - Frontend tests use Vitest (jsdom, React Testing Library) with explicit imports from `vitest`, next to the code as
   `*.test.ts(x)` — never `*.spec.ts`, which the backend's Vitest collects across the whole repo. Build data with
   `frontend/src/test/factories.ts` and pin the clock (`vi.setSystemTime`) for date rules; mock `../api/client` in

@@ -1,5 +1,6 @@
 import { Controller, Get, ServiceUnavailableException } from "@nestjs/common";
 import { SkipThrottle } from "@nestjs/throttler";
+import { Public } from "../auth/auth.guard.js";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 const DB_TIMEOUT_MS = 2000;
@@ -7,6 +8,7 @@ const DB_TIMEOUT_MS = 2000;
 /** GET /api/health: 200 when the API can reach its database, else 503. Used by the Docker healthcheck; not rate limited. */
 @Controller("health")
 @SkipThrottle()
+@Public()
 export class HealthController {
   constructor(private readonly prisma: PrismaService) {}
 
