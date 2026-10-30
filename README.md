@@ -192,7 +192,7 @@ Authorization: Bearer <poświadczenie serwisu>
 
 Odpowiedź ma postać: `{ "env": "prod", "flags": { "allowEvseNameEdit": true, "b2cCustomersEnabled": false } }` i zawiera tylko flagi przypisane do serwisu, który wysłał zapytanie. Każdy serwis ma własne poświadczenie. Admin rejestruje serwis i wydaje lub wymienia jego poświadczenie w zakładce „Services”; poświadczenie jest pokazywane tylko raz. Po wymianie stare poświadczenie działa jeszcze przez 24 godziny, a „Revoke & reissue” unieważnia je od razu (np. po wycieku). Każde zapytanie serwisu jest zapisywane jako jego „check-in”, widoczny w tej samej zakładce.
 
-Pełny opis kontraktu, kodów błędów i zalecanego zachowania klienta (pamięć podręczna, praca przy niedostępnym serwerze) jest w pliku `docs/sdk-api.md`. Serwisy w Node.js mogą użyć gotowego klienta z katalogu `sdk/` (opis w `sdk/README.md`). Wspólny token `SDK_TOKEN` z wersji 0.3 nadal działa, ale jest przestarzały.
+Pełny opis kontraktu, kodów błędów i zalecanego zachowania klienta (pamięć podręczna, praca przy niedostępnym serwerze) jest w pliku `docs/sdk-api.md`, a jego specyfikacja OpenAPI 3.1 w `docs/sdk-api.openapi.json`. Serwisy w Node.js mogą użyć gotowego klienta z katalogu `sdk/` (opis w `sdk/README.md`). Wspólny token `SDK_TOKEN` z wersji 0.3 nadal działa, ale jest przestarzały.
 
 Serwer przechowuje dane w bazie PostgreSQL wskazanej zmienną `DATABASE_URL`. Dane z pliku `data/state.json` używanego przez wersje przed 0.2.0 można przenieść do pustej bazy poleceniem `npm run db:import -- data/state.json`. Zasady opisane w punkcie 5 są egzekwowane także po stronie serwera, więc nie da się ich ominąć wywołaniem API. Domyślny adres webhooka powiadomień można podać zmienną `NOTIFY_WEBHOOK_URL`.
 

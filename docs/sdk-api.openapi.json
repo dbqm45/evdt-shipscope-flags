@@ -1,0 +1,115 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ShipScope Flags — consumer API",
+    "version": "1",
+    "description": "How a service reads its flags. Contract v1: fields and their meaning never change incompatibly without a new version path (/api/v2/…); new fields may be added, so clients ignore fields they do not know. The prose version, with the recommended client behaviour, is docs/sdk-api.md; a reference client for Node.js is sdk/client.ts.",
+    "license": { "name": "Proprietary" }
+  },
+  "servers": [{ "url": "/api", "description": "The ShipScope Flags server, e.g. https://flags.example.com/api" }],
+  "security": [{ "serviceCredential": [] }],
+  "paths": {
+    "/v1/sdk/flags": {
+      "get": {
+        "operationId": "getFlags",
+        "summary": "The calling service's flags in one environment",
+        "description": "Returns only the flags assigned to the service that owns the credential, with their state in `env`. A flag missing from the answer is not (or no longer) assigned to the service: the service uses the default from its code. Every successful read is recorded as the service's check-in for `env` (at most once per 30 s). Poll at most every 60 s and keep the last good answer for when the server cannot be reached. `GET /api/sdk/flags` is the same endpoint at its pre-versioning address.",
+        "parameters": [
+          {
+            "name": "env",
+            "in": "query",
+            "required": true,
+            "description": "The environment this deployment of the service runs in.",
+            "schema": { "$ref": "#/components/schemas/Environment" }
+          },
+          {
+            "name": "service",
+            "in": "query",
+            "required": false,
+            "description": "Optional. When given, it must be the key of the service that owns the credential (else 403). With the deprecated shared SDK_TOKEN it selects the service whose flags are returned (else all flags).",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The service's flags in the environment.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/FlagsResponse" },
+                "example": { "env": "prod", "flags": { "allowEvseNameEdit": true, "b2cCustomersEnabled": false } }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "default": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "serviceCredential": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "The service's own credential (ssf_…), issued once in the dashboard (Services) or by POST /api/services. After a rotation the previous credential keeps working for 24 hours. The deprecated shared SDK_TOKEN is also accepted while the server sets it."
+      }
+    },
+    "schemas": {
+      "Environment": { "type": "string", "enum": ["test", "qa", "prod"] },
+      "FlagsResponse": {
+        "type": "object",
+        "required": ["env", "flags"],
+        "properties": {
+          "env": { "$ref": "#/components/schemas/Environment" },
+          "flags": {
+            "type": "object",
+            "description": "Flag key → whether the flag is on in `env`.",
+            "additionalProperties": { "type": "boolean" }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["statusCode", "message"],
+        "properties": {
+          "statusCode": { "type": "integer" },
+          "message": { "type": "string", "description": "A readable reason, for logs and people." },
+          "error": { "type": "string", "description": "The HTTP status text, when present." }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "`env` is missing or not a known environment. A configuration error of the service: fix it, do not retry.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "Unauthorized": {
+        "description": "No Authorization header, or an unknown, revoked or expired credential. Keep serving the last known state and alert: the credential needs replacing.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "Forbidden": {
+        "description": "`service` names a service other than the credential's owner. A configuration error: drop `service` or correct it.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "NotFound": {
+        "description": "Only with the deprecated shared SDK_TOKEN: `service` is not a registered service.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "TooManyRequests": {
+        "description": "Too many requests from one client address (600 a minute by default). Keep serving the last known state and retry after Retry-After seconds.",
+        "headers": {
+          "Retry-After": { "description": "Seconds to wait before the next request.", "schema": { "type": "integer", "minimum": 0 } }
+        },
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "ServerError": {
+        "description": "The flag server failed (5xx). Like no answer or a timeout: keep serving the last known state and retry at the next poll.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      }
+    }
+  }
+}

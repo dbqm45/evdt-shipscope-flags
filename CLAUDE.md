@@ -84,8 +84,9 @@ Three npm workspaces, one version and one `package-lock.json` (`npm ci` in the r
   subpath imports of packages without an `exports` map (`supertest/types.js`). The frontend uses bundler resolution
   and imports without extensions.
 - **Do not change the consumer contract casually.** `GET /api/v1/sdk/flags?env=…` with a service credential →
-  `{ env, flags: { key: bool } }` is what services integrate against (PRD FR-011), documented in `docs/sdk-api.md`.
-  Keep that file in step; a breaking change needs a new version path and a `!` commit (see Commits).
+  `{ env, flags: { key: bool } }` is what services integrate against (PRD FR-011), documented in `docs/sdk-api.md`
+  and `docs/sdk-api.openapi.json` (an e2e test checks real answers against it). Keep both in step; a breaking change needs a new version path and a
+  `!` commit (see Commits).
 - **Service credentials are shown once and never stored**: only `hashToken(...)` digests go to the database, and
   `toService` exposes neither. A rotation keeps the previous credential for `CREDENTIAL_GRACE_MS` (24 h).
 - **Every schema change ships with its migration**: edit `prisma/schema.prisma`, run

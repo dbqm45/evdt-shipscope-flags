@@ -18,7 +18,7 @@ moves it; `docs/TODO.md` holds the planned work in detail. Status: **done**, **p
 | FR-008 | Set state per environment | done | `PATCH /api/flags/:key/environments/:env`, enforcing promotion order and dependencies on the server. |
 | FR-009 | Matrix view grouped by service | done | Flags tab → "By service": each service's flags, read mode and state per environment, with drift marks. |
 | FR-010 | Viewer sees but cannot change | partial | Enforced in the UI only; the API has no authentication yet (FR-001). |
-| FR-011 | Service reads its assigned flags with its own credential | done | `GET /api/v1/sdk/flags`, contract in `docs/sdk-api.md`. |
+| FR-011 | Service reads its assigned flags with its own credential | done | `GET /api/v1/sdk/flags`, contract in `docs/sdk-api.md`, OpenAPI 3.1 spec in `docs/sdk-api.openapi.json` (checked against real answers by `test/sdk-openapi.e2e-spec.ts`). |
 | FR-012 | Client caches last-known state, works when the service is down | done | Reference client `sdk/client.ts` (memory + disk cache, defaults). Whether the 5 pilot services adopt it is Open Question 2. |
 | FR-013 | Change reaches services within 60 s | done | Clients poll at most every 60 s (`docs/sdk-api.md`, `sdk/client.ts`); the dashboard flags a service that has not read a change. |
 | FR-014 | Every state change in an audit log | partial | Logged on the server, paged and filtered, kept two years (`AUDIT_RETENTION_DAYS`); the actor still comes from the request until FR-001. |

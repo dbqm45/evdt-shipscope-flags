@@ -9,7 +9,7 @@ scope: `@context/foundation/prd.md`; known gaps: `@docs/TODO.md`. Full depth liv
 - Business rules, domain types and demo data live only in the workspace package `@shipscope/shared`
   (`packages/shared/src/`); the dashboard (from its sources) and the API (from its `dist`) both use it.
 - Backend imports are ESM (`nodenext`): relative imports end in `.js`.
-- The consumer contract `GET /api/v1/sdk/flags` (`docs/sdk-api.md`) is what services integrate against; change it
+- The consumer contract `GET /api/v1/sdk/flags` (`docs/sdk-api.md`, `docs/sdk-api.openapi.json`) is what services integrate against; change it
   only on purpose, with a new version path and a breaking-change commit.
 
 ## Security

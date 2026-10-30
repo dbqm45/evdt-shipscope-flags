@@ -5,6 +5,10 @@ w wersji **v1**: jego pola i znaczenie nie zmienią się w sposób niezgodny wst
 i wpisu „Breaking” w `CHANGELOG.md`. Mogą natomiast dojść nowe pola, więc klient powinien ignorować pola, których
 nie zna.
 
+Ten sam kontrakt w formie maszynowej: `docs/sdk-api.openapi.json` (OpenAPI 3.1) — do generowania klientów i do
+narzędzi typu Swagger UI. Test `test/sdk-openapi.e2e-spec.ts` sprawdza prawdziwe odpowiedzi API z tą specyfikacją,
+więc oba opisy nie rozjadą się z kodem niezauważenie.
+
 ## Zapytanie
 
 ```
@@ -36,13 +40,14 @@ integracji, ale nowe powinny używać `/api/v1/sdk/flags`.
 
 ## Błędy
 
-Treść błędu ma postać `{ "statusCode": 401, "message": "…" }`.
+Treść błędu ma postać `{ "statusCode": 401, "message": "…" }` (czasem z polem `error`, nazwą statusu HTTP).
 
 | Kod     | Kiedy                                                                                   | Co robi klient                                                     |
 | ------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | 400     | Brak `env` albo nieznane środowisko.                                                    | Błąd konfiguracji serwisu — do poprawienia, nie ponawiać.          |
 | 401     | Brak nagłówka `Authorization`, nieznane, unieważnione lub wygasłe poświadczenie.        | Dalej używa ostatniego znanego stanu i alarmuje (poświadczenie do wymiany). |
 | 403     | Parametr `service` wskazuje inny serwis niż właściciel poświadczenia.                   | Błąd konfiguracji — usunąć `service` albo poprawić jego wartość.   |
+| 404     | Tylko przy przestarzałym wspólnym `SDK_TOKEN`: `service` nie jest zarejestrowanym serwisem. | Błąd konfiguracji — poprawić `service`.                         |
 | 429     | Przekroczony limit zapytań z jednego adresu (domyślnie 600 na minutę).                  | Dalej używa ostatniego znanego stanu; ponawia po liczbie sekund z nagłówka `Retry-After`. |
 | 5xx, brak odpowiedzi, przekroczony czas | Serwer flag jest niedostępny.                               | Dalej używa ostatniego znanego stanu i ponawia przy kolejnym odpytaniu. |
 

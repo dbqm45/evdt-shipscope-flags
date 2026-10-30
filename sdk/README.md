@@ -1,6 +1,6 @@
 # Klient referencyjny ShipScope Flags
 
-`client.ts` to gotowy klient endpointu `GET /api/v1/sdk/flags` (kontrakt: `docs/sdk-api.md`) dla serwisów w Node.js.
+`client.ts` to gotowy klient endpointu `GET /api/v1/sdk/flags` (kontrakt: `docs/sdk-api.md`, specyfikacja OpenAPI: `docs/sdk-api.openapi.json`) dla serwisów w Node.js.
 To jeden plik TypeScript bez zależności: Node 22.18+ uruchamia go bez kompilacji, a w projekcie z TypeScriptem
 wystarczy go skopiować lub zaimportować.
 
