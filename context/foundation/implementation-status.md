@@ -21,7 +21,7 @@ moves it; `docs/TODO.md` holds the planned work in detail. Status: **done**, **p
 | FR-011 | Service reads its assigned flags with its own credential | done | `GET /api/v1/sdk/flags`, contract in `docs/sdk-api.md`, OpenAPI 3.1 spec in `docs/sdk-api.openapi.json` (checked against real answers by `test/sdk-openapi.e2e-spec.ts`). |
 | FR-012 | Client caches last-known state, works when the service is down | done | Reference client `sdk/client.ts` (memory + disk cache, defaults). Whether the 5 pilot services adopt it is Open Question 2. |
 | FR-013 | Change reaches services within 60 s | done | Clients poll at most every 60 s (`docs/sdk-api.md`, `sdk/client.ts`); the dashboard flags a service that has not read a change. |
-| FR-014 | Every state change in an audit log | partial | Logged on the server, paged and filtered, kept two years (`AUDIT_RETENTION_DAYS`); the actor still comes from the request until FR-001. |
+| FR-014 | Every state change in an audit log | done | Logged on the server with the signed-in user as the author (never from the request body), paged and filtered, kept two years (`AUDIT_RETENTION_DAYS`); break-glass sign-ins and failed attempts too. |
 | FR-015 | Flag change history in the dashboard | done | Flag panel "Recent history", Audit log tab. |
 | FR-016 | Notifications on change, per flag or globally | done | Settings switch for all flags, or per flag (`notify`, Admins in the UI); two retries, then a `notification-failed` audit entry. Prod changes only. |
 | FR-017 | Per flag and service: build-time or runtime read | done | Read mode and build-time values per binding (entered by hand), with mismatch warnings and retirement checks. |
