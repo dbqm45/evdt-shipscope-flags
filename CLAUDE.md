@@ -78,7 +78,7 @@ Three npm workspaces, one version and one `package-lock.json` (`npm ci` in the r
 | `packages/shared/src/rules.ts`                      | the business rules (promotion and disabling order, dependencies, stale detection, build-time checks, retirement, drift from per-environment check-ins, attention ranking) (`@shipscope/shared/rules`) |
 | `packages/shared/src/seed.ts`                       | demo data: the dashboard's demo mode and `npm run db:seed` (`@shipscope/shared/seed`)        |
 | `frontend/src/types.ts`, `lib/businessLogic.ts`, `data/mock.ts` | re-exports of the shared package, so dashboard code and tests import as before  |
-| `frontend/src/state/store.tsx`, `state/useStore.ts` | client state and actions (React context): `StoreProvider`, and `useStore` with the store's shape |
+| `frontend/src/state/`                               | client state (React context): `store.tsx` (`StoreProvider`: state and loading), `useStore.ts` (the store's shape), the actions in `serverActions.ts` (through the API) and `demoActions.ts` (demo mode, in the browser), and `guardActions.ts` (role and input checks for both) |
 | `sdk/`                                              | reference client for services (`client.ts`, no dependencies, run by Node as plain TypeScript); `node:test` tests (`npm run test:sdk`), its own `tsconfig.json` |
 | `scripts/`                                          | tooling only: release scripts, `break-glass.mjs` (new break-glass password and hash), and their `node:test` tests |
 | `.github/workflows/`                                | `ci.yml` (PRs, and verify step of releases), `release.yml` (every push to `main`)            |

@@ -14,7 +14,19 @@ export interface CredentialResult extends ToggleResult {
   token?: string;
 }
 
-export interface StoreValue {
+/** What the dashboard can change; with the API (serverActions.ts) or, in demo mode, in the browser (demoActions.ts). */
+export interface StoreActions {
+  toggleEnvironment: (flagKey: string, environment: Environment) => Promise<ToggleResult>;
+  updateBinding: (flagKey: string, serviceId: string, patch: BindingPatch) => Promise<ToggleResult>;
+  retireFlag: (flagKey: string) => Promise<ToggleResult>;
+  createFlag: (input: NewFlag) => Promise<ToggleResult>;
+  updateFlagMeta: (flagKey: string, patch: FlagDetailsPatch) => Promise<ToggleResult>;
+  setStaleThreshold: (days: number) => Promise<ToggleResult>;
+  registerService: (key: string, name: string) => Promise<CredentialResult>;
+  rotateCredential: (serviceId: string, revokePrevious: boolean) => Promise<CredentialResult>;
+}
+
+export interface StoreValue extends StoreActions {
   loading: boolean;
   /** The API could not be reached: the data is the built-in demo set and changes stay in this browser. */
   demo: boolean;
@@ -32,17 +44,8 @@ export interface StoreValue {
   user: SignedInUser | null;
   /** Who the dashboard names as the author of a change (the signed-in user, or the demo user of the role). */
   currentUser: string;
-  toggleEnvironment: (flagKey: string, environment: Environment) => Promise<ToggleResult>;
-  updateBinding: (flagKey: string, serviceId: string, patch: BindingPatch) => Promise<ToggleResult>;
-  retireFlag: (flagKey: string) => Promise<ToggleResult>;
-  registerAuditEntry: (entry: Omit<AuditLogEntry, "id" | "timestamp">) => void;
-  createFlag: (input: NewFlag) => Promise<ToggleResult>;
-  updateFlagMeta: (flagKey: string, patch: FlagDetailsPatch) => Promise<ToggleResult>;
   /** Days a release flag stays ON everywhere before it is a removal candidate (Settings; 30 until changed). */
   staleThresholdDays: number;
-  setStaleThreshold: (days: number) => Promise<ToggleResult>;
-  registerService: (key: string, name: string) => Promise<CredentialResult>;
-  rotateCredential: (serviceId: string, revokePrevious: boolean) => Promise<CredentialResult>;
 }
 
 export const StoreContext = createContext<StoreValue | null>(null);
