@@ -9,7 +9,7 @@ moves it; `docs/TODO.md` holds the planned work in detail. Status: **done**, **p
 | FR | Requirement (short) | Status | Where / what is missing |
 | --- | --- | --- | --- |
 | FR-001 | Log in via SSO (organization's identity provider) | done | Any OIDC provider (`src/auth/`, `APP_URL`/`OIDC_*`): code flow with PKCE run by the API, server-side sessions, role from the provider's claims. Keycloak in docker compose for local tests; the organisation's provider is configured, not coded. |
-| FR-002 | Break-glass login for an Admin | open | Waits for a decision on where the credential lives (FR-001 is done). |
+| FR-002 | Break-glass login for an Admin | done | Password kept in the organisation's secrets vault, only its scrypt hash on the server (`BREAK_GLASS_PASSWORD_HASH`, `npm run break-glass:new`); a one-hour Admin session, every use and failed attempt in the audit log and on the webhook, 5 attempts per 15 min per address. |
 | FR-003 | Admin registers a service and gets a credential; lists services | done | `POST /api/services`, Services tab. Admin-only in the UI only, until FR-001. |
 | FR-004 | — | — | Not used in `prd.md`. |
 | FR-005 | Admin revokes/rotates a service credential | done | `POST /api/services/:id/credential`: 24 h grace, or immediate revoke. |

@@ -21,6 +21,8 @@ export interface SignedInUser {
   name: string;
   email?: string;
   role: Role;
+  /** Signed in with the break-glass password during an identity-provider outage (an Admin, for a short session). */
+  breakGlass?: boolean;
 }
 
 export interface EnvironmentState {
@@ -94,6 +96,8 @@ export const AUDIT_ACTIONS = [
   "notification-failed",
   "audit-log-pruned",
   "settings-updated",
+  "break-glass-login",
+  "break-glass-failed",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

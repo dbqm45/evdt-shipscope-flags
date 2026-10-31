@@ -1,11 +1,41 @@
-import { Controller, Get, HttpCode, Logger, Post, Req, Res } from "@nestjs/common";
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  HttpCode,
+  Logger,
+  NotFoundException,
+  Post,
+  Req,
+  Res,
+  UnauthorizedException,
+} from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import type { Request, Response } from "express";
 import type { SignedInUser } from "./auth-config.js";
-import { CurrentUser, Public } from "./auth.guard.js";
+import { FlagsService } from "../flags/flags.service.js";
+import { BREAK_GLASS_SESSION_MS, BREAK_GLASS_USERNAME, breakGlassHash, verifyBreakGlassPassword } from "./break-glass.js";
+import { CSRF_HEADER, CSRF_VALUE, CurrentUser, Public } from "./auth.guard.js";
 import { OidcClient, type LoginChecks } from "./oidc.js";
 import { cookie, LOGIN_COOKIE, readCookie, SESSION_COOKIE, Sessions } from "./sessions.js";
 
 const LOGIN_TTL_SECONDS = 10 * 60;
+/** Attempts at the break-glass password per client address: enough for a person, too few to guess. */
+const BREAK_GLASS_ATTEMPTS = { limit: 5, ttl: 15 * 60_000 };
+
+/** The body of a break-glass sign-in: the password and why it is needed now (kept in the audit log). */
+function parseBreakGlass(input: unknown): { password: string; reason: string } {
+  const body = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
+  const unknown = Object.keys(body).filter((k) => k !== "password" && k !== "reason");
+  if (unknown.length) throw new BadRequestException(`Unknown field: ${unknown[0]}.`);
+  const password = typeof body.password === "string" ? body.password : "";
+  const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+  if (!password) throw new BadRequestException("The break-glass password is required.");
+  if (reason.length < 10 || reason.length > 500) throw new BadRequestException("Say in 10 to 500 characters why break-glass access is needed.");
+  return { password, reason };
+}
 
 /**
  * Sign-in through the OIDC provider. The dashboard sends the browser to /api/auth/login; the provider sends it back to
@@ -15,9 +45,13 @@ const LOGIN_TTL_SECONDS = 10 * 60;
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
+  /** Read once at start-up: changing BREAK_GLASS_PASSWORD_HASH needs a restart. */
+  private readonly breakGlass = breakGlassHash();
+
   constructor(
     private readonly oidc: OidcClient,
     private readonly sessions: Sessions,
+    private readonly flags: FlagsService,
   ) {}
 
   private get secure() {
@@ -72,6 +106,45 @@ export class AuthController {
       this.logger.warn(`Sign-in failed: ${(err as Error).message}`);
       this.backToApp(res, "failed");
     }
+  }
+
+  /** What the sign-in page may offer besides the identity provider. */
+  @Public()
+  @Get("auth/options")
+  options() {
+    return { breakGlass: this.breakGlass !== null };
+  }
+
+  /**
+   * Break-glass sign-in (PRD FR-002), for when the identity provider is down: the password from the secrets vault
+   * starts a one-hour Admin session. Each use and each failed attempt goes to the audit log and to the webhook.
+   */
+  @Public()
+  @Post("auth/break-glass")
+  @HttpCode(200)
+  @Throttle({ default: BREAK_GLASS_ATTEMPTS })
+  async breakGlassLogin(@Req() req: Request, @Res({ passthrough: true }) res: Response, @Body() body: unknown) {
+    if (!this.breakGlass) throw new NotFoundException("Break-glass access is not set up on this server.");
+    if (req.headers[CSRF_HEADER] !== CSRF_VALUE) throw new ForbiddenException(`The request must carry the header "X-Requested-With: ${CSRF_VALUE}".`);
+    const { password, reason } = parseBreakGlass(body);
+    const from = `from ${req.ip ?? "an unknown address"}`;
+    if (!(await verifyBreakGlassPassword(password, this.breakGlass))) {
+      this.logger.warn(`Failed break-glass sign-in ${from}`);
+      await this.flags.recordSecurityEvent(
+        { actor: BREAK_GLASS_USERNAME, action: "break-glass-failed", note: `wrong password ${from}` },
+        `:warning: Failed break-glass sign-in to ShipScope Flags ${from}.`,
+      );
+      throw new UnauthorizedException("Wrong break-glass password. The attempt was logged.");
+    }
+    const user: SignedInUser = { username: BREAK_GLASS_USERNAME, name: "Break-glass admin", role: "admin", breakGlass: true };
+    const token = await this.sessions.create(user, undefined, BREAK_GLASS_SESSION_MS);
+    res.append("Set-Cookie", cookie(SESSION_COOKIE, token, { path: "/api", maxAgeSeconds: BREAK_GLASS_SESSION_MS / 1000, secure: this.secure }));
+    this.logger.warn(`Break-glass sign-in ${from}: ${reason}`);
+    await this.flags.recordSecurityEvent(
+      { actor: BREAK_GLASS_USERNAME, action: "break-glass-login", note: `${reason} (${from})` },
+      `:rotating_light: Break-glass sign-in to ShipScope Flags ${from}. Reason: ${reason}`,
+    );
+    return user;
   }
 
   /** Ends the session; the answer names the provider's sign-out page, where the dashboard sends the browser next. */

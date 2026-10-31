@@ -21,7 +21,8 @@ scope: `@context/foundation/prd.md`; known gaps: `@docs/TODO.md`. Full depth liv
 - The management API needs a signed-in user (OIDC sign-in in `src/auth/`, global `AuthGuard`): new routes are
   protected by default; mark a route `@Public()` only when it authenticates its callers itself. A change needs
   `@RequireRole()` (default Admin) and the header `X-Requested-With: shipscope`; its author comes from the session
-  (`@Actor()`), never from the body.
+  (`@Actor()`), never from the body. Break-glass sign-in (`src/auth/break-glass.ts`) is the only way in without the
+  identity provider: keep every use and failed attempt logged and posted to the webhook.
 - `GET /api/v1/sdk/flags` needs a service credential (or the deprecated shared `SDK_TOKEN`), 401 otherwise. Service
   credentials are shown once; only their SHA-256 digests are stored and they never appear in responses. Webhook URLs
   go through `checkWebhookUrl` (`src/flags/webhook.ts`) before every request and are only ever returned masked.

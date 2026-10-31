@@ -84,7 +84,8 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
     clearTimeout(timer);
   }
   if (UNAVAILABLE_STATUSES.has(res.status)) throw new ApiUnavailableError(`${res.status} ${res.statusText}`.trim());
-  if (res.status === 401 && path !== "/me") unauthorized();
+  // A 401 from /me or a sign-in route is an answer, not a lost session.
+  if (res.status === 401 && path !== "/me" && !path.startsWith("/auth/")) unauthorized();
   if (!res.ok) throw new ApiError(await errorMessage(res), res.status);
   return (await res.json()) as T;
 }
@@ -133,6 +134,12 @@ export const api = {
 
   /** Where the browser goes to sign in through the identity provider. */
   loginUrl: `${API_BASE_URL}/auth/login`,
+
+  /** What the sign-in page may offer besides the identity provider. */
+  authOptions: () => call<{ breakGlass: boolean }>("/auth/options"),
+
+  /** Emergency Admin sign-in with the break-glass password, for an identity-provider outage; logged and announced. */
+  breakGlass: (password: string, reason: string) => call<SignedInUser>("/auth/break-glass", withBody("POST", { password, reason })),
 
   /** Ends the session; returns the identity provider's sign-out page, where the browser should go next. */
   logout: () => call<{ logoutUrl: string }>("/auth/logout", { method: "POST" }),

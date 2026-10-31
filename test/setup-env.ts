@@ -25,5 +25,6 @@ for (const name of [
   "OIDC_EDITOR_ROLES",
   "OIDC_VIEWER_ROLES",
   "SESSION_TTL_HOURS",
+  "BREAK_GLASS_PASSWORD_HASH",
 ])
   delete process.env[name];

@@ -18,7 +18,7 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 | Audyt zależności | ⚠️ `npm audit` nie dał wyniku w tym środowisku (brak dostępu do rejestru). Log bootstrapu odnotował 2 HIGH (`tmp`, `undici`) — oba przechodnie, w narzędziach Nest CLI |
 | CI/CD | ✅ GitHub Actions: `.github/workflows/ci.yml` (format, sync, lint, typecheck, testy, build, audyt) |
 | Persystencja | ✅ PostgreSQL + Prisma 7 (migracje w `prisma/migrations/`, testy na prawdziwej bazie) |
-| Uwierzytelnianie i autoryzacja | ✅ logowanie OIDC (dowolny dostawca, Keycloak do testów), sesje po stronie serwera, role sprawdzane przez API; ❌ brak dostępu awaryjnego (break-glass) |
+| Uwierzytelnianie i autoryzacja | ✅ logowanie OIDC (dowolny dostawca, Keycloak do testów), sesje po stronie serwera, role sprawdzane przez API, dostęp awaryjny (break-glass) |
 
 ---
 
@@ -60,8 +60,8 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 
 ### Brakujące funkcje MVP z PRD
 
-- [ ] **Dostęp awaryjny (FR-002, break-glass).** Gdy dostawca tożsamości jest niedostępny, nikt nie zaloguje się do dashboardu (serwisy dalej czytają flagi). Propozycja: jedno konto Admina z hasłem w sejfie haseł (np. skrót hasła w zmiennej środowiskowej), osobna ścieżka logowania, każde użycie w dzienniku zmian i powiadomieniu. Czeka na decyzję, gdzie trzymać sekret.
-- [ ] _(częściowo: FR-001 zrobione — logowanie OIDC z rolą z dostawcy tożsamości, Keycloak w docker compose do testów. Brakuje FR-002, dostępu awaryjnego)_ FR-001/002: SSO (OIDC) + break-glass (sekret w vaulcie, audyt użycia).
+- [x] _(zrobione: hasło w sejfie, na serwerze tylko skrót scrypt w `BREAK_GLASS_PASSWORD_HASH` (`npm run break-glass:new`); logowanie z powodem, sesja Admina na 1 h, 5 prób na 15 min z jednego adresu, każde użycie i nieudana próba w dzienniku i na webhooku)_ **Dostęp awaryjny (FR-002, break-glass).** Gdy dostawca tożsamości jest niedostępny, nikt nie zaloguje się do dashboardu (serwisy dalej czytają flagi). Propozycja: jedno konto Admina z hasłem w sejfie haseł (np. skrót hasła w zmiennej środowiskowej), osobna ścieżka logowania, każde użycie w dzienniku zmian i powiadomieniu. Czeka na decyzję, gdzie trzymać sekret.
+- [x] _(zrobione: FR-001 — logowanie OIDC z rolą z dostawcy tożsamości, Keycloak w docker compose do testów; FR-002 — dostęp awaryjny, punkt wyżej)_ FR-001/002: SSO (OIDC) + break-glass (sekret w vaulcie, audyt użycia).
 - [x] _(zrobione: zakładka „Services”, `POST /services`, `POST /services/:id/credential`)_ FR-003/005: rejestracja serwisów, wydawanie poświadczeń, rotacja z oknem przejściowym (24 h). W UI i API nie ma zarządzania serwisami.
 - [x] _(zrobione: kontrakt w `docs/sdk-api.md` i referencyjny klient dla Node.js w `sdk/client.ts` — pamięć podręczna w pamięci i na dysku, wartości domyślne z kodu, limit czasu, `Retry-After`. Klientów dla innych języków brak; to, czy pilotowe serwisy go użyją, zostaje do sprawdzenia — PRD, Open Question #2)_ FR-012: klient lub SDK z lokalnym cache i fallbackiem przy niedostępności API (gwarancja „nigdy single point of failure”). Na razie istnieje tylko endpoint; trzeba przynajmniej udokumentować kontrakt i dostarczyć referencyjnego klienta.
 - [x] _(zrobione: `GET /api/v1/sdk/flags`, kontrakt w `docs/sdk-api.md` i specyfikacja OpenAPI 3.1 w `docs/sdk-api.openapi.json`, pisana ręcznie zamiast `@nestjs/swagger` i sprawdzana z prawdziwymi odpowiedziami w `test/sdk-openapi.e2e-spec.ts`)_ FR-011: zamrozić i udokumentować kontrakt `GET /api/sdk/flags` (wersjonowanie, np. `/api/v1/sdk/flags`; OpenAPI przez `@nestjs/swagger`). PRD wskazuje go jako najważniejsze wymaganie do zablokowania.

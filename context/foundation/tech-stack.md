@@ -34,8 +34,7 @@ TypeScript + NestJS + PostgreSQL (via Prisma) + Passport.js with an OIDC strateg
 
 - **In place:** TypeScript, NestJS, PostgreSQL through Prisma (with migrations checked in CI), Docker images and
   compose, GitHub Actions with automatic releases, OIDC sign-in for users (FR-001) with server-side sessions and roles
-  enforced by the API; services authenticate with their own credentials (FR-003/005/011).
-- **Not yet:** break-glass access (FR-002).
+  enforced by the API, break-glass access (FR-002); services authenticate with their own credentials (FR-003/005/011).
 - **Differs from the plan:** sign-in uses `openid-client` in a small Nest module (`src/auth/`) instead of Passport.js:
   one flow (authorization code with PKCE) needs no strategy layer. Any OIDC provider works; Keycloak runs in docker
   compose for local tests. The stale and attention rules run when the dashboard renders (shared code in

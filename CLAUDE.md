@@ -23,7 +23,9 @@ Three npm workspaces, one version and one `package-lock.json` (`npm ci` in the r
   through Prisma 7 (`prisma/schema.prisma`, `DATABASE_URL`); demo data is loaded only on request (`npm run db:seed`).
   Users sign in through any OpenID Connect provider (`src/auth/`, settings `APP_URL` and `OIDC_*`): the API runs the
   code flow with PKCE and keeps a server-side session (`Session` table, HttpOnly cookie `ssf_session`); the role
-  (viewer/editor/admin) comes from the provider's claims at sign-in. Break-glass access is not built yet.
+  (viewer/editor/admin) comes from the provider's claims at sign-in. Break-glass access for a provider outage
+  (`src/auth/break-glass.ts`, `BREAK_GLASS_PASSWORD_HASH` from `npm run break-glass:new`): a one-hour Admin session,
+  every use and failed attempt logged and posted to the webhook.
 - **Dashboard** — React 19 + Vite 8 + Tailwind 4 in `frontend/` (own `package.json`). `frontend/src/api/client.ts`
   calls the API; only when the API cannot be reached (network error, timeout, 502/503/504) does the dashboard switch to
   the demo data from `@shipscope/shared/seed` (demo mode, with a banner, no sign-in, role picked in the top bar). It
@@ -59,7 +61,7 @@ Three npm workspaces, one version and one `package-lock.json` (`npm ci` in the r
 | Path                                                | What                                                                                         |
 | --------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | `src/main.ts`, `src/app.module.ts`, `src/app.setup.ts` | Nest bootstrap; global prefix `api`, `helmet`, `trust proxy` (`TRUST_PROXY`); `app.setup.ts` is shared with the e2e tests |
-| `src/auth/`                                         | sign-in: `auth-config.ts` (settings, roles from claims), `oidc.ts` (openid-client), `sessions.ts` (sessions, cookies), `auth.guard.ts` (global guard, `@Public()`, `@RequireRole()`, `@Actor()`), `auth.controller.ts` (`/auth/login`, `/auth/callback`, `/auth/logout`, `/me`) |
+| `src/auth/`                                         | sign-in: `auth-config.ts` (settings, roles from claims), `oidc.ts` (openid-client), `sessions.ts` (sessions, cookies), `auth.guard.ts` (global guard, `@Public()`, `@RequireRole()`, `@Actor()`), `auth.controller.ts` (`/auth/login`, `/auth/callback`, `/auth/logout`, `/auth/options`, `/auth/break-glass`, `/me`), `break-glass.ts` (scrypt hash check) |
 | `src/health/health.controller.ts`                   | `GET /api/health`: 200 when the database answers, else 503 (Docker healthcheck)              |
 | `src/rate-limit.ts`                                 | rate limits per client address and route (`@nestjs/throttler`, `RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_SDK_PER_MINUTE`); `@SdkRoute()` marks the consumer route |
 | `src/flags/*.controller.ts`                        | routes: `flags` (create/update/retire, `/:key/environments/:env`, `/:key/services/:id`), `services` (register, `/:id/credential`), `audit-log` (pages with a `before` cursor and filters), `settings` (`/settings/notifications`, `/settings/rules`), `sdk` (the consumer route `GET /v1/sdk/flags`, also at `/sdk/flags`) |
@@ -78,7 +80,7 @@ Three npm workspaces, one version and one `package-lock.json` (`npm ci` in the r
 | `frontend/src/types.ts`, `lib/businessLogic.ts`, `data/mock.ts` | re-exports of the shared package, so dashboard code and tests import as before  |
 | `frontend/src/state/store.tsx`, `state/useStore.ts` | client state and actions (React context): `StoreProvider`, and `useStore` with the store's shape |
 | `sdk/`                                              | reference client for services (`client.ts`, no dependencies, run by Node as plain TypeScript); `node:test` tests (`npm run test:sdk`), its own `tsconfig.json` |
-| `scripts/`                                          | tooling only: release scripts and their `node:test` tests                                    |
+| `scripts/`                                          | tooling only: release scripts, `break-glass.mjs` (new break-glass password and hash), and their `node:test` tests |
 | `.github/workflows/`                                | `ci.yml` (PRs, and verify step of releases), `release.yml` (every push to `main`)            |
 | `Dockerfile`, `docker-compose.yml`, `docker/`       | images `api` (Nest, prod deps only, user `node`), `migrate` and `web` (nginx, security headers incl. a strict CSP in `docker/security-headers.conf`); compose adds PostgreSQL; CI builds and smoke-tests them |
 

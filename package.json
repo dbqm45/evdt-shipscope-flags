@@ -43,6 +43,7 @@
     "db:seed": "node --env-file-if-exists=.env dist/db/load-state.js --seed --if-empty",
     "db:import": "node --env-file-if-exists=.env dist/db/load-state.js --file",
     "release": "node scripts/release.mjs",
+    "break-glass:new": "node scripts/break-glass.mjs",
     "lint:commit": "node scripts/check-commit-message.mjs",
     "hooks:install": "git config core.hooksPath .githooks"
   },

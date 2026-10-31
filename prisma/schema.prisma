@@ -153,6 +153,8 @@ model Session {
   role      UserRole
   /// The ID token, sent back to the identity provider on sign-out (id_token_hint).
   idToken   String?
+  /// Started with the break-glass password (src/auth/break-glass.ts), not through the identity provider.
+  breakGlass Boolean @default(false)
   createdAt DateTime @db.Timestamptz(3)
   expiresAt DateTime @db.Timestamptz(3)
 

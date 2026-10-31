@@ -1,6 +1,12 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { api, ApiError } from "../api/client";
 import { LoginPage } from "./LoginPage";
+
+vi.mock("../api/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../api/client")>();
+  return { ...actual, api: { ...actual.api, breakGlass: vi.fn() } };
+});
 
 afterEach(cleanup);
 
@@ -26,5 +32,28 @@ describe("LoginPage", () => {
     expect(screen.queryByRole("link", { name: "Sign in with SSO" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Open the demo" }));
     expect(onOpenDemo).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers break-glass access only when the server has it, and needs a password and a reason", async () => {
+    const { rerender } = render(<LoginPage demo={false} onOpenDemo={vi.fn()} onSignedIn={vi.fn()} />);
+    expect(screen.queryByText(/Emergency access/)).toBeNull();
+
+    const onSignedIn = vi.fn();
+    rerender(<LoginPage demo={false} breakGlass onOpenDemo={vi.fn()} onSignedIn={onSignedIn} />);
+    fireEvent.click(screen.getByText(/Emergency access/));
+    const submit = screen.getByRole("button", { name: "Sign in with break-glass" });
+    fireEvent.change(screen.getByLabelText(/Break-glass password/), { target: { value: "from-the-vault" } });
+    expect((submit as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText(/Reason/), { target: { value: "SSO outage, prod flag must go off" } });
+
+    vi.mocked(api.breakGlass).mockRejectedValueOnce(new ApiError("Wrong break-glass password. The attempt was logged.", 401));
+    fireEvent.click(submit);
+    expect((await screen.findByRole("alert")).textContent).toMatch(/attempt was logged/);
+
+    const user = { username: "break-glass", name: "Break-glass admin", role: "admin" as const, breakGlass: true };
+    vi.mocked(api.breakGlass).mockResolvedValueOnce(user);
+    fireEvent.click(submit);
+    await waitFor(() => expect(onSignedIn).toHaveBeenCalledWith(user));
+    expect(api.breakGlass).toHaveBeenLastCalledWith("from-the-vault", "SSO outage, prod flag must go off");
   });
 });

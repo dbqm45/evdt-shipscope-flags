@@ -138,6 +138,8 @@ Lista flag jest domyślnie ułożona według tego, co wymaga uwagi („Needs att
 
 Do aplikacji loguje się kontem firmowym przez dostawcę tożsamości (logowanie jednokrotne, SSO, w standardzie OpenID Connect, np. Keycloak, Entra ID, Okta czy Google). Rolę nadaje dostawca tożsamości: serwer odczytuje ją przy logowaniu z listy ról lub grup użytkownika (domyślnie `shipscope-admin` oznacza Admina, `shipscope-editor` Editora, a każdy inny zalogowany użytkownik jest Viewerem). Uprawnienia sprawdza serwer, więc nie da się ich obejść wywołaniem API, a autorem zmiany w dzienniku jest zawsze zalogowana osoba. W prawym górnym rogu widać imię i nazwisko zalogowanej osoby oraz jej rolę.
 
+**Dostęp awaryjny (break-glass).** Gdy dostawca tożsamości nie działa, Admin może zalogować się hasłem awaryjnym trzymanym w firmowym sejfie haseł: na ekranie logowania rozwija się „Identity provider down? Emergency access”, podaje hasło i powód. Daje to uprawnienia Admina na jedną godzinę, a w górnej części ekranu widać czerwony pasek przypominający, że to sesja awaryjna. Każde logowanie awaryjne i każda nieudana próba trafiają do dziennika zmian (z powodem i adresem) i są wysyłane na kanał powiadomień, także wtedy, gdy powiadomienia o zmianach flag są wyłączone. Z jednego adresu można spróbować najwyżej 5 razy na 15 minut. Hasło tworzy polecenie `npm run break-glass:new`: wypisuje nowe hasło (do sejfu) i jego skrót (do zmiennej `BREAK_GLASS_PASSWORD_HASH` na serwerze); serwer zna tylko skrót. Bez tej zmiennej dostęp awaryjny jest wyłączony. Serwisy odczytują flagi niezależnie od dostawcy tożsamości, więc jego awaria ich nie dotyczy.
+
 W trybie demonstracyjnym (bez serwera) logowania nie ma, a rolę wybiera się przełącznikiem w prawym górnym rogu, żeby zobaczyć, jak aplikacja wygląda dla poszczególnych osób.
 
 | Rola | Uprawnienia |
@@ -207,7 +209,7 @@ Adres `GET /api/health` pozwala sprawdzić, czy serwer działa i ma połączenie
 - Poświadczeń serwisów nie da się wydać w trybie demonstracyjnym, bo wydaje je serwer.
 - **Usunięcie flagi** („Retire flag”) usuwa ją z ShipScope Flags, także z odpowiedzi `GET /api/v1/sdk/flags`. Usunięcie odwołań w kodzie serwisów pozostaje po stronie zespołu.
 - **Wartości z kodu** (build-time) są wprowadzane ręcznie, ponieważ aplikacja nie ma wglądu w kod serwisów. Wymagają one aktualizacji przy zmianach w kodzie.
-- Nie ma jeszcze **dostępu awaryjnego** (break-glass): gdy dostawca tożsamości jest niedostępny, nikt nie zaloguje się do aplikacji. Serwisy nadal odczytują flagi, bo korzystają z własnych poświadczeń.
+- **Dostęp awaryjny** (break-glass) jest jeden, wspólny dla całej organizacji (osobne hasło, nie konto konkretnej osoby). Dlatego dziennik zmian zapisuje jako autora „break-glass”, a powód podany przy logowaniu jest jedynym śladem, kto i po co z niego skorzystał.
 - Rola jest odczytywana przy logowaniu. Zmiana roli u dostawcy tożsamości zaczyna działać po ponownym zalogowaniu, najpóźniej po wygaśnięciu sesji (domyślnie 12 godzin, zmienna `SESSION_TTL_HOURS`).
 
 ## 10. Słowniczek

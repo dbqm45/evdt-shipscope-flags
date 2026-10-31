@@ -14,7 +14,8 @@ import type { SignedInUser } from "./types";
  * checking: asking the API who is signed in; signed-out: the sign-in page (`demo` when the API is not reachable);
  * signed-in: the dashboard, for `user`, or for nobody in demo mode.
  */
-type Session = { state: "checking" } | { state: "signed-out"; demo: boolean; error?: string } | { state: "signed-in"; user: SignedInUser | null };
+type Session =
+  { state: "checking" } | { state: "signed-out"; demo: boolean; error?: string; breakGlass?: boolean } | { state: "signed-in"; user: SignedInUser | null };
 
 /** The sign-in error the API's callback put in the address (?login_error=…). */
 const readLoginError = () => new URLSearchParams(window.location.search).get("login_error") ?? undefined;
@@ -46,9 +47,27 @@ export default function App() {
     );
   }, [loginError]);
 
+  // The sign-in page offers break-glass access only when the server has it set up.
+  const offerBreakGlass = session.state === "signed-out" && !session.demo && session.breakGlass === undefined;
+  useEffect(() => {
+    if (!offerBreakGlass) return;
+    api.authOptions().then(
+      ({ breakGlass }) => setSession((s) => (s.state === "signed-out" ? { ...s, breakGlass } : s)),
+      () => setSession((s) => (s.state === "signed-out" ? { ...s, breakGlass: false } : s)),
+    );
+  }, [offerBreakGlass]);
+
   if (session.state === "checking") return null;
   if (session.state === "signed-out") {
-    return <LoginPage demo={session.demo} error={session.error} onOpenDemo={() => setSession({ state: "signed-in", user: null })} />;
+    return (
+      <LoginPage
+        demo={session.demo}
+        error={session.error}
+        breakGlass={session.breakGlass === true}
+        onOpenDemo={() => setSession({ state: "signed-in", user: null })}
+        onSignedIn={(user) => setSession({ state: "signed-in", user })}
+      />
+    );
   }
 
   const { user } = session;

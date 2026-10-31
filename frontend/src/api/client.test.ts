@@ -126,6 +126,21 @@ describe("the signed-in user", () => {
     expect(handler).toHaveBeenCalledTimes(1);
   });
 
+  it("does not treat a refused break-glass sign-in as a lost session", async () => {
+    const handler = vi.fn();
+    onUnauthorized(handler);
+    const fetch = stubApi({ "/api/auth/break-glass": () => jsonResponse({ message: "Wrong break-glass password." }, 401) });
+    await expect(api.breakGlass("guess", "SSO is down")).rejects.toEqual(new ApiError("Wrong break-glass password.", 401));
+    expect(handler).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/auth/break-glass",
+      expect.objectContaining({
+        body: JSON.stringify({ password: "guess", reason: "SSO is down" }),
+        headers: expect.objectContaining({ "X-Requested-With": "shipscope" }),
+      }),
+    );
+  });
+
   it("signs out with a POST and returns the provider's sign-out page", async () => {
     const fetch = stubApi({ "/api/auth/logout": () => jsonResponse({ logoutUrl: "https://idp.example/logout" }) });
     await expect(api.logout()).resolves.toEqual({ logoutUrl: "https://idp.example/logout" });

@@ -3,7 +3,15 @@ import { useStore } from "../../state/useStore";
 import { TopBar } from "./TopBar";
 
 function DataNotice() {
-  const { demo, loadError } = useStore();
+  const { demo, loadError, user } = useStore();
+  if (user?.breakGlass) {
+    return (
+      <p role="alert" className="rounded-xl border border-signal-critical/50 bg-signal-critical/10 px-4 py-3 text-sm text-signal-critical">
+        Break-glass session: Admin access while the identity provider is down. Every change is recorded as “break-glass” and the session ends within an hour —
+        sign in with SSO again as soon as the provider is back.
+      </p>
+    );
+  }
   if (loadError) {
     return (
       <p role="alert" className="rounded-xl border border-signal-critical/40 px-4 py-3 text-sm text-signal-critical">

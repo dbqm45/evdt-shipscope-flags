@@ -73,6 +73,8 @@ services:
       OIDC_EDITOR_ROLES: ${OIDC_EDITOR_ROLES:-}
       OIDC_VIEWER_ROLES: ${OIDC_VIEWER_ROLES:-}
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-}
+      # Break-glass access: off unless set (`npm run break-glass:new`, see .env.example).
+      BREAK_GLASS_PASSWORD_HASH: ${BREAK_GLASS_PASSWORD_HASH:-}
     depends_on:
       migrate:
         condition: service_completed_successfully

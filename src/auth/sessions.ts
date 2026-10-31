@@ -53,7 +53,13 @@ export class Sessions {
     if (!token) return null;
     const session = await this.prisma.session.findUnique({ where: { id: hashToken(token) } });
     if (!session || session.expiresAt <= now) return null;
-    return { username: session.username, name: session.name, ...(session.email ? { email: session.email } : {}), role: session.role };
+    return {
+      username: session.username,
+      name: session.name,
+      ...(session.email ? { email: session.email } : {}),
+      role: session.role,
+      ...(session.breakGlass ? { breakGlass: true } : {}),
+    };
   }
 
   /** Ends the session; returns its ID token for the provider's sign-out. */

@@ -346,6 +346,19 @@ export class FlagsService {
     return this.send((await this.storedNotifications()).webhookUrl, "Test message from ShipScope Flags");
   }
 
+  /**
+   * Records a security event (a break-glass sign-in or a failed attempt) in the audit log and announces it on the
+   * webhook whenever one is set, even with notifications off: an Admin must hear about it either way.
+   */
+  async recordSecurityEvent(entry: Omit<AuditLogEntry, "id" | "timestamp">, message: string): Promise<void> {
+    await this.audit(this.prisma, entry);
+    const { webhookUrl } = await this.storedNotifications();
+    if (!webhookUrl) return;
+    void this.send(webhookUrl, message, this.notificationRetryDelaysMs).then(async (result) => {
+      if (!result.ok) await this.audit(this.prisma, { actor: "shipscope", action: "notification-failed", note: `${entry.action}: ${result.error}` });
+    });
+  }
+
   /** Waits before the 2nd and 3rd attempt of a notification; tests shorten them. */
   notificationRetryDelaysMs = [2_000, 10_000];
 

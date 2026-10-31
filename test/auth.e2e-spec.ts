@@ -197,6 +197,15 @@ describe("sign-in and roles (e2e)", () => {
     await request(server).post("/api/flags").set("Cookie", cookie).send({ key: "csrf", type: "feature" }).expect(403);
   });
 
+  it("offers no break-glass access without BREAK_GLASS_PASSWORD_HASH", async () => {
+    await request(app.getHttpServer()).get("/api/auth/options").expect(200, { breakGlass: false });
+    await request(app.getHttpServer())
+      .post("/api/auth/break-glass")
+      .set("X-Requested-With", "shipscope")
+      .send({ password: "anything", reason: "the provider is down" })
+      .expect(404);
+  });
+
   it("does not accept an expired session", async () => {
     const cookie = await signIn(prisma, "admin", "expired");
     await prisma.session.updateMany({ where: { username: "expired" }, data: { expiresAt: new Date(Date.now() - 1000) } });

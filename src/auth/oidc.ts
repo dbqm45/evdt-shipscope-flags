@@ -69,12 +69,12 @@ export class OidcClient {
   /** The provider's sign-out page (back to the dashboard afterwards), or the dashboard when the provider has none. */
   async logoutUrl(idToken?: string | null): Promise<string> {
     const home = this.config.appUrl.href;
+    // A break-glass session never went through the provider: nothing to sign out of there.
+    if (!idToken) return home;
     try {
       const provider = await this.discover();
       if (!provider.serverMetadata().end_session_endpoint) return home;
-      const params: Record<string, string> = { post_logout_redirect_uri: home, client_id: this.config.clientId };
-      if (idToken) params.id_token_hint = idToken;
-      return client.buildEndSessionUrl(provider, params).href;
+      return client.buildEndSessionUrl(provider, { post_logout_redirect_uri: home, client_id: this.config.clientId, id_token_hint: idToken }).href;
     } catch {
       return home;
     }

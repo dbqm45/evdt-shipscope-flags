@@ -10,5 +10,6 @@ import { SettingsController } from "./settings.controller.js";
 @Module({
   controllers: [FlagsController, ServicesController, AuditLogController, SettingsController, SdkController],
   providers: [FlagsService, AuditRetention],
+  exports: [FlagsService],
 })
 export class FlagsModule {}
