@@ -3,6 +3,12 @@
 Notable changes to ShipScope Flags, newest first. Versions follow [Semantic Versioning](https://semver.org/) and are
 released automatically from [Conventional Commits](https://www.conventionalcommits.org/) (see `RELEASING.md`).
 
+## [0.7.2] - 2026-11-01
+
+### Fixed
+
+- **api:** close gaps found in the sign-in security review
+
 ## [0.7.1] - 2026-10-31
 
 ### Added
