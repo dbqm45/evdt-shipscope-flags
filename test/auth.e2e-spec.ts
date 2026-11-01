@@ -147,6 +147,9 @@ describe("sign-in and roles (e2e)", () => {
     expect(await login({}, (cb) => cb.searchParams.set("error", "access_denied"))).toMatchObject({ location: "http://flags.test/?login_error=denied" });
     const noLoginCookie = await request(app.getHttpServer()).get("/api/auth/callback?code=x&state=y").expect(302);
     expect(noLoginCookie.headers.location).toBe("http://flags.test/?login_error=expired");
+    // A login cookie that is not what the API set counts as none.
+    const forged = await request(app.getHttpServer()).get("/api/auth/callback?code=x&state=y").set("Cookie", 'ssf_login={"state":1}').expect(302);
+    expect(forged.headers.location).toBe("http://flags.test/?login_error=expired");
   });
 
   it("keeps out users without a listed role when OIDC_VIEWER_ROLES is set", async () => {
@@ -163,7 +166,9 @@ describe("sign-in and roles (e2e)", () => {
 
   it("signs out: the session ends and the answer names the provider's sign-out page", async () => {
     const { session } = await login({ realm_access: { roles: ["shipscope-admin"] } });
-    const out = await request(app.getHttpServer()).post("/api/auth/logout").set("Cookie", session).expect(200);
+    // Without the CSRF header another site could sign the user out.
+    await request(app.getHttpServer()).post("/api/auth/logout").set("Cookie", session).expect(403);
+    const out = await request(app.getHttpServer()).post("/api/auth/logout").set("Cookie", session).set("X-Requested-With", "shipscope").expect(200);
     expect(out.body.logoutUrl).toMatch(/\/realms\/shipscope\/logout\?.*post_logout_redirect_uri=http%3A%2F%2Fflags\.test%2F.*id_token_hint=/);
     expect(setCookies(out).ssf_session).toBe("ssf_session=");
     await request(app.getHttpServer()).get("/api/me").set("Cookie", session).expect(401);
@@ -182,15 +187,19 @@ describe("sign-in and roles (e2e)", () => {
     await viewer.post("/api/flags").send({ key: "nope", type: "feature" }).expect(403);
     await editor.post("/api/flags").send({ key: "guarded", type: "feature" }).expect(201);
     await editor.patch("/api/flags/guarded/environments/test").send({ enabled: true }).expect(200);
-    await editor.put("/api/settings/notifications").send({ enabled: false }).expect(200);
 
-    // Admin only: services, rule thresholds and a flag's own notifications.
+    // Admin only: services, rule thresholds and notifications (the webhook also carries the break-glass alerts).
     await editor.post("/api/services").send({ key: "billing" }).expect(403);
     await editor.put("/api/settings/rules").send({ staleThresholdDays: 10 }).expect(403);
     await editor.patch("/api/flags/guarded").send({ notify: true }).expect(403);
+    await editor.put("/api/settings/notifications").send({ enabled: false }).expect(403);
+    await editor.post("/api/settings/notifications/test").expect(403);
     await admin.post("/api/services").send({ key: "billing" }).expect(201);
     await admin.put("/api/settings/rules").send({ staleThresholdDays: 10 }).expect(200);
     await admin.patch("/api/flags/guarded").send({ notify: true }).expect(200);
+    await admin.put("/api/settings/notifications").send({ webhookUrl: "" }).expect(200);
+    const audited = (await admin.get("/api/audit-log?action=settings-updated").expect(200)).body.entries as Array<{ actor: string; note: string }>;
+    expect(audited.map((e) => e.note)).toContain("stale threshold 30 → 10 days");
 
     // A change without the header a cross-site form cannot send.
     const cookie = await signIn(prisma, "admin");

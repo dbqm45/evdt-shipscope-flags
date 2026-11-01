@@ -1,5 +1,5 @@
-import { authConfig, roleFromClaims, userFromClaims } from "./auth-config.js";
-import { cookie, readCookie } from "./sessions.js";
+import { authConfig, authWarnings, roleFromClaims, userFromClaims } from "./auth-config.js";
+import { cookie, cookieNames, readCookie } from "./sessions.js";
 
 const env = {
   APP_URL: "https://flags.example.com/",
@@ -35,6 +35,15 @@ describe("authConfig", () => {
   });
 });
 
+describe("authWarnings", () => {
+  it("warns about open viewer access and http to the provider behind an https dashboard", () => {
+    expect(authWarnings(authConfig(env))).toEqual([expect.stringMatching(/OIDC_VIEWER_ROLES is empty/)]);
+    expect(authWarnings(authConfig({ ...env, OIDC_VIEWER_ROLES: "staff" }))).toEqual([]);
+    const httpProvider = authConfig({ ...env, OIDC_VIEWER_ROLES: "staff", OIDC_ISSUER: "http://idp.local/realms/x", OIDC_ALLOW_HTTP: "true" });
+    expect(authWarnings(httpProvider)).toEqual([expect.stringMatching(/OIDC_ALLOW_HTTP=true while APP_URL is https/)]);
+  });
+});
+
 describe("roles from the provider's claims", () => {
   const settings = { rolesClaim: "realm_access.roles", adminRoles: ["shipscope-admin"], editorRoles: ["shipscope-editor"], viewerRoles: [] };
 
@@ -62,6 +71,9 @@ describe("roles from the provider's claims", () => {
     });
     expect(userFromClaims({ sub: "u-1", email: "m@x.io" }, settings)).toMatchObject({ username: "m@x.io", name: "m@x.io" });
     expect(userFromClaims({ sub: "u-1" }, settings)).toEqual({ username: "u-1", name: "u-1", email: undefined, role: "viewer" });
+    // A user cannot pose as the system in the audit log.
+    expect(userFromClaims({ sub: "u-2", preferred_username: "Break-Glass", email: "bg@x.io" }, settings)).toMatchObject({ username: "bg@x.io" });
+    expect(userFromClaims({ sub: "u-3", preferred_username: "shipscope" }, settings)).toMatchObject({ username: "u-3" });
   });
 });
 
@@ -70,8 +82,13 @@ describe("cookies", () => {
     expect(readCookie("a=1; ssf_session=abc%3D; b=2", "ssf_session")).toBe("abc=");
     expect(readCookie(undefined, "ssf_session")).toBeUndefined();
     expect(readCookie("ssf_session=%E0%A4%A", "ssf_session")).toBeUndefined();
-    expect(cookie("ssf_session", "t", { path: "/api", maxAgeSeconds: 60, secure: true })).toBe(
-      "ssf_session=t; Path=/api; Max-Age=60; HttpOnly; SameSite=Lax; Secure",
+    expect(cookie("__Host-ssf_session", "t", { maxAgeSeconds: 60, secure: true })).toBe(
+      "__Host-ssf_session=t; Path=/; Max-Age=60; HttpOnly; SameSite=Lax; Secure",
     );
+  });
+
+  it("uses __Host- names on https, which a sibling subdomain cannot set", () => {
+    expect(cookieNames(true)).toEqual({ session: "__Host-ssf_session", login: "__Host-ssf_login" });
+    expect(cookieNames(false)).toEqual({ session: "ssf_session", login: "ssf_login" });
   });
 });

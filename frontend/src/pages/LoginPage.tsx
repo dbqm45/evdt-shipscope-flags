@@ -2,17 +2,8 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { api, failureReason } from "../api/client";
 import { IconAlertTriangle, IconBolt } from "../components/icons";
+import { LOGIN_ERRORS } from "../lib/loginErrors";
 import type { SignedInUser } from "../types";
-
-/** What went wrong at the last sign-in (the codes the API's callback sends back), in words. */
-const LOGIN_ERRORS: Record<string, string> = {
-  denied: "Sign-in was cancelled or refused by the identity provider.",
-  "no-role": "Your account has no role in ShipScope Flags. Ask an Admin to grant you access.",
-  expired: "The sign-in took too long. Try again.",
-  failed: "Sign-in failed. Try again; if it keeps failing, ask an Admin to check the API log.",
-  unavailable: "The identity provider is not reachable. Try again in a moment.",
-  "session-ended": "Your session has ended. Sign in again.",
-};
 
 const INPUT =
   "text-shell w-full rounded-xl border border-ink-500 bg-ink-900 px-3 py-2 text-sm text-mist-100 outline-none placeholder:text-mist-700 focus:border-accent/60";
@@ -122,7 +113,7 @@ export function LoginPage({
           {error && (
             <div role="alert" className="flex gap-2 rounded-xl border border-signal-critical/40 px-3 py-2.5 text-xs text-mist-300">
               <IconAlertTriangle width={14} height={14} className="mt-0.5 shrink-0 text-signal-critical" />
-              <p>{LOGIN_ERRORS[error] ?? error}</p>
+              <p>{(Object.hasOwn(LOGIN_ERRORS, error) && LOGIN_ERRORS[error]) || error}</p>
             </div>
           )}
           {demo ? (

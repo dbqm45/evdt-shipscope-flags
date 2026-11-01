@@ -85,6 +85,20 @@ function claimValues(claims: Record<string, unknown>, path: string): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
 }
 
+/** Settings that work but are risky outside a local test setup; main.ts logs them at start-up. */
+export function authWarnings(config: AuthConfig): string[] {
+  return [
+    ...(config.viewerRoles.length === 0
+      ? [
+          "OIDC_VIEWER_ROLES is empty: everyone the identity provider signs in can read flags, services and the audit log as a Viewer. Limit the client's users at the provider, or set OIDC_VIEWER_ROLES.",
+        ]
+      : []),
+    ...(config.allowHttp && config.appUrl.protocol === "https:"
+      ? ["OIDC_ALLOW_HTTP=true while APP_URL is https: talk to the identity provider over https too (OIDC_ALLOW_HTTP is for a local test provider)."]
+      : []),
+  ];
+}
+
 /** The user's role from the provider's claims, or null when OIDC_VIEWER_ROLES is set and the user has none of the roles. */
 export function roleFromClaims(
   claims: Record<string, unknown>,
@@ -97,12 +111,16 @@ export function roleFromClaims(
   return null;
 }
 
+/** Names the audit log uses for the system itself; a user who has one is named by email or subject instead. */
+const RESERVED_USERNAMES = new Set(["break-glass", "shipscope", "api"]);
+
 /** Who the claims describe; null when the user may not sign in (see roleFromClaims). */
 export function userFromClaims(claims: Record<string, unknown>, config: Parameters<typeof roleFromClaims>[1]): SignedInUser | null {
   const role = roleFromClaims(claims, config);
   if (!role) return null;
   const str = (key: string) => (typeof claims[key] === "string" && (claims[key] as string).trim() ? (claims[key] as string).trim() : undefined);
   const email = str("email");
-  const username = str("preferred_username") ?? email ?? String(claims.sub);
+  const preferred = str("preferred_username");
+  const username = [preferred, email, String(claims.sub)].find((name) => name && !RESERVED_USERNAMES.has(name.toLowerCase()))!;
   return { username, name: str("name") ?? username, email, role };
 }

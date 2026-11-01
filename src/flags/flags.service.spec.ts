@@ -165,15 +165,15 @@ describe("FlagsService (PostgreSQL)", () => {
     const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", fetch);
     try {
-      await expect(flags.setNotifications({ enabled: true, webhookUrl: "not-a-url" })).rejects.toThrow(/not a valid URL/);
-      expect(await flags.setNotifications({ enabled: true, webhookUrl: "https://hooks.example.test/services/T0/B0/secret1234" })).toEqual({
+      await expect(flags.setNotifications({ enabled: true, webhookUrl: "not-a-url" }, "a.kowalska")).rejects.toThrow(/not a valid URL/);
+      expect(await flags.setNotifications({ enabled: true, webhookUrl: "https://hooks.example.test/services/T0/B0/secret1234" }, "a.kowalska")).toEqual({
         enabled: true,
         webhookUrl: "https://hooks.example.test/…/1234",
       });
       expect(await flags.getNotifications()).toEqual({ enabled: true, webhookUrl: "https://hooks.example.test/…/1234" });
 
       // The form sends the masked value back with another field: the stored URL stays.
-      await flags.setNotifications({ enabled: true, webhookUrl: "https://hooks.example.test/…/1234" });
+      await flags.setNotifications({ enabled: true, webhookUrl: "https://hooks.example.test/…/1234" }, "a.kowalska");
       await flags.setEnvironment("backend", "qa", true, "m.chen");
       await flags.setEnvironment("backend", "prod", true, "m.chen");
 
@@ -209,7 +209,7 @@ describe("FlagsService (PostgreSQL)", () => {
       await loadState(prisma, pair());
       flags.webhookLookup = async () => [{ address: "203.0.113.10", family: 4 }];
       flags.notificationRetryDelaysMs = [1, 1];
-      await flags.setNotifications({ enabled: false, webhookUrl: WEBHOOK });
+      await flags.setNotifications({ enabled: false, webhookUrl: WEBHOOK }, "a.kowalska");
     });
 
     afterEach(() => {
@@ -271,11 +271,13 @@ describe("FlagsService (PostgreSQL)", () => {
     const fetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", fetch);
     try {
-      await expect(flags.setNotifications({ enabled: true, webhookUrl: "https://chat.example.test/hook" })).rejects.toThrow(/private or local address/);
-      await expect(flags.setNotifications({ enabled: true, webhookUrl: "http://hooks.example.test/hook" })).rejects.toThrow(/must use https/);
+      await expect(flags.setNotifications({ enabled: true, webhookUrl: "https://chat.example.test/hook" }, "a.kowalska")).rejects.toThrow(
+        /private or local address/,
+      );
+      await expect(flags.setNotifications({ enabled: true, webhookUrl: "http://hooks.example.test/hook" }, "a.kowalska")).rejects.toThrow(/must use https/);
 
       address = "203.0.113.10";
-      await flags.setNotifications({ enabled: true, webhookUrl: "https://chat.example.test/hook" });
+      await flags.setNotifications({ enabled: true, webhookUrl: "https://chat.example.test/hook" }, "a.kowalska");
       address = "127.0.0.1"; // DNS changed after the URL was saved
       expect(await flags.testNotification()).toEqual({ ok: false, error: 'The webhook host "chat.example.test" points to a private or local address.' });
       expect(fetch).not.toHaveBeenCalled();

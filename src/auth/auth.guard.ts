@@ -11,7 +11,7 @@ import { Reflector } from "@nestjs/core";
 import type { Role } from "@shipscope/shared/types";
 import type { Request } from "express";
 import type { SignedInUser } from "./auth-config.js";
-import { readCookie, SESSION_COOKIE, Sessions } from "./sessions.js";
+import { Sessions } from "./sessions.js";
 
 // Every route needs a signed-in user unless marked @Public() (health, the consumer endpoint, the sign-in routes).
 // Reading needs any role; a change needs the role named by @RequireRole() on the route, else Admin. A change must
@@ -52,7 +52,7 @@ export class AuthGuard implements CanActivate {
     const targets = [context.getHandler(), context.getClass()];
     if (this.reflector.getAllAndOverride<boolean>(PUBLIC, targets)) return true;
     const req = context.switchToHttp().getRequest<AuthedRequest>();
-    const user = await this.sessions.find(readCookie(req.headers.cookie, SESSION_COOKIE));
+    const user = await this.sessions.find(this.sessions.tokenOf(req.headers.cookie));
     if (!user) throw new UnauthorizedException("Sign in first (GET /api/auth/login).");
     const reading = req.method === "GET" || req.method === "HEAD";
     if (!reading && req.headers[CSRF_HEADER] !== CSRF_VALUE) throw new ForbiddenException(`A change must carry the header "X-Requested-With: ${CSRF_VALUE}".`);

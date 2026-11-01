@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError } from "../api/client";
+import { loginErrorCode } from "../lib/loginErrors";
 import { LoginPage } from "./LoginPage";
 
 vi.mock("../api/client", async (importOriginal) => {
@@ -22,6 +23,13 @@ describe("LoginPage", () => {
   it("explains a failed sign-in in words", () => {
     render(<LoginPage demo={false} error="no-role" onOpenDemo={vi.fn()} />);
     expect(screen.getByRole("alert").textContent).toMatch(/no role in ShipScope Flags/);
+  });
+
+  it("takes only known error codes from the address, so a crafted link cannot put its own text on the page", () => {
+    expect(loginErrorCode("no-role")).toBe("no-role");
+    expect(loginErrorCode("Your account is locked, call +1 555 0100")).toBe("failed");
+    expect(loginErrorCode("constructor")).toBe("failed");
+    expect(loginErrorCode(null)).toBeUndefined();
   });
 
   it("offers the demo data, without sign-in, when the API is not reachable", () => {

@@ -2,10 +2,19 @@ import { Injectable } from "@nestjs/common";
 import { randomBytes } from "node:crypto";
 import { hashToken } from "../flags/sdk-auth.js";
 import { PrismaService } from "../prisma/prisma.service.js";
-import type { SignedInUser } from "./auth-config.js";
+import { authConfig, type SignedInUser } from "./auth-config.js";
 
 export const SESSION_COOKIE = "ssf_session";
 export const LOGIN_COOKIE = "ssf_login";
+
+/**
+ * The cookie names. On https they carry the __Host- prefix: the browser then accepts them only with Secure, Path=/
+ * and no Domain, so a sibling subdomain cannot set or shadow them (cookie tossing).
+ */
+export function cookieNames(secure: boolean) {
+  const prefix = secure ? "__Host-" : "";
+  return { session: `${prefix}${SESSION_COOKIE}`, login: `${prefix}${LOGIN_COOKIE}` };
+}
 
 /** The value of one cookie from a Cookie header. */
 export function readCookie(header: string | undefined, name: string): string | undefined {
@@ -22,10 +31,10 @@ export function readCookie(header: string | undefined, name: string): string | u
 }
 
 /** A Set-Cookie value: HttpOnly and SameSite=Lax always (Lax still sends it on the provider's redirect back), Secure on https. */
-export function cookie(name: string, value: string, options: { path: string; maxAgeSeconds: number; secure: boolean }): string {
+export function cookie(name: string, value: string, options: { maxAgeSeconds: number; secure: boolean }): string {
   return [
     `${name}=${encodeURIComponent(value)}`,
-    `Path=${options.path}`,
+    "Path=/",
     `Max-Age=${options.maxAgeSeconds}`,
     "HttpOnly",
     "SameSite=Lax",
@@ -36,7 +45,21 @@ export function cookie(name: string, value: string, options: { path: string; max
 /** Server-side sessions of signed-in users; the cookie carries a random token, the database only its SHA-256. */
 @Injectable()
 export class Sessions {
+  /** Cookies are Secure, and __Host- prefixed, when the dashboard is served over https. */
+  readonly secure = authConfig().appUrl.protocol === "https:";
+  readonly names = cookieNames(this.secure);
+
   constructor(private readonly prisma: PrismaService) {}
+
+  /** The session token the request's cookies carry. */
+  tokenOf(cookieHeader: string | undefined): string | undefined {
+    return readCookie(cookieHeader, this.names.session);
+  }
+
+  /** The Set-Cookie value that hands the browser a session token; an empty token with 0 seconds removes it. */
+  sessionCookie(token: string, maxAgeSeconds: number): string {
+    return cookie(this.names.session, token, { maxAgeSeconds, secure: this.secure });
+  }
 
   /** Starts a session and returns its token. Also deletes expired sessions, so they do not pile up. */
   async create(user: SignedInUser, idToken: string | undefined, ttlMs: number, now = new Date()): Promise<string> {

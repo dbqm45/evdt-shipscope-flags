@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { api, ApiError, ApiUnavailableError, onUnauthorized } from "./api/client";
 import { StoreProvider } from "./state/store";
 import { AppShell } from "./components/layout/AppShell";
+import { loginErrorCode } from "./lib/loginErrors";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
@@ -18,7 +19,7 @@ type Session =
   { state: "checking" } | { state: "signed-out"; demo: boolean; error?: string; breakGlass?: boolean } | { state: "signed-in"; user: SignedInUser | null };
 
 /** The sign-in error the API's callback put in the address (?login_error=…). */
-const readLoginError = () => new URLSearchParams(window.location.search).get("login_error") ?? undefined;
+const readLoginError = () => loginErrorCode(new URLSearchParams(window.location.search).get("login_error"));
 
 /** Removes ?login_error=… from the address, so a reload does not show it again. */
 function clearLoginError() {

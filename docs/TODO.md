@@ -38,6 +38,21 @@ Priorytety: **P0** — blokuje uruchomienie lub stanowi lukę bezpieczeństwa; *
 - [x] _(zrobione na czas przed SSO: ekran mówi wprost, że logowanie nie jest jeszcze włączone; pole break-glass i komunikat „This attempt is logged” usunięte. Właściwe logowanie — FR-001/002)_ **Logowanie jest atrapą.** `LoginPage` ustawia `authenticated = true` po 650 ms. Pole break-glass niczego nie sprawdza, a komunikat „This attempt is logged” jest nieprawdziwy. Do czasu wdrożenia SSO (FR-001, FR-002) usunąć ten komunikat i wyraźnie oznaczyć tryb demo.
 - [x] _(zrobione: `npm audit` w CI blokuje podatności HIGH w zależnościach runtime; poprawione w 0.1.0 i 0.2.0)_ **Audyt zależności.** Uruchomić lokalnie `npm audit` w katalogu głównym i w `frontend/`. Zgodnie z logiem bootstrapu `npm audit fix` (bez `--force`) powinien usunąć `tmp` i `undici` (HIGH, przechodnie przez `@nestjs/mau` / `inquirer`). Rozważyć usunięcie `@nestjs/mau` z `devDependencies`, jeśli nie jest używany.
 
+### Przegląd bezpieczeństwa logowania (2026-11-01)
+
+Niezależny przegląd `src/auth/`, strażnika uprawnień, konfiguracji nginx i ekranu logowania. Nie znalazł obejścia logowania ani uprawnień (PKCE, `state`, `nonce`, sprawdzanie tokenu ID, brak otwartych przekierowań, CSRF dla zmian, sesje). Poprawione:
+
+- [x] Ustawienia powiadomień zmieniał Editor, a ten sam webhook dostaje alarmy o dostępie awaryjnym — Editor mógł je przekierować albo wyciszyć bez śladu. Teraz tylko Admin, a każda zmiana trafia do dziennika (`settings-updated`).
+- [x] `RATE_LIMIT_PER_MINUTE=0` wyłączało też limit prób break-glass (5 na 15 min). Limit break-glass (`@StrictLimit`) działa teraz zawsze.
+- [x] nginx doklejał do `X-Forwarded-For` to, co przysłał klient; przy `TRUST_PROXY=uniquelocal` klient z sieci prywatnej mógł podać własny adres i obejść limity. nginx ustawia teraz adres, który sam widzi.
+- [x] Tekst od użytkownika (powód break-glass, adres) trafiał do wiadomości na czacie bez zmian — można było wstawić wzmiankę `<!channel>` albo link. Teraz `<`, `>`, `&` są zamieniane, a znaki sterujące w powodzie usuwane.
+- [x] Wylogowanie nie sprawdzało nagłówka CSRF; teraz sprawdza.
+- [x] `?login_error=` z adresu był pokazywany dosłownie (tekst z cudzego linku na stronie logowania). Teraz tylko znane kody.
+- [x] Przy https ciasteczka mają prefiks `__Host-` (nie może ich ustawić inna subdomena); ciasteczko logowania jest sprawdzane co do kształtu.
+- [x] Użytkownik o nazwie `break-glass`, `shipscope` albo `api` u dostawcy tożsamości jest w dzienniku zapisywany e-mailem lub identyfikatorem, żeby nie udawał systemu.
+- [x] API ostrzega przy starcie, gdy `OIDC_VIEWER_ROLES` jest puste (każdy, kogo wpuści dostawca, czyta dane) albo gdy `OIDC_ALLOW_HTTP=true` przy dashboardzie na https.
+- [ ] Rola obowiązuje do końca sesji (domyślnie 12 h), a ponowne logowanie nie kończy starych sesji. Rozwiązanie: lista sesji z wylogowaniem dla Admina (do decyzji).
+
 ## P1 — Poprawność i zgodność z PRD
 
 ### Niespójność stanu frontend ↔ backend

@@ -20,7 +20,12 @@ describe("break-glass sign-in (e2e)", () => {
   const posted: string[] = [];
 
   beforeAll(async () => {
-    Object.assign(process.env, { BREAK_GLASS_PASSWORD_HASH: (hashBreakGlassPassword as (p: string) => string)(PASSWORD), TRUST_PROXY: "loopback" });
+    // The general rate limit is off here: the break-glass limit must hold regardless.
+    Object.assign(process.env, {
+      BREAK_GLASS_PASSWORD_HASH: (hashBreakGlassPassword as (p: string) => string)(PASSWORD),
+      TRUST_PROXY: "loopback",
+      RATE_LIMIT_PER_MINUTE: "0",
+    });
     prisma = testPrisma();
     await resetDatabase(prisma);
     await prisma.notificationSettings.create({ data: { id: 1, enabled: false, webhookUrl: "https://hooks.example.test/T000/B000/xyz" } });
@@ -71,7 +76,7 @@ describe("break-glass sign-in (e2e)", () => {
     expect(out.body).toEqual({ logoutUrl: "http://flags.test/" });
   });
 
-  it("refuses a wrong password with 401, logs and announces it, and stops guessing after five attempts", async () => {
+  it("refuses a wrong password with 401, logs and announces it, and stops guessing after five attempts even with rate limits off", async () => {
     for (let i = 0; i < 5; i++) await attempt({ password: `guess-${i}`, reason }, "198.51.100.2").expect(401);
     await attempt({ password: PASSWORD, reason }, "198.51.100.2").expect(429);
     // Another address still has its own attempts.
@@ -79,6 +84,15 @@ describe("break-glass sign-in (e2e)", () => {
 
     expect(await prisma.auditLogEntry.count({ where: { action: "break-glass-failed", note: "wrong password from 198.51.100.2" } })).toBe(5);
     await vi.waitFor(() => expect(posted.filter((text) => text.includes("Failed break-glass sign-in"))).toHaveLength(5));
+  });
+
+  it("keeps the reason to one line of plain text in the chat message: no mentions, links or forged lines", async () => {
+    await attempt({ password: PASSWORD, reason: "SSO down <!channel>\n<https://evil.example|reset> & more" }, "198.51.100.6").expect(200);
+    await vi.waitFor(() =>
+      expect(posted).toContainEqual(expect.stringContaining("Reason: SSO down &lt;!channel&gt; &lt;https://evil.example|reset&gt; &amp; more")),
+    );
+    const note = (await prisma.auditLogEntry.findFirstOrThrow({ where: { action: "break-glass-login", note: { contains: "SSO down" } } })).note;
+    expect(note).not.toContain("\n");
   });
 
   it("needs a reason, the CSRF header and no other fields", async () => {

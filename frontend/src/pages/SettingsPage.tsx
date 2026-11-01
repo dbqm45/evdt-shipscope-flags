@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, failureReason } from "../api/client";
 import { useStore } from "../state/useStore";
-import { canEditFlags } from "../lib/permissions";
 import { Toggle } from "../components/common/Toggle";
 
 /** The stale threshold of rule 1 (PRD FR-006): Admins only; every change is in the audit log. */
@@ -61,7 +60,8 @@ function StaleThresholdSection() {
 
 export function SettingsPage() {
   const { role, demo } = useStore();
-  const editable = canEditFlags(role);
+  // Admins only: the webhook also carries the break-glass alerts.
+  const editable = role === "admin";
   const [enabled, setEnabled] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState("");
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
@@ -181,7 +181,7 @@ export function SettingsPage() {
           </button>
           {message && <span className={message.tone === "ok" ? "text-xs text-signal-on" : "text-xs text-signal-critical"}>{message.text}</span>}
         </div>
-        {!editable && <p className="text-xs text-mist-500">Only Editors and Admins can change settings.</p>}
+        {!editable && <p className="text-xs text-mist-500">Only Admins can change notifications.</p>}
       </section>
     </div>
   );

@@ -326,7 +326,7 @@ export class FlagsService {
   }
 
   /** Sending the masked URL back unchanged keeps the stored one, so the settings form can save `enabled` alone. */
-  async setNotifications(input: Partial<NotificationSettings>): Promise<NotificationSettings> {
+  async setNotifications(input: Partial<NotificationSettings>, actor: string): Promise<NotificationSettings> {
     const stored = await this.storedNotifications();
     const webhookUrl = input.webhookUrl === undefined || input.webhookUrl === maskWebhookUrl(stored.webhookUrl) ? stored.webhookUrl : input.webhookUrl;
     const next = { enabled: input.enabled ?? stored.enabled, webhookUrl };
@@ -338,7 +338,14 @@ export class FlagsService {
         throw new BadRequestException((err as Error).message);
       }
     }
-    await this.prisma.notificationSettings.upsert({ where: { id: 1 }, create: { id: 1, ...next }, update: next });
+    const changes = [
+      ...(next.enabled !== stored.enabled ? [`notifications ${next.enabled ? "on" : "off"}`] : []),
+      ...(next.webhookUrl !== stored.webhookUrl ? [next.webhookUrl ? `webhook URL set to ${maskWebhookUrl(next.webhookUrl)}` : "webhook URL removed"] : []),
+    ];
+    await this.prisma.$transaction(async (tx) => {
+      await tx.notificationSettings.upsert({ where: { id: 1 }, create: { id: 1, ...next }, update: next });
+      if (changes.length) await this.audit(tx, { actor, action: "settings-updated", note: changes.join(", ") });
+    });
     return { enabled: next.enabled, webhookUrl: maskWebhookUrl(next.webhookUrl) };
   }
 

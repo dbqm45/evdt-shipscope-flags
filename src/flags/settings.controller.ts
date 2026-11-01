@@ -1,9 +1,12 @@
 import { Body, Controller, Get, Post, Put } from "@nestjs/common";
-import { Actor, RequireRole } from "../auth/auth.guard.js";
+import { Actor } from "../auth/auth.guard.js";
 import { parseNotificationSettings, parseRuleSettings } from "./flags.input.js";
 import { FlagsService } from "./flags.service.js";
 
-/** Prod change notifications (the webhook URL only ever leaves the server masked; Editors and Admins) and rule thresholds (Admins). */
+/**
+ * Prod change notifications (the webhook URL only ever leaves the server masked) and rule thresholds: Admins only. The
+ * webhook also carries the break-glass alerts, so whoever could redirect it could hide those.
+ */
 @Controller("settings")
 export class SettingsController {
   constructor(private readonly flags: FlagsService) {}
@@ -24,14 +27,13 @@ export class SettingsController {
     return this.flags.getNotifications();
   }
 
+  /** Every change is noted in the audit log. */
   @Put("notifications")
-  @RequireRole("editor")
-  set(@Body() body: unknown) {
-    return this.flags.setNotifications(parseNotificationSettings(body));
+  set(@Body() body: unknown, @Actor() actor: string) {
+    return this.flags.setNotifications(parseNotificationSettings(body), actor);
   }
 
   @Post("notifications/test")
-  @RequireRole("editor")
   test() {
     return this.flags.testNotification();
   }

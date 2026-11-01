@@ -7,9 +7,18 @@ import type { ThrottlerModuleOptions } from "@nestjs/throttler";
 
 const MINUTE = 60_000;
 const SDK_ROUTE = "shipscope:sdk-route";
+const STRICT_LIMIT = "shipscope:strict-limit";
 
 /** Marks the consumer endpoint, which services poll and which gets its own, higher limit. */
 export const SdkRoute = () => SetMetadata(SDK_ROUTE, true);
+
+/**
+ * A fixed limit for a route that must never go unlimited (the break-glass sign-in): it applies even when
+ * RATE_LIMIT_PER_MINUTE=0 turns the general limit off.
+ */
+export const StrictLimit = (limit: number, ttlMs: number) => SetMetadata(STRICT_LIMIT, { limit, ttl: ttlMs });
+
+const strictLimit = (context: ExecutionContext) => Reflect.getMetadata(STRICT_LIMIT, context.getHandler()) as { limit: number; ttl: number } | undefined;
 
 function perMinute(name: string, fallback: number, env: NodeJS.ProcessEnv): number {
   const raw = env[name]?.trim();
@@ -25,13 +34,15 @@ export function rateLimits(env = process.env): { api: number; sdk: number } {
 }
 
 const limitFor = (context: ExecutionContext) => {
+  const strict = strictLimit(context);
+  if (strict) return strict.limit;
   const limits = rateLimits();
   return Reflect.getMetadata(SDK_ROUTE, context.getHandler()) === true ? limits.sdk : limits.api;
 };
 
 /** One throttler named "default", so the 429 carries the standard Retry-After header (named ones get a suffix). */
 export const throttlerOptions: ThrottlerModuleOptions = {
-  throttlers: [{ ttl: MINUTE, limit: limitFor, skipIf: (context) => limitFor(context) === 0 }],
+  throttlers: [{ ttl: (context) => strictLimit(context)?.ttl ?? MINUTE, limit: limitFor, skipIf: (context) => limitFor(context) === 0 }],
   errorMessage: "Too many requests: retry after the number of seconds in the Retry-After header.",
 };
 

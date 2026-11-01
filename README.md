@@ -145,8 +145,8 @@ W trybie demonstracyjnym (bez serwera) logowania nie ma, a rolę wybiera się pr
 | Rola | Uprawnienia |
 | --- | --- |
 | Viewer | Wyłącznie podgląd flag i ich stanu. Nie może niczego zmieniać. |
-| Editor | Może tworzyć flagi, zmieniać ich stan i szczegóły, zmieniać sposób odczytu przez serwisy, usuwać flagi i zmieniać ustawienia powiadomień. |
-| Admin | Uprawnienia jak Editor. Dodatkowo rejestruje serwisy i wydaje lub wymienia ich poświadczenia (zakładka „Services”), zmienia próg „candidate for removal” i włącza powiadomienia dla pojedynczej flagi. |
+| Editor | Może tworzyć flagi, zmieniać ich stan i szczegóły, zmieniać sposób odczytu przez serwisy i usuwać flagi. |
+| Admin | Uprawnienia jak Editor. Dodatkowo rejestruje serwisy i wydaje lub wymienia ich poświadczenia (zakładka „Services”), zmienia próg „candidate for removal”, ustawienia powiadomień (ten sam kanał dostaje alarmy o dostępie awaryjnym, więc jego zmiana trafia do dziennika zmian) i włącza powiadomienia dla pojedynczej flagi. |
 
 ## 8. Uruchomienie aplikacji
 
