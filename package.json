@@ -48,9 +48,9 @@
     "hooks:install": "git config core.hooksPath .githooks"
   },
   "dependencies": {
-    "@nestjs/common": "^12.2.0",
-    "@nestjs/core": "^12.2.0",
-    "@nestjs/platform-express": "^12.2.0",
+    "@nestjs/common": "^12.3.2",
+    "@nestjs/core": "^12.3.2",
+    "@nestjs/platform-express": "^12.3.2",
     "@nestjs/throttler": "^6.7.1",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
@@ -61,15 +61,15 @@
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
-    "@nestjs/cli": "^12.0.10",
+    "@nestjs/cli": "^12.0.11",
     "@nestjs/mau": "^0.2.6",
-    "@nestjs/schematics": "^12.0.10",
-    "@nestjs/testing": "^12.2.0",
+    "@nestjs/schematics": "^12.0.12",
+    "@nestjs/testing": "^12.3.2",
     "@types/express": "^5.0.0",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@types/supertest": "^7.0.0",
     "@vitest/coverage-v8": "^5.0.5",
-    "oxlint": "^1.89.0",
+    "oxlint": "^1.90.0",
     "oxlint-tsgolint": "^7.0.2001",
     "prettier": "^3.9.10",
     "prisma": "^7.10.1",
