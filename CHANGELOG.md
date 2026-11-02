@@ -3,6 +3,12 @@
 Notable changes to ShipScope Flags, newest first. Versions follow [Semantic Versioning](https://semver.org/) and are
 released automatically from [Conventional Commits](https://www.conventionalcommits.org/) (see `RELEASING.md`).
 
+## [0.7.3] - 2026-11-02
+
+### Fixed
+
+- **deps:** bump the npm group with 12 updates
+
 ## [0.7.2] - 2026-11-01
 
 ### Fixed
