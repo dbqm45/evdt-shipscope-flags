@@ -3,6 +3,12 @@
 Notable changes to ShipScope Flags, newest first. Versions follow [Semantic Versioning](https://semver.org/) and are
 released automatically from [Conventional Commits](https://www.conventionalcommits.org/) (see `RELEASING.md`).
 
+## [0.7.4] - 2026-11-23
+
+### Fixed
+
+- **deps:** override effect to 3.22.5 for the ReDoS advisory (#6)
+
 ## [0.7.3] - 2026-11-02
 
 ### Fixed
