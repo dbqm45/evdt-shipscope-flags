@@ -24,6 +24,14 @@ export interface AuthConfig {
   editorRoles: string[];
   /** When not empty, only users with one of these (or an editor or admin role) may sign in; else everyone the provider lets through is a viewer. */
   viewerRoles: string[];
+  /**
+   * When set, only members of this organization may sign in: for a provider shared by several organizations, such as
+   * the Delivery Intelligence Suite identity service (Keycloak Organizations), where a role alone does not say which
+   * organization's flags the user may see.
+   */
+  organization?: string;
+  /** Claim listing the user's organizations (a dotted path; default "organization", as the suite identity service names it). */
+  organizationClaim: string;
   sessionTtlMs: number;
 }
 
@@ -73,6 +81,8 @@ export function authConfig(env = process.env): AuthConfig {
     adminRoles: list(env.OIDC_ADMIN_ROLES, ["shipscope-admin"]),
     editorRoles: list(env.OIDC_EDITOR_ROLES, ["shipscope-editor"]),
     viewerRoles: list(env.OIDC_VIEWER_ROLES, []),
+    ...(env.OIDC_ORGANIZATION?.trim() ? { organization: env.OIDC_ORGANIZATION.trim() } : {}),
+    organizationClaim: env.OIDC_ORGANIZATION_CLAIM?.trim() || "organization",
     sessionTtlMs: hours * 60 * 60 * 1000,
   };
 }
@@ -99,11 +109,15 @@ export function authWarnings(config: AuthConfig): string[] {
   ];
 }
 
-/** The user's role from the provider's claims, or null when OIDC_VIEWER_ROLES is set and the user has none of the roles. */
+/**
+ * The user's role from the provider's claims, or null when OIDC_VIEWER_ROLES is set and the user has none of the roles,
+ * or when OIDC_ORGANIZATION is set and the user is not a member of it.
+ */
 export function roleFromClaims(
   claims: Record<string, unknown>,
-  config: Pick<AuthConfig, "rolesClaim" | "adminRoles" | "editorRoles" | "viewerRoles">,
+  config: Pick<AuthConfig, "rolesClaim" | "adminRoles" | "editorRoles" | "viewerRoles"> & Partial<Pick<AuthConfig, "organization" | "organizationClaim">>,
 ): Role | null {
+  if (config.organization && !claimValues(claims, config.organizationClaim ?? "organization").includes(config.organization)) return null;
   const roles = new Set(claimValues(claims, config.rolesClaim));
   if (config.adminRoles.some((r) => roles.has(r))) return "admin";
   if (config.editorRoles.some((r) => roles.has(r))) return "editor";
