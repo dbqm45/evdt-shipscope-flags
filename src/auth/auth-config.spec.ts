@@ -77,6 +77,45 @@ describe("roles from the provider's claims", () => {
   });
 });
 
+describe("the Delivery Intelligence Suite identity service", () => {
+  // Claims as the suite realm (dbqm45/di-identity, Keycloak 26.4) puts them in the ID token of di-release-control.
+  const suite = authConfig({
+    ...env,
+    OIDC_CLIENT_ID: "di-release-control",
+    OIDC_ROLES_CLAIM: "resource_access.di-release-control.roles",
+    OIDC_ADMIN_ROLES: "admin",
+    OIDC_EDITOR_ROLES: "editor",
+    OIDC_VIEWER_ROLES: "viewer",
+    OIDC_ORGANIZATION: "acme",
+  });
+  const claims = (roles: string[], organization: unknown = ["acme"]) => ({
+    sub: "7badb004-5f2f-4791-838f-9ee86d26839d",
+    preferred_username: "ola@acme.com",
+    name: "Ola Nowak",
+    organization,
+    resource_access: { "di-release-control": { roles }, "di-release": { roles: ["admin"] } },
+  });
+
+  it("reads the organization setting, with the suite's claim name by default", () => {
+    expect(suite).toMatchObject({ organization: "acme", organizationClaim: "organization" });
+    expect(authConfig(env).organization).toBeUndefined();
+    expect(authConfig({ ...env, OIDC_ORGANIZATION: "acme", OIDC_ORGANIZATION_CLAIM: "orgs" }).organizationClaim).toBe("orgs");
+  });
+
+  it("takes the role of this application only, not of other suite applications", () => {
+    expect(roleFromClaims(claims(["editor"]), suite)).toBe("editor");
+    expect(roleFromClaims(claims(["viewer", "admin"]), suite)).toBe("admin");
+    expect(roleFromClaims(claims([]), suite)).toBeNull();
+  });
+
+  it("keeps out people of other organizations, whatever their roles", () => {
+    expect(roleFromClaims(claims(["admin"], ["globex"]), suite)).toBeNull();
+    expect(roleFromClaims(claims(["admin"], null), suite)).toBeNull();
+    expect(roleFromClaims(claims(["admin"], ["globex", "acme"]), suite)).toBe("admin");
+    expect(userFromClaims(claims(["admin"], ["acme"]), suite)).toMatchObject({ username: "ola@acme.com", name: "Ola Nowak", role: "admin" });
+  });
+});
+
 describe("cookies", () => {
   it("reads one cookie and writes an HttpOnly, SameSite=Lax one, Secure on https", () => {
     expect(readCookie("a=1; ssf_session=abc%3D; b=2", "ssf_session")).toBe("abc=");
