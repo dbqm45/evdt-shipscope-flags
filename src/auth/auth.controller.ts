@@ -105,8 +105,8 @@ export class AuthController {
     callbackUrl.search = new URL(req.originalUrl, callbackUrl).search;
     if (callbackUrl.searchParams.has("error")) return this.backToApp(res, "denied");
     try {
-      const { user, idToken } = await this.oidc.finishLogin(callbackUrl, checks);
-      if (!user) return this.backToApp(res, "no-role");
+      const { user, refusal, idToken } = await this.oidc.finishLogin(callbackUrl, checks);
+      if (!user) return this.backToApp(res, refusal ?? "no-role");
       const config = this.oidc.config;
       const token = await this.sessions.create(user, idToken, config.sessionTtlMs);
       res.append("Set-Cookie", this.sessions.sessionCookie(token, Math.floor(config.sessionTtlMs / 1000)));

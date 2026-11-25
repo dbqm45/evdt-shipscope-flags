@@ -164,6 +164,18 @@ describe("sign-in and roles (e2e)", () => {
     }
   });
 
+  it("tells a person outside the required organization why sign-in failed", async () => {
+    const oidc = app.get((await import("../src/auth/oidc.js")).OidcClient);
+    oidc.config.organization = "acme";
+    try {
+      const admin = { realm_access: { roles: ["shipscope-admin"] } };
+      expect(await login({ ...admin, organization: ["globex"] })).toEqual({ location: "http://flags.test/?login_error=not-member", session: undefined });
+      expect((await login({ ...admin, organization: ["acme"] })).session).toBeDefined();
+    } finally {
+      delete oidc.config.organization;
+    }
+  });
+
   it("signs out: the session ends and the answer names the provider's sign-out page", async () => {
     const { session } = await login({ realm_access: { roles: ["shipscope-admin"] } });
     // Without the CSRF header another site could sign the user out.

@@ -41,7 +41,10 @@ Three npm workspaces, one version and one `package-lock.json` (`npm ci` in the r
 
 - Sign-in: `docker compose up -d keycloak` (test provider on `http://localhost:8180`, realm from
   `docker/keycloak/shipscope-realm.json`; users `a.kowalska`/`m.chen`/`j.novak` = admin/editor/viewer, password
-  `shipscope`); `.env.example` points the API at it.
+  `shipscope`); `.env.example` points the API at it. Or the suite's identity service instead (`dbqm45/di-identity`,
+  realm `suite`, also on port 8180, so do not start both): the settings are in `.env.example`; a person signs in only
+  with the role `di-release-control:<role>` and, with `OIDC_ORGANIZATION`, as a member of that organization (else
+  `?login_error=no-role` or `not-member`). Keycloak asks for the username first and the password on a second page.
 - Database: `docker compose up -d db` (PostgreSQL on `127.0.0.1:5432`, plus the test database), then
   `npm run db:deploy` (migrations) and, after `npm run build`, `npm run db:seed` (demo data into an empty database).
 - Install: `npm ci` in the repository root, once for all workspaces (never in `frontend/`).
