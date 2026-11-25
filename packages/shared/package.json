@@ -1,6 +1,6 @@
 {
   "name": "@shipscope/shared",
-  "version": "0.7.5",
+  "version": "0.7.6",
   "description": "Domain types, business rules and demo data shared by the API and the dashboard.",
   "private": true,
   "type": "module",
