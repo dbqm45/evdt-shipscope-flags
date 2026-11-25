@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import * as client from "openid-client";
-import { authConfig, userFromClaims, type AuthConfig, type SignedInUser } from "./auth-config.js";
+import { authConfig, refusalFromClaims, userFromClaims, type AuthConfig, type SignedInUser, type SignInRefusal } from "./auth-config.js";
 
 /** What the browser keeps (in a short-lived cookie) between the redirect to the provider and the callback. */
 export interface LoginChecks {
@@ -52,9 +52,10 @@ export class OidcClient {
 
   /**
    * Completes sign-in from the callback URL: exchanges the code and validates the ID token (signature, issuer,
-   * audience, expiry, nonce). Returns null for a user the role settings do not let in; throws when anything fails.
+   * audience, expiry, nonce). Returns no user, with the reason, for a user the role or organization settings do not
+   * let in; throws when anything fails.
    */
-  async finishLogin(callbackUrl: URL, checks: LoginChecks): Promise<{ user: SignedInUser | null; idToken?: string }> {
+  async finishLogin(callbackUrl: URL, checks: LoginChecks): Promise<{ user: SignedInUser | null; refusal?: SignInRefusal; idToken?: string }> {
     const provider = await this.discover();
     const tokens = await client.authorizationCodeGrant(provider, callbackUrl, {
       pkceCodeVerifier: checks.verifier,
@@ -62,8 +63,9 @@ export class OidcClient {
       expectedNonce: checks.nonce,
       idTokenExpected: true,
     });
-    const claims = tokens.claims()!;
-    return { user: userFromClaims(claims as Record<string, unknown>, this.config), idToken: tokens.id_token };
+    const claims = tokens.claims() as Record<string, unknown>;
+    const user = userFromClaims(claims, this.config);
+    return user ? { user, idToken: tokens.id_token } : { user, refusal: refusalFromClaims(claims, this.config) ?? "no-role" };
   }
 
   /** The provider's sign-out page (back to the dashboard afterwards), or the dashboard when the provider has none. */

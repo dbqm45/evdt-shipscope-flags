@@ -2,6 +2,7 @@
 export const LOGIN_ERRORS: Partial<Record<string, string>> = {
   denied: "Sign-in was cancelled or refused by the identity provider.",
   "no-role": "Your account has no role in ShipScope Flags. Ask an Admin to grant you access.",
+  "not-member": "Your account is not a member of the organization this ShipScope Flags serves. Ask your organization's administrator to add you.",
   expired: "The sign-in took too long. Try again.",
   failed: "Sign-in failed. Try again; if it keeps failing, ask an Admin to check the API log.",
   unavailable: "The identity provider is not reachable. Try again in a moment.",

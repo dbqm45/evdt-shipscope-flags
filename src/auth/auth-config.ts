@@ -125,6 +125,15 @@ export function roleFromClaims(
   return null;
 }
 
+/** Why the provider's claims do not let a user in: not a member of OIDC_ORGANIZATION, or none of the roles. */
+export type SignInRefusal = "not-member" | "no-role";
+
+/** Why the claims keep the user out, or null when they let the user in (see roleFromClaims). */
+export function refusalFromClaims(claims: Record<string, unknown>, config: Parameters<typeof roleFromClaims>[1]): SignInRefusal | null {
+  if (config.organization && !claimValues(claims, config.organizationClaim ?? "organization").includes(config.organization)) return "not-member";
+  return roleFromClaims(claims, config) ? null : "no-role";
+}
+
 /** Names the audit log uses for the system itself; a user who has one is named by email or subject instead. */
 const RESERVED_USERNAMES = new Set(["break-glass", "shipscope", "api"]);
 

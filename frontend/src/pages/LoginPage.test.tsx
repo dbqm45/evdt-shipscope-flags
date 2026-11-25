@@ -25,6 +25,12 @@ describe("LoginPage", () => {
     expect(screen.getByRole("alert").textContent).toMatch(/no role in ShipScope Flags/);
   });
 
+  it("tells a person outside the organization to ask their organization's administrator, not an Admin here", () => {
+    render(<LoginPage demo={false} error="not-member" onOpenDemo={vi.fn()} />);
+    expect(screen.getByRole("alert").textContent).toMatch(/not a member of the organization/);
+    expect(loginErrorCode("not-member")).toBe("not-member");
+  });
+
   it("takes only known error codes from the address, so a crafted link cannot put its own text on the page", () => {
     expect(loginErrorCode("no-role")).toBe("no-role");
     expect(loginErrorCode("Your account is locked, call +1 555 0100")).toBe("failed");
